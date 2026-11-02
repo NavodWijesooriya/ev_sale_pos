@@ -1,0 +1,435 @@
+"use client"
+
+import * as React from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import {
+  FileText,
+  Plus,
+  Trash2,
+  Building2,
+  Truck,
+  CarFront,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react"
+import { createGRN, GRNVehicleItem } from "@/app/actions/inventory"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+
+interface CreateGRNDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  suppliers: { id: string; name: string }[]
+  branches: { id: string; name: string }[]
+  models: { id: string; brand: string; modelName: string; defaultPrice: number }[]
+  onSuccess?: () => void
+}
+
+export function CreateGRNDialog({
+  open,
+  onOpenChange,
+  suppliers,
+  branches,
+  models,
+  onSuccess,
+}: CreateGRNDialogProps) {
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+  const [supplierId, setSupplierId] = React.useState(suppliers[0]?.id || "")
+  const [branchId, setBranchId] = React.useState(branches[0]?.id || "")
+
+  React.useEffect(() => {
+    if (!supplierId && suppliers.length > 0) setSupplierId(suppliers[0].id)
+    if (!branchId && branches.length > 0) setBranchId(branches[0].id)
+  }, [suppliers, branches, supplierId, branchId])
+
+  const [items, setItems] = React.useState<GRNVehicleItem[]>([
+    {
+      vehicleModelId: models[0]?.id || "",
+      chassisNumber: "",
+      motorNumber: "",
+      color: "Pearl White",
+      purchasePrice: models[0] ? Math.round(models[0].defaultPrice * 0.85) : 35000,
+    },
+  ])
+
+  const handleAddItem = () => {
+    const defaultModel = models[0]
+    setItems((prev) => [
+      ...prev,
+      {
+        vehicleModelId: defaultModel?.id || "",
+        chassisNumber: "",
+        motorNumber: "",
+        color: "Pearl White",
+        purchasePrice: defaultModel ? Math.round(defaultModel.defaultPrice * 0.85) : 35000,
+      },
+    ])
+  }
+
+  const handleRemoveItem = (index: number) => {
+    if (items.length <= 1) {
+      toast.warning("A GRN must include at least one vehicle.")
+      return
+    }
+    setItems((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleItemChange = (index: number, field: keyof GRNVehicleItem, val: any) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item
+
+        if (field === "vehicleModelId") {
+          const selected = models.find((m) => m.id === val)
+          return {
+            ...item,
+            vehicleModelId: val,
+            purchasePrice: selected ? Math.round(selected.defaultPrice * 0.85) : item.purchasePrice,
+          }
+        }
+
+        return { ...item, [field]: val }
+      })
+    )
+  }
+
+  const totalAmount = React.useMemo(() => {
+    return items.reduce((sum, item) => sum + (item.purchasePrice || 0), 0)
+  }, [items])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!supplierId) {
+      toast.error("Please select a supplier")
+      return
+    }
+    if (!branchId) {
+      toast.error("Please select a target showroom branch")
+      return
+    }
+
+    // Validate items
+    const chassisSet = new Set<string>()
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (!item.vehicleModelId) {
+        toast.error(`Please select a model for vehicle #${i + 1}`)
+        return
+      }
+      if (!item.chassisNumber.trim()) {
+        toast.error(`Please enter a chassis number (VIN) for vehicle #${i + 1}`)
+        return
+      }
+      const cUpper = item.chassisNumber.trim().toUpperCase()
+      if (chassisSet.has(cUpper)) {
+        toast.error(`Duplicate chassis number "${cUpper}" in item #${i + 1}`)
+        return
+      }
+      chassisSet.add(cUpper)
+      if (item.purchasePrice <= 0) {
+        toast.error(`Purchase price for vehicle #${i + 1} must be greater than 0`)
+        return
+      }
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const res = await createGRN({
+        supplierId,
+        branchId,
+        totalAmount,
+        items,
+      })
+
+      if (res.success) {
+        toast.success(res.message)
+        onOpenChange(false)
+        // Reset items
+        setItems([
+          {
+            vehicleModelId: models[0]?.id || "",
+            chassisNumber: "",
+            motorNumber: "",
+            color: "Pearl White",
+            purchasePrice: models[0] ? Math.round(models[0].defaultPrice * 0.85) : 35000,
+          },
+        ])
+        if (onSuccess) onSuccess()
+        router.refresh()
+      } else {
+        toast.error("Failed to create GRN", { description: res.message })
+      }
+    } catch (err) {
+      toast.error("Error", {
+        description: err instanceof Error ? err.message : "Unexpected error",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(val)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-2 border-b">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <FileText className="size-4" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold">
+                Create Goods Received Note (GRN)
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Intake new electric vehicle inventory into stock. Atomically creates GRN, vehicle VINs, and stock records.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {models.length === 0 || suppliers.length === 0 ? (
+          <div className="py-8 text-center space-y-3">
+            <AlertCircle className="size-8 text-amber-500 mx-auto" />
+            <h4 className="text-sm font-semibold">Missing Prerequisites</h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              {models.length === 0
+                ? "You need to add at least one Vehicle Model before creating a GRN."
+                : "You need to register at least one Supplier before creating a GRN."}
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5 pt-3">
+            {/* Header Settings: Supplier & Target Branch */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 rounded-xl bg-muted/40 border">
+              <div className="space-y-1.5">
+                <Label htmlFor="grnSupplier" className="text-xs font-medium flex items-center gap-1.5">
+                  <Truck className="size-3.5 text-muted-foreground" />
+                  Supplier / Logistics Importer <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  id="grnSupplier"
+                  value={supplierId}
+                  onChange={(e) => setSupplierId(e.target.value)}
+                  className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                  required
+                >
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-popover text-popover-foreground">
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="grnBranch" className="text-xs font-medium flex items-center gap-1.5">
+                  <Building2 className="size-3.5 text-muted-foreground" />
+                  Receiving Showroom Branch <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  id="grnBranch"
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                  required
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id} className="bg-popover text-popover-foreground">
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Dynamic Vehicles List */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    Vehicles to Intake ({items.length} Units)
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Enter individual chassis number (VIN) and procurement cost for each unit.
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleAddItem}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                >
+                  <Plus className="mr-1 size-3" />
+                  Add Vehicle
+                </Button>
+              </div>
+
+              <div className="space-y-2.5 max-h-[42vh] overflow-y-auto pr-1">
+                {items.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg border bg-card/60 space-y-2.5 relative group hover:border-primary/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <CarFront className="size-3.5 text-blue-500" />
+                        Vehicle #{idx + 1}
+                      </span>
+
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(idx)}
+                          className="text-muted-foreground hover:text-red-500 p-1 rounded transition-colors"
+                          title="Remove vehicle"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                      {/* Model Selector */}
+                      <div className="sm:col-span-2 space-y-1">
+                        <Label className="text-[11px] font-medium">Model</Label>
+                        <select
+                          value={item.vehicleModelId}
+                          onChange={(e) => handleItemChange(idx, "vehicleModelId", e.target.value)}
+                          className="w-full h-8 rounded-lg border border-input bg-transparent px-2 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                          required
+                        >
+                          {models.map((m) => (
+                            <option
+                              key={m.id}
+                              value={m.id}
+                              className="bg-popover text-popover-foreground"
+                            >
+                              {m.brand} {m.modelName} ({formatCurrency(m.defaultPrice)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Chassis Number (VIN) */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">
+                          Chassis (VIN) <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          placeholder="e.g. VIN-2026-900"
+                          value={item.chassisNumber}
+                          onChange={(e) =>
+                            handleItemChange(idx, "chassisNumber", e.target.value.toUpperCase())
+                          }
+                          className="text-xs font-mono h-8 uppercase"
+                          required
+                        />
+                      </div>
+
+                      {/* Color */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Color</Label>
+                        <Input
+                          placeholder="e.g. Pearl White"
+                          value={item.color}
+                          onChange={(e) => handleItemChange(idx, "color", e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
+
+                      {/* Purchase Cost */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Cost ($)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          step="100"
+                          value={item.purchasePrice}
+                          onChange={(e) =>
+                            handleItemChange(idx, "purchasePrice", parseFloat(e.target.value) || 0)
+                          }
+                          className="text-xs font-mono h-8"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Total Summary Footer */}
+            <div className="p-3.5 rounded-xl bg-muted/60 border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-4">
+                <span>
+                  Total Units: <strong className="text-foreground">{items.length}</strong>
+                </span>
+                <span>
+                  Total Cost:{" "}
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-mono text-sm">
+                    {formatCurrency(totalAmount)}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  size="sm"
+                  className="text-xs h-8 bg-primary text-primary-foreground font-medium shadow-xs"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                      Receiving Stock...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-1.5 size-3.5" />
+                      Submit GRN & Add to Stock
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}

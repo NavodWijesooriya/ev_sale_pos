@@ -149,6 +149,7 @@ model Vehicle {
   color          String?
   status         VehicleStatus @default(InStock)
   purchasePrice  Float
+  createdAt      DateTime      @default(now())
 
   grnItems       GRNItem[]
   saleItems      SaleItem[]
