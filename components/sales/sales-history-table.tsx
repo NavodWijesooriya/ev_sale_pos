@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import {
   Table,
   TableBody,
@@ -32,6 +33,8 @@ import {
   Clock,
   Receipt,
   FileSpreadsheet,
+  FileText,
+  Printer,
 } from "lucide-react"
 import { PaymentMethod, FinanceStatus } from "@prisma/client"
 
@@ -272,12 +275,13 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                 <TableHead className="font-semibold text-xs">Payment Method</TableHead>
                 <TableHead className="font-semibold text-xs">Finance / Lease</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Total Sale Amount</TableHead>
+                <TableHead className="font-semibold text-xs text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <Receipt className="h-8 w-8 text-muted-foreground/50 mb-1" />
                       <p className="font-medium text-sm">No sales records found</p>
@@ -418,6 +422,20 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                             Completed
                           </Badge>
                         </div>
+                      </TableCell>
+
+                      {/* Printable Invoice Action */}
+                      <TableCell className="align-top py-3.5 text-right">
+                        <Link href={`/dashboard/sales/${sale.id}/invoice`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            View Invoice
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   )

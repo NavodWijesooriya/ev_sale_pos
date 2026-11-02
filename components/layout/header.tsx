@@ -51,7 +51,7 @@ export function Header({
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-background/80 px-4 sm:px-6 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-background/80 px-4 sm:px-6 backdrop-blur-md print:hidden">
       {/* Left side: Hamburger toggle + Dealership info */}
       <div className="flex items-center gap-3">
         {onToggleSidebar && (

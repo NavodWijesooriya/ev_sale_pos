@@ -71,9 +71,13 @@ export function SalesDashboard({
     setTimeout(() => setIsRefreshing(false), 600)
   }
 
-  const handleSaleComplete = () => {
+  const handleSaleComplete = (saleId?: string) => {
     router.refresh()
-    setActiveTab("history")
+    if (saleId) {
+      router.push(`/dashboard/sales/${saleId}/invoice`)
+    } else {
+      setActiveTab("history")
+    }
   }
 
   return (

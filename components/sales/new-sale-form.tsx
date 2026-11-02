@@ -88,7 +88,7 @@ interface NewSaleFormProps {
   vehicles: InStockVehicle[]
   customers: CustomerData[]
   branches: BranchData[]
-  onSaleComplete?: () => void
+  onSaleComplete?: (saleId?: string) => void
 }
 
 export function NewSaleForm({
@@ -298,7 +298,7 @@ export function NewSaleForm({
         toast.success(res.message || "Sale completed successfully!")
         handleReset()
         if (onSaleComplete) {
-          onSaleComplete()
+          onSaleComplete(res.saleId)
         }
       } else {
         toast.error(res.error || "Failed to process sale.")
