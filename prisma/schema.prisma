@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. Platform & Tenant Management
+// ==========================================
+
+enum PlatformRole {
+  PlatformAdmin
+  Support
+}
+
+model PlatformUser {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  role         PlatformRole
+  createdAt    DateTime     @default(now())
+}
+
+enum SubscriptionPlan {
+  Free
+  Basic
+  Pro
+  Enterprise
+}
+
+enum SubscriptionStatus {
+  Active
+  Suspended
+}
+
+model Organization {
+  id                 String             @id @default(uuid())
+  businessName       String
+  domain             String?            @unique
+  subdomain          String?            @unique
+  subscriptionPlan   SubscriptionPlan   @default(Free)
+  subscriptionStatus SubscriptionStatus @default(Active)
+  expiryDate         DateTime?
+  createdAt          DateTime           @default(now())
+
+  // Relations (This ensures strict isolation of data per dealership)
+  users              User[]
+  branches           Branch[]
+  suppliers          Supplier[]
+  vehicleModels      VehicleModel[]
+  vehicles           Vehicle[]
+  grns               GRN[]
+  customers          Customer[]
+  sales              Sale[]
+  serviceRecords     ServiceRecord[]
+}
+
+enum UserRole {
+  OrgAdmin
+  BranchManager
+  SalesRep
+  Cashier
+  Technician
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String       @unique
+  passwordHash   String
+  role           UserRole
+  createdAt      DateTime     @default(now())
+
+  sales          Sale[]       @relation("SoldBy")
+}
+
+model Branch {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  location       String?
+  contactNumber  String?
+  createdAt      DateTime     @default(now())
+
+  vehicles       Vehicle[]
+  grns           GRN[]
+  sales          Sale[]
+  serviceRecords ServiceRecord[]
+}
+
+// ==========================================
+// 2. Inventory & Procurement
+// ==========================================
+
+model Supplier {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  contactPerson  String?
+  phone          String?
+  email          String?
+
+  grns           GRN[]
+}
+
+model VehicleModel {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand          String
+  modelName      String
+  batteryCapacity String?
+  range          String?
+  defaultPrice   Float
+  minDownPayment Float?
+
+  vehicles       Vehicle[]
+}
+
+enum VehicleStatus {
+  InStock
+  Sold
+  InTransit
+  Reserved
+}
+
+model Vehicle {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  vehicleModelId String
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+  
+  chassisNumber  String       @unique
+  motorNumber    String?
+  color          String?
+  status         VehicleStatus @default(InStock)
+  purchasePrice  Float
+
+  grnItems       GRNItem[]
+  saleItems      SaleItem[]
+  serviceRecords ServiceRecord[]
+}
+
+model GRN {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  supplierId     String
+  supplier       Supplier     @relation(fields: [supplierId], references: [id])
+  
+  grnNumber      String
+  totalAmount    Float
+  receivedDate   DateTime     @default(now())
+
+  items          GRNItem[]
+}
+
+model GRNItem {
+  id             String       @id @default(uuid())
+  grnId          String
+  grn            GRN          @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  vehicleId      String
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id])
+  unitPrice      Float
+}
+
+// ==========================================
+// 3. Sales, Finance & Customers
+// ==========================================
+
+model Customer {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String
+  email          String?
+  nic            String?
+  address        String?
+
+  sales          Sale[]
+  serviceRecords ServiceRecord[]
+}
+
+enum PaymentMethod {
+  Cash
+  Card
+  BankTransfer
+  Finance
+  SplitPayment
+}
+
+model Sale {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id])
+  userId         String
+  soldBy         User         @relation("SoldBy", fields: [userId], references: [id])
+  
+  saleDate       DateTime     @default(now())
+  totalAmount    Float
+  paymentMethod  PaymentMethod
+  status         String       @default("Completed")
+
+  items          SaleItem[]
+  financeDetail  FinanceDetail?
+}
+
+model SaleItem {
+  id             String       @id @default(uuid())
+  saleId         String
+  sale           Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  vehicleId      String
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id])
+  price          Float
+}
+
+enum FinanceStatus {
+  Pending
+  Received
+}
+
+model FinanceDetail {
+  id                 String       @id @default(uuid())
+  saleId             String       @unique
+  sale               Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  financeCompany     String
+  totalFinanceAmount Float
+  downPaymentPaid    Float
+  dealerCommission   Float?
+  status             FinanceStatus @default(Pending)
+}
+
+// ==========================================
+// 4. After-Sales & Services
+// ==========================================
+
+enum ServiceType {
+  Free
+  Paid
+  Warranty
+}
+
+model ServiceRecord {
+  id                 String       @id @default(uuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId           String
+  branch             Branch       @relation(fields: [branchId], references: [id])
+  vehicleId          String
+  vehicle            Vehicle      @relation(fields: [vehicleId], references: [id])
+  customerId         String
+  customer           Customer     @relation(fields: [customerId], references: [id])
+  
+  serviceDate        DateTime     @default(now())
+  nextServiceDueDate DateTime?
+  serviceType        ServiceType
+  description        String?
+  totalCost          Float        @default(0)
+}
