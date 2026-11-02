@@ -1,21 +1,16 @@
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Roboto } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/components/providers/auth-provider"
+import { Toaster } from "@/components/ui/sonner"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
   subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
 })
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-})
-
-export const metadata: Metadata = {
-  title: "VoltPOS | Next-Gen EV Dealership SaaS ERP",
-  description: "Enterprise Multi-Tenant EV Dealership Management, Inventory & POS System",
+export const metadata = {
+  title: "EV Sale POS - Code GN",
+  description: "Multi-Tenant EV Dealership ERP",
 }
 
 export default function RootLayout({
@@ -24,12 +19,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
-        <AuthProvider>{children}</AuthProvider>
+    <html lang="en">
+      <body className={roboto.className}>
+        <AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
       </body>
     </html>
   )

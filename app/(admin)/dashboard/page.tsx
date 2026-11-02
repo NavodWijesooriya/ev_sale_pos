@@ -15,6 +15,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
+export const instant = false
+
 export default async function DashboardPage() {
   const session = await getAuthSession()
   const user = session?.user

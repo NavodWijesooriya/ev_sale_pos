@@ -41,7 +41,11 @@ function LoginForm() {
       })
 
       if (res?.error) {
-        setErrorMessage("Invalid email or password. Please verify your credentials.")
+        if (res.error === "CredentialsSignin") {
+          setErrorMessage("Invalid email or password. Please verify your credentials.")
+        } else {
+          setErrorMessage(res.error)
+        }
       } else if (res?.ok) {
         router.push(callbackUrl)
         router.refresh()

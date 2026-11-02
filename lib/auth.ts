@@ -46,6 +46,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid email or password")
         }
 
+        // Block login if the dealership organization is suspended
+        if (user.organization?.subscriptionStatus === "Suspended") {
+          throw new Error("Your account is suspended. Contact Support.")
+        }
+
         return {
           id: user.id,
           name: user.name,

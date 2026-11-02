@@ -65,6 +65,12 @@ export const navigationItems: NavItem[] = [
     href: "/dashboard/reports",
     icon: BarChart3,
   },
+  {
+    title: "Super Admin",
+    href: "/super-admin",
+    icon: ShieldAlert,
+    badge: "Platform",
+  },
 ]
 
 interface SidebarProps {

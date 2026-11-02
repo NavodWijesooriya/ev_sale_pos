@@ -42,12 +42,14 @@ model Organization {
   businessName       String
   domain             String?            @unique
   subdomain          String?            @unique
+  phone              String?            // අලුතින් එකතු කළ ඩීලර්ගේ දුරකථන අංකය
+  logoUrl            String?            // අලුතින් එකතු කළ ලෝගෝ පින්තූරය
   subscriptionPlan   SubscriptionPlan   @default(Free)
   subscriptionStatus SubscriptionStatus @default(Active)
   expiryDate         DateTime?
   createdAt          DateTime           @default(now())
 
-  // Relations (This ensures strict isolation of data per dealership)
+  // Relations
   users              User[]
   branches           Branch[]
   suppliers          Supplier[]
@@ -117,6 +119,7 @@ model VehicleModel {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   brand          String
   modelName      String
+  imageUrl       String?      // අලුතින් එකතු කළ වාහනයේ පින්තූරය
   batteryCapacity String?
   range          String?
   defaultPrice   Float
