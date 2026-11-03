@@ -5,6 +5,7 @@ import { signOut } from "next-auth/react"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -146,20 +147,22 @@ export function Header({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="end" className="w-56 p-1.5">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-xs font-semibold leading-none text-foreground">{userName}</p>
-                <p className="text-[11px] leading-none text-muted-foreground">{userEmail}</p>
-                <div className="pt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <ShieldCheck className="size-3 text-blue-500" />
-                  <span>Role: <strong>{userRole}</strong></span>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-xs font-semibold leading-none text-foreground">{userName}</p>
+                  <p className="text-[11px] leading-none text-muted-foreground">{userEmail}</p>
+                  <div className="pt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <ShieldCheck className="size-3 text-blue-500" />
+                    <span>Role: <strong>{userRole}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Building2 className="size-3 text-indigo-500" />
+                    <span className="truncate">Org: {organizationName}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <Building2 className="size-3 text-indigo-500" />
-                  <span className="truncate">Org: {organizationName}</span>
-                </div>
-              </div>
-            </DropdownMenuLabel>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
 

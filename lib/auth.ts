@@ -26,6 +26,33 @@ export const authOptions: NextAuthOptions = {
         }
 
         const email = credentials.email.toLowerCase().trim()
+
+        // 1. Check Platform Users (PlatformAdmin / Support)
+        const platformUser = await prisma.platformUser.findUnique({
+          where: { email },
+        })
+
+        if (platformUser && platformUser.passwordHash) {
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            platformUser.passwordHash
+          )
+
+          if (!isPasswordValid) {
+            throw new Error("Invalid email or password")
+          }
+
+          return {
+            id: platformUser.id,
+            name: platformUser.name,
+            email: platformUser.email,
+            role: platformUser.role, // "PlatformAdmin" | "Support"
+            organizationId: "platform",
+            organizationName: "Platform Control Center",
+          }
+        }
+
+        // 2. Check Tenant Users (OrgAdmin, BranchManager, SalesRep, Cashier, Technician)
         const user = await prisma.user.findUnique({
           where: { email },
           include: {
@@ -44,6 +71,11 @@ export const authOptions: NextAuthOptions = {
 
         if (!isPasswordValid) {
           throw new Error("Invalid email or password")
+        }
+
+        // Block login if staff member is disabled/inactive
+        if (user.isActive === false) {
+          throw new Error("Your account has been deactivated. Please contact your Dealership Administrator.")
         }
 
         // Block login if the dealership organization is suspended

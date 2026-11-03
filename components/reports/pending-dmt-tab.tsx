@@ -257,7 +257,8 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
               </p>
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto w-full">
+              <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="text-xs font-semibold">Sale Date</TableHead>
@@ -326,12 +327,12 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
                       {renderStatusBadge(reg.status)}
                     </TableCell>
 
-                    <TableCell className="text-xs text-right">
+                    <TableCell className="text-xs text-right whitespace-nowrap">
                       <Link href={`/dashboard/sales/${reg.saleId}`}>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-primary hover:text-primary gap-1"
+                          className="h-7 px-2 text-xs text-primary hover:text-primary gap-1 whitespace-nowrap"
                         >
                           <span>Manage</span>
                           <ExternalLink className="h-3 w-3" />
@@ -342,8 +343,9 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
+          </div>
+        )}
+      </CardContent>
       </Card>
     </div>
   )

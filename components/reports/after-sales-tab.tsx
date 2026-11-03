@@ -237,7 +237,8 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
               No service records found matching the current search criteria.
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto w-full">
+              <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="text-xs font-semibold">Service Date</TableHead>
@@ -300,12 +301,12 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
                       )}
                     </TableCell>
 
-                    <TableCell className="text-xs text-center">
+                    <TableCell className="text-xs text-center whitespace-nowrap">
                       <Link href={`/dashboard/services/${service.id}/job-card`}>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-xs text-primary hover:text-primary gap-1"
+                          className="h-7 px-2 text-xs text-primary hover:text-primary gap-1 whitespace-nowrap"
                           title="Print Customer Job Card"
                         >
                           <Receipt className="h-3.5 w-3.5" />
@@ -317,8 +318,9 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
+          </div>
+        )}
+      </CardContent>
       </Card>
     </div>
   )

@@ -292,8 +292,8 @@ export function DealershipTable({ initialOrganizations }: DealershipTableProps) 
                       </TableCell>
 
                       {/* Actions Column */}
-                      <TableCell className="py-3 pr-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <TableCell className="py-3 pr-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                           <Button
                             variant={isActive ? "outline" : "default"}
                             size="sm"

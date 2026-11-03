@@ -1,86 +1,69 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-
-function extractDomainOrSubdomain(hostname: string): string | null {
-  // Strip port if present
-  const host = hostname.split(":")[0].toLowerCase()
-
-  // Raw localhost or 127.0.0.1 without subdomain
-  if (host === "localhost" || host === "127.0.0.1") {
-    return null
-  }
-
-  // Handle *.localhost (e.g. apex.localhost)
-  if (host.endsWith(".localhost")) {
-    const parts = host.split(".")
-    return parts[0] // e.g. "apex"
-  }
-
-  // Handle platforms like *.voltpos.com, *.vercel.app, *.ngrok-free.app
-  const rootDomains = ["voltpos.com", "voltpos.io", "vercel.app", "ngrok.app", "ngrok-free.app"]
-  for (const root of rootDomains) {
-    if (host.endsWith("." + root)) {
-      return host.replace("." + root, "")
-    }
-  }
-
-  // Otherwise treat as custom domain (e.g. apexev.com)
-  return host
-}
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl
-  const hostname =
-    req.headers.get("x-forwarded-host") ||
-    req.headers.get("host") ||
-    url.hostname
-  const pathname = url.pathname
+  const url = req.nextUrl.clone();
+  const pathname = url.pathname;
+  const host = (req.headers.get('host') || '').split(':')[0].toLowerCase();
 
-  // Bypass internal next.js files, API endpoints, static assets, and admin routes
+  // 1. Bypass all Next.js internals, API routes, and static assets
   if (
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/super-admin") ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/site") ||
-    pathname.includes(".")
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/_static') ||
+    pathname.includes('.')
   ) {
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  // 1. Query parameter override for easy localhost / dev testing:
-  // e.g. http://localhost:3000/?domain=apex or ?dealership=apex
-  const paramDomain =
-    url.searchParams.get("domain") ||
-    url.searchParams.get("dealership") ||
-    url.searchParams.get("subdomain")
-
-  if (paramDomain) {
-    const targetPath = `/site/${encodeURIComponent(paramDomain)}${pathname === "/" ? "" : pathname}`
-    return NextResponse.rewrite(new URL(targetPath, req.url))
+  // 2. Bypass shared authentication routes so they are never rewritten
+  if (pathname.startsWith('/login')) {
+    return NextResponse.next();
   }
 
-  // 2. Hostname-based routing (subdomain or custom domain)
-  const tenant = extractDomainOrSubdomain(hostname)
+  // 3. Extract subdomain from host
+  // Examples:
+  // - "admin.localhost" or "admin.lvh.me" -> "admin"
+  // - "apex.localhost" or "apex.lvh.me" -> "apex"
+  // - "localhost" or "lvh.me" -> null
+  let subdomain: string | null = null;
+  const parts = host.split('.');
 
-  if (tenant) {
-    const targetPath = `/site/${encodeURIComponent(tenant)}${pathname === "/" ? "" : pathname}`
-    return NextResponse.rewrite(new URL(targetPath, req.url))
+  if (host.endsWith('.localhost') && parts.length > 1) {
+    subdomain = parts[0];
+  } else if (host.endsWith('.lvh.me') && parts.length > 2) {
+    subdomain = parts[0];
+  } else if (parts.length > 2 && parts[0] !== 'www') {
+    subdomain = parts[0];
   }
 
-  return NextResponse.next()
+  // 4. Super Admin Subdomain (e.g. "admin.localhost" or "admin.lvh.me")
+  if (subdomain === 'admin') {
+    // If accessing root "/", rewrite to the Super Admin Portal
+    if (pathname === '/') {
+      url.pathname = '/admin-portal';
+      return NextResponse.rewrite(url);
+    }
+    // Allow any other route through (e.g. /admin-portal/..., /login, etc.)
+    return NextResponse.next();
+  }
+
+  // 5. Tenant Showroom Subdomains (e.g. "apex.localhost" or "apex.lvh.me")
+  if (subdomain && subdomain !== 'localhost' && subdomain !== 'lvh' && subdomain !== 'www') {
+    // If accessing the tenant's public root "/", rewrite to public showroom: /site/[domain]
+    if (pathname === '/') {
+      url.pathname = `/site/${encodeURIComponent(subdomain)}`;
+      return NextResponse.rewrite(url);
+    }
+    // For dashboard, inventory, sales, etc., allow direct access without modifying pathname
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - static image/asset extensions
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)",
   ],
-}
+};

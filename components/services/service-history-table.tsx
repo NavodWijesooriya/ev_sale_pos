@@ -405,12 +405,12 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
                       </TableCell>
 
                       {/* Action: Print Job Card */}
-                      <TableCell className="align-top py-3.5 text-right">
+                      <TableCell className="align-top py-3.5 text-right whitespace-nowrap">
                         <Link href={`/dashboard/services/${r.id}/job-card`}>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
+                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
                             title="Print Customer Service Job Card"
                           >
                             <Printer className="size-3.5" />

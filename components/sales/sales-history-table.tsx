@@ -433,8 +433,8 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                       </TableCell>
 
                       {/* Actions: DMT Overview & Printable Invoice */}
-                      <TableCell className="align-top py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <TableCell className="align-top py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           <Link href={`/dashboard/sales/${sale.id}`}>
                             <Button
                               variant="secondary"

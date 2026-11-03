@@ -346,12 +346,12 @@ export function CustomerDirectory({
                       </TableCell>
 
                       {/* Action */}
-                      <TableCell className="align-middle py-3.5 text-right">
+                      <TableCell className="align-middle py-3.5 text-right whitespace-nowrap">
                         <Link href={`/dashboard/customers/${c.id}`}>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
+                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
                           >
                             View Profile
                             <ArrowRight className="size-3.5" />

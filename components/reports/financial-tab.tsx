@@ -258,7 +258,8 @@ export function FinancialTab({ data }: FinancialTabProps) {
         </CardHeader>
 
         <CardContent className="p-0">
-          <Table>
+          <div className="overflow-x-auto w-full">
+            <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
                 <TableHead className="text-xs font-semibold">Month</TableHead>
@@ -313,7 +314,8 @@ export function FinancialTab({ data }: FinancialTabProps) {
               ))}
             </TableBody>
           </Table>
-        </CardContent>
+        </div>
+      </CardContent>
       </Card>
     </div>
   )

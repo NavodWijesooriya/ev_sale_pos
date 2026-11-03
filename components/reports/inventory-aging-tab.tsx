@@ -260,7 +260,8 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
               No vehicles match the selected aging filter or search term.
             </div>
           ) : (
-            <Table>
+            <div className="overflow-x-auto w-full">
+              <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="text-xs font-semibold">Chassis / VIN</TableHead>
@@ -317,8 +318,9 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
+          </div>
+        )}
+      </CardContent>
       </Card>
     </div>
   )
