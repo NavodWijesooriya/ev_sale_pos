@@ -30,7 +30,7 @@ import {
   FileText,
   MapPin,
   DollarSign,
-  Car,
+  Bike,
   Wrench,
   Clock,
   CheckCircle2,
@@ -246,7 +246,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
 
               <div className="p-2 sm:p-3 rounded-xl bg-muted/40">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase">
-                  Vehicles
+                  EV Bikes
                 </p>
                 <p className="text-lg sm:text-xl font-black text-foreground font-mono mt-0.5">
                   {customer.sales.length}
@@ -270,8 +270,8 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
         <TabsList className="grid grid-cols-2 max-w-md h-11 bg-muted/80 p-1">
           <TabsTrigger value="purchases" className="gap-2 text-xs font-bold">
-            <Car className="size-4" />
-            Purchase History
+            <Bike className="size-4" />
+            EV Bike Purchases
             <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
               {customer.sales.length}
             </Badge>
@@ -291,10 +291,10 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Receipt className="size-4 text-primary" />
-                Purchased Electric Vehicles & Sales Records
+                Purchased Electric Bikes & Sales Records
               </CardTitle>
               <CardDescription className="text-xs">
-                All vehicles bought by this customer from your dealership
+                All electric bikes bought by this customer from your dealership
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -303,8 +303,8 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                   <TableHeader className="bg-muted/40">
                     <TableRow className="border-border/60">
                       <TableHead className="font-semibold text-xs">Sale Date</TableHead>
-                      <TableHead className="font-semibold text-xs">Vehicle Model</TableHead>
-                      <TableHead className="font-semibold text-xs">Chassis (VIN)</TableHead>
+                      <TableHead className="font-semibold text-xs">EV Bike Model</TableHead>
+                      <TableHead className="font-semibold text-xs">Chassis #</TableHead>
                       <TableHead className="font-semibold text-xs">Branch & Rep</TableHead>
                       <TableHead className="font-semibold text-xs">Payment Method</TableHead>
                       <TableHead className="font-semibold text-xs">Status</TableHead>
@@ -316,7 +316,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                     {customer.sales.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="h-28 text-center text-xs text-muted-foreground">
-                          No vehicle purchases recorded for this customer yet.
+                          No EV bike purchases recorded for this customer yet.
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -430,7 +430,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                 After-Sales Maintenance & Warranty Logs
               </CardTitle>
               <CardDescription className="text-xs">
-                History of services performed on this customer's vehicles
+                History of services performed on this customer's electric bikes
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -439,7 +439,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                   <TableHeader className="bg-muted/40">
                     <TableRow className="border-border/60">
                       <TableHead className="font-semibold text-xs">Service Date</TableHead>
-                      <TableHead className="font-semibold text-xs">Vehicle (Model & VIN)</TableHead>
+                      <TableHead className="font-semibold text-xs">EV Bike (Model & Chassis #)</TableHead>
                       <TableHead className="font-semibold text-xs">Service Type</TableHead>
                       <TableHead className="font-semibold text-xs">Work Description</TableHead>
                       <TableHead className="font-semibold text-xs">Workshop Branch</TableHead>
@@ -452,7 +452,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                     {customer.serviceRecords.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="h-28 text-center text-xs text-muted-foreground">
-                          No service records logged for this customer's vehicles yet.
+                          No service records logged for this customer's EV bikes yet.
                         </TableCell>
                       </TableRow>
                     ) : (

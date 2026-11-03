@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell"
 export const instant = false
 
 export const metadata = {
-  title: "Admin Dashboard | VoltPOS EV Dealership ERP",
+  title: "Admin Dashboard | Ev Sale Pos",
   description: "Manage EV inventory, chassis, branches, sales, and dealership operations",
 }
 

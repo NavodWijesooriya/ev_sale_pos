@@ -10,7 +10,7 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CarFront, PieChart as PieChartIcon } from "lucide-react"
+import { Bike, PieChart as PieChartIcon } from "lucide-react"
 
 interface ModelPieChartProps {
   data: {
@@ -38,10 +38,10 @@ export function ModelPieChart({ data }: ModelPieChartProps) {
         <div className="space-y-1">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <PieChartIcon className="h-5 w-5 text-cyan-500" />
-            Sales by Vehicle Model
+            Sales by EV Bike Model
           </CardTitle>
           <CardDescription>
-            Fleet distribution and model popularity by volume delivered
+            Fleet distribution and bike model popularity by volume delivered
           </CardDescription>
         </div>
       </CardHeader>
@@ -53,10 +53,10 @@ export function ModelPieChart({ data }: ModelPieChartProps) {
           </div>
         ) : !hasData ? (
           <div className="h-[320px] w-full flex flex-col items-center justify-center bg-muted/10 rounded-lg border border-dashed text-center p-6">
-            <CarFront className="h-10 w-10 text-muted-foreground/40 mb-2" />
-            <h4 className="font-medium text-foreground">No Models Sold Yet</h4>
+            <Bike className="h-10 w-10 text-muted-foreground/40 mb-2" />
+            <h4 className="font-medium text-foreground">No EV Bike Models Sold Yet</h4>
             <p className="text-sm text-muted-foreground max-w-xs mt-1">
-              Vehicle model delivery metrics will appear here as soon as orders are booked in the selected period.
+              EV bike model delivery metrics will appear here as soon as orders are booked in the selected period.
             </p>
           </div>
         ) : (

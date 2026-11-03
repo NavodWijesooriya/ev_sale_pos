@@ -163,7 +163,7 @@ export function SuperAdminView({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-base font-extrabold tracking-tight text-foreground">
-                SaaS Super Admin Control Center
+                Ev Sale Pos • Super Admin Control Center
               </span>
               <Badge
                 variant="outline"
@@ -460,7 +460,7 @@ export function SuperAdminView({
 
       {/* Footer */}
       <footer className="border-t py-4 px-6 text-center text-[11px] text-muted-foreground">
-        EV Dealership ERP Multi-Tenant SaaS Platform • Control Center v1.0
+        Ev Sale Pos Multi-Tenant Platform • Control Center v1.0
       </footer>
     </div>
   )

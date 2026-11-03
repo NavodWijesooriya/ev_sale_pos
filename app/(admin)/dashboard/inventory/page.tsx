@@ -12,7 +12,7 @@ import { InventoryDashboard } from "@/components/inventory/inventory-dashboard"
 export const instant = false
 
 export const metadata = {
-  title: "Inventory & GRN Management | VoltPOS EV Dealership ERP",
+  title: "Inventory & GRN Management | Ev Sale Pos",
   description: "Track physical EV chassis stock, models catalog, suppliers, and Goods Received Notes",
 }
 

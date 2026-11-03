@@ -6,7 +6,7 @@ import { PrintableInvoice } from "@/components/sales/printable-invoice"
 export const instant = false
 
 export const metadata = {
-  title: "Vehicle Sale Invoice & Receipt | VoltPOS EV Dealership ERP",
+  title: "Vehicle Sale Invoice & Receipt | Ev Sale Pos",
   description: "Official printable tax invoice and customer receipt for vehicle purchase",
 }
 

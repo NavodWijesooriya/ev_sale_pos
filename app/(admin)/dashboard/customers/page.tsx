@@ -6,7 +6,7 @@ import { CustomerDirectory } from "@/components/customers/customer-directory"
 export const instant = false
 
 export const metadata = {
-  title: "Customer Directory & CRM | VoltPOS EV Dealership ERP",
+  title: "Customer Directory & CRM | Ev Sale Pos",
   description: "Customer relationship management, client dossiers, purchase tracking, and lifetime value",
 }
 

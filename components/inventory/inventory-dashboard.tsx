@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Boxes,
-  CarFront,
+  Bike,
   Truck,
   FileText,
   Plus,
@@ -44,7 +44,7 @@ export function InventoryDashboard({
 
   const stats = [
     {
-      title: "EV Vehicles In Stock",
+      title: "EV Bikes In Stock",
       value: initialVehicles.length.toString(),
       subtext: "Ready for sale / POS",
       icon: Boxes,
@@ -52,10 +52,10 @@ export function InventoryDashboard({
       bg: "bg-emerald-500/10 border-emerald-500/20",
     },
     {
-      title: "EV Catalog Models",
+      title: "EV Bike Models",
       value: initialModels.length.toString(),
       subtext: "Active configurations",
-      icon: CarFront,
+      icon: Bike,
       color: "text-blue-500",
       bg: "bg-blue-500/10 border-blue-500/20",
     },
@@ -91,7 +91,7 @@ export function InventoryDashboard({
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Manage EV vehicle models, supplier channels, physical showroom stock, and Goods Received Notes for{" "}
+            Manage EV bike models, supplier channels, physical showroom bike stock, and Goods Received Notes for{" "}
             <strong className="text-foreground">{dealershipName}</strong>.
           </p>
         </div>
@@ -144,8 +144,8 @@ export function InventoryDashboard({
             value="models"
             className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2 rounded-lg font-semibold"
           >
-            <CarFront className="size-3.5" />
-            <span>Vehicle Models ({initialModels.length})</span>
+            <Bike className="size-3.5" />
+            <span>EV Bike Models ({initialModels.length})</span>
           </TabsTrigger>
 
           <TabsTrigger

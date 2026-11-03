@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  CarFront,
+  Bike,
   BadgeDollarSign,
   Building2,
   Clock,
@@ -23,16 +23,16 @@ export default async function DashboardPage() {
 
   const stats = [
     {
-      title: "EV Vehicles in Stock",
+      title: "EV Bikes in Stock",
       value: "42",
       change: "+6 this month",
-      icon: CarFront,
+      icon: Bike,
       iconColor: "text-blue-500",
       bgColor: "bg-blue-500/10 border-blue-500/20",
     },
     {
       title: "Monthly Sales Revenue",
-      value: "$342,850",
+      value: "$34,850",
       change: "+18.2% from last month",
       icon: BadgeDollarSign,
       iconColor: "text-emerald-500",
@@ -60,27 +60,27 @@ export default async function DashboardPage() {
     {
       id: "TX-9021",
       customer: "Sarah Jenkins",
-      vehicle: "Volt Motors Apex GT",
+      vehicle: "Volt Motors Apex GT Electric Bike",
       type: "Cash Payment",
-      amount: "$48,500",
+      amount: "$2,450",
       status: "Completed",
       date: "Today, 2:15 PM",
     },
     {
       id: "TX-9020",
       customer: "David Chen",
-      vehicle: "EcoDrive Terra SUV",
+      vehicle: "EcoRide Thunder Pro Cargo",
       type: "Bank Finance (Lease)",
-      amount: "$56,900",
+      amount: "$3,100",
       status: "Finance Pending",
       date: "Today, 11:30 AM",
     },
     {
       id: "TX-9019",
       customer: "Elena Rostova",
-      vehicle: "HyperVolt Pulse",
+      vehicle: "HyperVolt Pulse Commuter",
       type: "Split Down Payment",
-      amount: "$29,990",
+      amount: "$1,690",
       status: "Completed",
       date: "Yesterday",
     },
@@ -100,15 +100,15 @@ export default async function DashboardPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Logged into dealership: <strong className="text-foreground">{user?.organizationName || "VoltPOS Dealership"}</strong>
+            Logged into dealership: <strong className="text-foreground">{user?.organizationName || "Ev Sale Pos Dealership"}</strong>
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <Link href="/dashboard/inventory">
             <Button size="sm" variant="outline" className="text-xs">
-              <CarFront className="mr-1.5 size-3.5" />
-              Check Stock
+              <Bike className="mr-1.5 size-3.5" />
+              Check Bike Stock
             </Button>
           </Link>
           <Link href="/dashboard/sales">
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">Recent Vehicle Sales</CardTitle>
+                <CardTitle className="text-base font-semibold">Recent EV Bike Sales</CardTitle>
                 <CardDescription className="text-xs">
                   Latest cash and lease transactions recorded across dealership branches
                 </CardDescription>

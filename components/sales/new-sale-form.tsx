@@ -5,7 +5,7 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 import {
-  Car,
+  Bike,
   CheckCircle2,
   CreditCard,
   Building,
@@ -368,9 +368,9 @@ export function NewSaleForm({
               {vehicles.length === 0 ? (
                 <div className="p-8 text-center rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5">
                   <Zap className="h-10 w-10 text-amber-500 mx-auto mb-2 opacity-80" />
-                  <p className="font-semibold text-foreground">No In-Stock Vehicles Available</p>
+                  <p className="font-semibold text-foreground">No In-Stock EV Bikes Available</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Receive new EV shipments via the Inventory & GRN section first.
+                    Receive new EV bike shipments via the Inventory & GRN section first.
                   </p>
                 </div>
               ) : (
@@ -378,7 +378,7 @@ export function NewSaleForm({
                   <div className="relative">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search stock by VIN, model, brand, color, or branch..."
+                      placeholder="Search stock by chassis number, model, brand, color, or branch..."
                       value={vehicleSearchQuery}
                       onChange={(e) => setVehicleSearchQuery(e.target.value)}
                       className="pl-9 h-10"

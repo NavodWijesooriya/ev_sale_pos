@@ -26,7 +26,7 @@ import {
   Download,
   Calendar,
   User,
-  Car,
+  Bike,
   CreditCard,
   Building,
   CheckCircle2,
@@ -278,7 +278,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
               <TableRow className="border-border/60">
                 <TableHead className="font-semibold text-xs">Date & Time</TableHead>
                 <TableHead className="font-semibold text-xs">Customer Profile</TableHead>
-                <TableHead className="font-semibold text-xs">Vehicle / VIN</TableHead>
+                <TableHead className="font-semibold text-xs">EV Bike / Chassis #</TableHead>
                 <TableHead className="font-semibold text-xs">Branch & Rep</TableHead>
                 <TableHead className="font-semibold text-xs">Payment Method</TableHead>
                 <TableHead className="font-semibold text-xs">Finance / Lease</TableHead>

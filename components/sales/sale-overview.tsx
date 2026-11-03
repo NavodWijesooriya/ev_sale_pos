@@ -11,7 +11,7 @@ import {
   Printer,
   ShieldCheck,
   Truck,
-  Car,
+  Bike,
   User,
   Phone,
   CheckCircle2,
@@ -252,7 +252,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
 
           <div className="flex items-center gap-2.5 mt-2">
             <h1 className="text-2xl font-black tracking-tight text-foreground">
-              Vehicle Sale Overview & Handover
+              EV Bike Sale Overview & Handover
             </h1>
             {renderDMTBadge(dmtStatus)}
           </div>
@@ -292,7 +292,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
                     <Truck className="size-5" />
                   </div>
                   <div>
-                    <CardTitle className="text-base font-bold">Section A: Vehicle Delivery Note</CardTitle>
+                    <CardTitle className="text-base font-bold">Section A: EV Bike Delivery Note</CardTitle>
                     <CardDescription className="text-xs">
                       Handover certificate, physical inspection & custody transfer
                     </CardDescription>
@@ -308,13 +308,13 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="p-3 rounded-lg bg-muted/40 border space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                    Delivered Vehicle
+                    Delivered EV Bike
                   </span>
                   <p className="font-bold text-foreground text-sm">
                     {model?.brand} {model?.modelName}
                   </p>
                   <p className="font-mono text-muted-foreground">
-                    VIN: <span className="text-foreground font-semibold">{vehicle?.chassisNumber}</span>
+                    Chassis #: <span className="text-foreground font-semibold">{vehicle?.chassisNumber}</span>
                   </p>
                   <p className="text-muted-foreground">
                     Color: <span className="text-foreground capitalize">{vehicle?.color || "Standard"}</span>

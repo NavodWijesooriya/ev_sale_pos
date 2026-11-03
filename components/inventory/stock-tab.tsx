@@ -18,7 +18,7 @@ import {
   Building2,
   Palette,
   CheckCircle2,
-  CarFront,
+  Bike,
   BatteryCharging,
   Gauge,
   Clock,
@@ -232,17 +232,17 @@ export function StockTab({ vehicles }: StockTabProps) {
             <div className="flex items-center gap-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Boxes className="size-4 text-emerald-500" />
-                Live In-Stock EV Inventory
+                Live In-Stock EV Bikes
               </CardTitle>
               <Badge
                 variant="outline"
                 className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
               >
-                {filtered.length} In Stock
+                {filtered.length} Bikes In Stock
               </Badge>
             </div>
             <CardDescription className="text-xs">
-              Physical units with verified chassis VINs, motor IDs, battery specifications, and stock aging metrics.
+              Physical bike units with verified chassis numbers, motor IDs, battery specifications, and stock aging metrics.
             </CardDescription>
           </div>
 
@@ -331,7 +331,7 @@ export function StockTab({ vehicles }: StockTabProps) {
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="h-28 text-center text-xs text-muted-foreground">
-                    No in-stock vehicles found matching your criteria. Use "Create GRN" to intake new stock.
+                    No in-stock EV bikes found matching your criteria. Use "Create GRN" to intake new bike stock.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -366,7 +366,7 @@ export function StockTab({ vehicles }: StockTabProps) {
                       <TableCell className="py-3">
                         <div className="flex items-center gap-2">
                           <div className="size-7 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                            <CarFront className="size-3.5" />
+                            <Bike className="size-3.5" />
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-semibold text-foreground">

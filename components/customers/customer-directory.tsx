@@ -30,7 +30,7 @@ import {
   Mail,
   FileText,
   DollarSign,
-  CarFront,
+  Bike,
   ArrowRight,
   Sparkles,
   TrendingUp,
@@ -180,18 +180,18 @@ export function CustomerDirectory({
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Vehicles Owned
+                EV Bikes Owned
               </p>
               <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
                 {totalVehiclesPurchased}
               </h3>
               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                <CarFront className="size-3" />
-                Delivered EV units
+                <Bike className="size-3" />
+                Delivered EV bikes
               </p>
             </div>
             <div className="size-10 sm:size-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <CarFront className="size-5 sm:size-6" />
+              <Bike className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>
@@ -271,7 +271,7 @@ export function CustomerDirectory({
                   <TableHead className="font-semibold text-xs">Phone Number</TableHead>
                   <TableHead className="font-semibold text-xs">NIC / Passport</TableHead>
                   <TableHead className="font-semibold text-xs">Email Address</TableHead>
-                  <TableHead className="font-semibold text-xs text-center">EVs Owned</TableHead>
+                  <TableHead className="font-semibold text-xs text-center">Bikes Owned</TableHead>
                   <TableHead className="font-semibold text-xs text-right">Lifetime Spent</TableHead>
                   <TableHead className="font-semibold text-xs text-right">Action</TableHead>
                 </TableRow>

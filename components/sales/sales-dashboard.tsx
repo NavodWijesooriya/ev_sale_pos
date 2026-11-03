@@ -14,7 +14,7 @@ import {
   BadgeDollarSign,
   ShoppingCart,
   Receipt,
-  CarFront,
+  Bike,
   TrendingUp,
   Sparkles,
   Building2,
@@ -179,7 +179,7 @@ export function SalesDashboard({
               </p>
             </div>
             <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-              <CarFront className="h-5 w-5 sm:h-6 sm:w-6" />
+              <Bike className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </CardContent>
         </Card>

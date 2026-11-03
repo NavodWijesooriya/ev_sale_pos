@@ -11,40 +11,48 @@ import {
   Sparkles,
   Building2,
   CheckCircle2,
+  Bike,
+  Clock,
 } from "lucide-react"
 
 export default function PublicLandingPage() {
   const showcaseEVs = [
     {
       brand: "Volt Motors",
-      model: "Apex GT Electric Sedan",
-      range: "580 km",
-      battery: "82 kWh",
-      acceleration: "3.4s 0-100",
-      price: "$48,500",
-      downPayment: "From $4,850 down",
+      model: "Apex GT Electric Bike",
+      motorPower: "2000W",
+      rangePerCharge: "120 km",
+      batteryCapacity: "60V 32Ah",
+      topSpeed: "55 km/h",
+      chargingTime: "4-6 Hours",
+      price: "$2,450",
+      downPayment: "From $250 down",
       tag: "Top Seller",
       badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     },
     {
-      brand: "EcoDrive",
-      model: "Terra SUV AWD",
-      range: "510 km",
-      battery: "95 kWh",
-      acceleration: "4.1s 0-100",
-      price: "$56,900",
-      downPayment: "From $5,690 down",
-      tag: "Family Favorite",
+      brand: "EcoRide",
+      model: "Thunder Pro Cargo Scooter",
+      motorPower: "3000W",
+      rangePerCharge: "150 km",
+      batteryCapacity: "72V 45Ah",
+      topSpeed: "65 km/h",
+      chargingTime: "5-6 Hours",
+      price: "$3,100",
+      downPayment: "From $350 down",
+      tag: "Commercial Cargo",
       badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     },
     {
       brand: "HyperVolt",
-      model: "Pulse City Cruiser",
-      range: "360 km",
-      battery: "48 kWh",
-      acceleration: "5.8s 0-100",
-      price: "$29,990",
-      downPayment: "From $2,999 down",
+      model: "Pulse City Commuter Bike",
+      motorPower: "1200W",
+      rangePerCharge: "90 km",
+      batteryCapacity: "48V 24Ah",
+      topSpeed: "45 km/h",
+      chargingTime: "3-4 Hours",
+      price: "$1,690",
+      downPayment: "From $170 down",
       tag: "Best Value",
       badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
     },
@@ -60,7 +68,7 @@ export default function PublicLandingPage() {
               <Zap className="size-5" />
             </div>
             <div>
-              <span className="font-bold text-lg tracking-tight">VoltPOS</span>
+              <span className="font-bold text-lg tracking-tight">Ev Sale Pos</span>
               <span className="text-xs text-muted-foreground ml-1.5 font-medium px-2 py-0.5 rounded-full bg-muted border">
                 Showroom
               </span>
@@ -102,24 +110,24 @@ export default function PublicLandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-muted/60 text-xs font-medium text-foreground mb-6 shadow-sm">
               <Sparkles className="size-3.5 text-blue-500" />
-              <span>Multi-Tenant Electric Vehicle Dealership Cloud ERP</span>
+              <span>Multi-Tenant Electric Bike Dealership Cloud ERP</span>
             </div>
 
             <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground max-w-4xl mx-auto leading-tight">
               Next-Gen Showroom &{" "}
               <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 bg-clip-text text-transparent">
-                Live EV Inventory
+                Live EV Bike Inventory
               </span>
             </h1>
 
             <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto font-normal leading-relaxed">
-              Browse real-time electric vehicle stock, transparent prices, instant lease calculations, and flexible down payment options.
+              Browse real-time electric bike & scooter stock, motor power ratings, verified range per charge, transparent prices, and flexible down payments.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <a href="#inventory">
                 <Button size="lg" className="w-full sm:w-auto px-8 shadow-md">
-                  View Live Stock
+                  View Live EV Bikes
                 </Button>
               </a>
               <Link href="/login">
@@ -134,15 +142,15 @@ export default function PublicLandingPage() {
             <div className="mt-12 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-xs sm:text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-500" />
-                <span>Real-Time Chassis & VIN Tracking</span>
+                <span>Chassis & Motor Serial Tracking</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-500" />
-                <span>Multi-Branch Stock Synchronization</span>
+                <span>Multi-Branch Bike Stock Sync</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-500" />
-                <span>Instant Bank & Lease Approvals</span>
+                <span>Instant Down Payment & Lease Approvals</span>
               </div>
             </div>
           </div>
@@ -156,10 +164,10 @@ export default function PublicLandingPage() {
                 Live Showroom Preview
               </Badge>
               <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                Featured Electric Vehicles in Stock
+                Featured Electric Bikes in Stock
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Connected directly to dealership inventory branches with instant pricing and lease quotes.
+                Connected directly to dealership inventory branches with instant pricing and installment quotes.
               </p>
             </div>
             <Link href="/login">
@@ -174,64 +182,101 @@ export default function PublicLandingPage() {
             {showcaseEVs.map((ev, idx) => (
               <Card
                 key={idx}
-                className="hover:shadow-lg transition-all duration-200 border-border/80 hover:border-primary/40 bg-card/60 backdrop-blur-sm"
+                className="hover:shadow-lg transition-all duration-200 border-border/80 hover:border-primary/40 bg-card/60 backdrop-blur-sm overflow-hidden flex flex-col justify-between group"
               >
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {ev.brand}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${ev.badgeColor}`}>
-                      {ev.tag}
-                    </span>
-                  </div>
-                  <CardTitle className="text-xl">{ev.model}</CardTitle>
-                  <CardDescription>Zero Emission • Advanced Battery Tech</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2 py-3 px-3.5 bg-muted/50 rounded-lg text-center">
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                        <Gauge className="size-3.5" />
-                        <span className="text-[11px]">Range</span>
-                      </div>
-                      <span className="text-xs font-bold text-foreground">{ev.range}</span>
+                <div>
+                  {/* Bike Image Area Placeholder */}
+                  <div className="relative h-44 w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col justify-between p-4 border-b">
+                    <div className="flex items-center justify-between z-10">
+                      <span className="text-[11px] font-semibold tracking-wider uppercase text-blue-400/90 px-2 py-0.5 rounded-md bg-blue-950/60 border border-blue-800/40">
+                        {ev.brand}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${ev.badgeColor}`}>
+                        {ev.tag}
+                      </span>
                     </div>
-                    <div className="border-x border-border">
-                      <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                        <BatteryCharging className="size-3.5" />
-                        <span className="text-[11px]">Battery</span>
+
+                    <div className="flex flex-col items-center justify-center my-auto z-10">
+                      <div className="size-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform duration-200">
+                        <Bike className="size-8 text-slate-300 group-hover:text-blue-400 transition-colors" />
                       </div>
-                      <span className="text-xs font-bold text-foreground">{ev.battery}</span>
+                      <span className="text-[10px] text-slate-400 mt-1.5 font-mono">
+                        100% Electric EV Bike
+                      </span>
                     </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                        <Zap className="size-3.5" />
-                        <span className="text-[11px]">0-100</span>
-                      </div>
-                      <span className="text-xs font-bold text-foreground">{ev.acceleration}</span>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-300 z-10 pt-1 border-t border-white/10">
+                      <span className="flex items-center gap-1">
+                        <Gauge className="size-3 text-cyan-400" />
+                        {ev.topSpeed} Top Speed
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="size-3 text-amber-400" />
+                        {ev.chargingTime} Charge
+                      </span>
                     </div>
                   </div>
 
-                  <div className="pt-2 flex items-baseline justify-between border-t">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Starting Retail</div>
-                      <div className="text-2xl font-bold tracking-tight text-foreground">
-                        {ev.price}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                        {ev.downPayment}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">Subject to credit</div>
-                    </div>
-                  </div>
+                  <CardHeader className="pb-3 pt-4">
+                    <CardTitle className="text-xl group-hover:text-primary transition-colors">{ev.model}</CardTitle>
+                    <CardDescription>Zero Emission • BLDC Hub Motor • Smart BMS</CardDescription>
+                  </CardHeader>
 
-                  <Button className="w-full mt-2" variant="outline" size="sm">
-                    Inquire / Reserve Stock
+                  <CardContent className="space-y-4 pt-0">
+                    {/* Key Pricing */}
+                    <div className="p-3 bg-muted/40 rounded-lg border space-y-1">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs text-muted-foreground">Starting Retail</span>
+                        <span className="text-2xl font-bold tracking-tight text-foreground">
+                          {ev.price}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground">Min Down Payment:</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {ev.downPayment}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Prominent EV Bike Specs: motorPower, rangePerCharge, batteryCapacity */}
+                    <div className="grid grid-cols-3 gap-2 p-2.5 bg-blue-50/60 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/40 text-center">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px]">
+                          <Zap className="size-3 text-amber-500 shrink-0" />
+                          <span>Motor</span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {ev.motorPower}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5 border-x border-border/60 px-1">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px]">
+                          <Gauge className="size-3 text-cyan-500 shrink-0" />
+                          <span>Range</span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {ev.rangePerCharge}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px]">
+                          <BatteryCharging className="size-3 text-emerald-500 shrink-0" />
+                          <span>Battery</span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {ev.batteryCapacity}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </div>
+
+                <div className="p-4 pt-0">
+                  <Button className="w-full" variant="outline" size="sm">
+                    Inquire / Reserve EV Bike
                   </Button>
-                </CardContent>
+                </div>
               </Card>
             ))}
           </div>
@@ -286,11 +331,11 @@ export default function PublicLandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <Zap className="size-4 text-primary" />
-            <span className="font-semibold text-foreground">VoltPOS Cloud ERP</span>
+            <span className="font-semibold text-foreground">Ev Sale Pos</span>
             <span>— Enterprise Multi-Tenant EV Platform</span>
           </div>
           <div>
-            <span>© 2026 VoltPOS Inc. All rights reserved.</span>
+            <span>© 2026 Ev Sale Pos. All rights reserved.</span>
           </div>
         </div>
       </footer>

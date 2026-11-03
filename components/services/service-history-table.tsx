@@ -26,7 +26,7 @@ import {
   Download,
   Calendar,
   User,
-  Car,
+  Bike,
   Wrench,
   Clock,
   ShieldCheck,
@@ -296,7 +296,7 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
               <TableRow className="border-border/60">
                 <TableHead className="font-semibold text-xs">Service Date</TableHead>
                 <TableHead className="font-semibold text-xs">Customer Profile</TableHead>
-                <TableHead className="font-semibold text-xs">Vehicle / Battery S/N</TableHead>
+                <TableHead className="font-semibold text-xs">EV Bike / Battery S/N</TableHead>
                 <TableHead className="font-semibold text-xs">Service Type</TableHead>
                 <TableHead className="font-semibold text-xs">Work Description</TableHead>
                 <TableHead className="font-semibold text-xs">Workshop Branch</TableHead>

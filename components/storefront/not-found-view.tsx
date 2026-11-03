@@ -56,7 +56,7 @@ export function DealershipNotFoundView({
         </div>
 
         <div className="pt-4 border-t text-[11px] text-muted-foreground">
-          VoltPOS Multi-Tenant EV Platform • Code GN
+          Ev Sale Pos Multi-Tenant EV Platform
         </div>
       </div>
     </div>

@@ -19,7 +19,7 @@ import {
   Building2,
   Calendar,
   Search,
-  CarFront,
+  Bike,
   ArrowRight,
 } from "lucide-react"
 import { CreateGRNDialog } from "@/components/inventory/create-grn-dialog"
@@ -204,8 +204,8 @@ export function GRNTab({ grns, suppliers, branches, models }: GRNTabProps) {
                       <TableCell className="py-3">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1 text-xs font-semibold text-foreground">
-                            <CarFront className="size-3 text-emerald-500" />
-                            <span>{g.items.length} Vehicles</span>
+                            <Bike className="size-3 text-emerald-500" />
+                            <span>{g.items.length} EV Bikes</span>
                           </div>
                           <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]">
                             {g.items.map((i) => i.vehicle.chassisNumber).join(", ")}

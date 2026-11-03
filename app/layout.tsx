@@ -9,8 +9,8 @@ const roboto = Roboto({
 })
 
 export const metadata = {
-  title: "EV Sale POS - Code GN",
-  description: "Multi-Tenant EV Dealership ERP",
+  title: "Ev Sale Pos",
+  description: "Ev Sale Pos - Multi-Tenant EV Dealership SaaS ERP",
 }
 
 export default function RootLayout({

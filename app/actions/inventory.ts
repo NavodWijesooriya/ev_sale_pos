@@ -28,8 +28,12 @@ export interface CreateVehicleModelInput {
   modelName: string
   defaultPrice: number
   minDownPayment?: number
+  motorPower?: string
   batteryCapacity?: string
+  rangePerCharge?: string
   range?: string
+  topSpeed?: string
+  chargingTime?: string
   imageUrl?: string
 }
 
@@ -74,14 +78,18 @@ export async function createVehicleModel(input: CreateVehicleModelInput) {
         modelName: input.modelName.trim(),
         defaultPrice: input.defaultPrice,
         minDownPayment: input.minDownPayment ?? Math.round(input.defaultPrice * 0.1),
+        motorPower: input.motorPower?.trim() || null,
         batteryCapacity: input.batteryCapacity?.trim() || null,
-        range: input.range?.trim() || null,
+        rangePerCharge: input.rangePerCharge?.trim() || input.range?.trim() || null,
+        range: input.rangePerCharge?.trim() || input.range?.trim() || null,
+        topSpeed: input.topSpeed?.trim() || null,
+        chargingTime: input.chargingTime?.trim() || null,
         imageUrl: input.imageUrl?.trim() || null,
       },
     })
 
     revalidatePath("/dashboard/inventory")
-    return { success: true, message: `Model "${model.modelName}" added successfully!`, data: model }
+    return { success: true, message: `EV Bike Model "${model.modelName}" added successfully!`, data: model }
   } catch (error) {
     console.error("createVehicleModel error:", error)
     return { success: false, message: (error as Error).message }

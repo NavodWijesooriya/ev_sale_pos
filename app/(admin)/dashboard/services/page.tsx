@@ -6,7 +6,7 @@ import { ServiceDashboard } from "@/components/services/service-dashboard"
 export const instant = false
 
 export const metadata = {
-  title: "Service & Maintenance Management | VoltPOS EV Dealership ERP",
+  title: "Service & Maintenance Management | Ev Sale Pos",
   description: "Manage EV periodic services, battery diagnostics, workshop repair jobs, and warranty claims",
 }
 

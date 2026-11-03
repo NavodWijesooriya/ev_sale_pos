@@ -247,7 +247,7 @@ export function DealershipTable({ initialOrganizations }: DealershipTableProps) 
                             {org.businessName}
                           </span>
                           <span className="text-[10px] text-muted-foreground font-mono">
-                            {org.subdomain ? `${org.subdomain}.voltpos.io` : org.id.slice(0, 8)}
+                            {org.subdomain ? `${org.subdomain}.evsalepos.com` : org.id.slice(0, 8)}
                           </span>
                         </div>
                       </TableCell>

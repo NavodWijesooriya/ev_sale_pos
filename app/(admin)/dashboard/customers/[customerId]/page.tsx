@@ -6,7 +6,7 @@ import { CustomerProfile } from "@/components/customers/customer-profile"
 export const instant = false
 
 export const metadata = {
-  title: "Customer Profile & CRM Dossier | VoltPOS EV Dealership ERP",
+  title: "Customer Profile & CRM Dossier | Ev Sale Pos",
   description: "View customer details, electric vehicle purchase history, and after-sales service logs",
 }
 

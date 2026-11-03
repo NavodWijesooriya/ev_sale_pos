@@ -12,7 +12,7 @@ import {
   Sparkles,
   ArrowRight,
   ExternalLink,
-  CarFront,
+  Bike,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -38,13 +38,13 @@ export async function generateMetadata({ params }: PageProps) {
 
   if (!org) {
     return {
-      title: "Dealership Not Found | VoltPOS",
+      title: "Dealership Not Found | Ev Sale Pos",
     }
   }
 
   return {
-    title: `${org.businessName} | Live EV Inventory & Showroom`,
-    description: `Explore live electric vehicle stock, specifications, transparent pricing, and instant lease financing at ${org.businessName}.`,
+    title: `${org.businessName} | Live EV Bike Inventory & Showroom`,
+    description: `Explore live electric bike and scooter stock, specifications, transparent pricing, and instant lease financing at ${org.businessName}.`,
   }
 }
 
@@ -115,6 +115,10 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
       modelName: model.modelName,
       batteryCapacity: model.batteryCapacity,
       range: model.range,
+      motorPower: model.motorPower,
+      rangePerCharge: model.rangePerCharge,
+      topSpeed: model.topSpeed,
+      chargingTime: model.chargingTime,
       defaultPrice: model.defaultPrice,
       minDownPayment: model.minDownPayment,
       inStockCount: inStockVehicles.length,
@@ -147,7 +151,7 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
                   {organization.businessName}
                 </span>
                 <span className="hidden sm:inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Certified EV Dealer
+                  Certified EV Bike Dealer
                 </span>
               </div>
               {primaryBranch && (
@@ -190,25 +194,25 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-muted/60 text-xs font-medium text-foreground shadow-xs">
               <Sparkles className="size-3.5 text-blue-500" />
-              <span>Official EV Dealership Inventory & Showroom</span>
+              <span>Official EV Bike Dealership Inventory & Showroom</span>
             </div>
 
             <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground max-w-4xl mx-auto leading-tight">
-              Electrify Your Drive with{" "}
+              Electrify Your Ride with{" "}
               <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 bg-clip-text text-transparent">
                 {organization.businessName}
               </span>
             </h1>
 
             <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto font-normal">
-              Explore real-time electric vehicle stock with transparent cash prices, instant bank lease quotes, and verified VIN chassis availability.
+              Explore real-time electric bike and scooter stock with transparent cash prices, instant installment financing, and verified motor & battery specs.
             </p>
 
             {/* Quick Stats Pill Banner */}
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border text-xs font-semibold shadow-xs">
-                <CarFront className="size-4 text-blue-500" />
-                <span>{totalInStock} Vehicles In Stock</span>
+                <Bike className="size-4 text-blue-500" />
+                <span>{totalInStock} EV Bikes In Stock</span>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border text-xs font-semibold shadow-xs">
                 <ShieldCheck className="size-4 text-emerald-500" />
@@ -216,14 +220,14 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border text-xs font-semibold shadow-xs">
                 <Zap className="size-4 text-cyan-500" />
-                <span>Fast DC Charging Ready</span>
+                <span>Fast Smart Charger Included</span>
               </div>
             </div>
 
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <a href="#stock">
                 <Button size="lg" className="w-full sm:w-auto px-8 bg-primary text-primary-foreground shadow-md">
-                  Browse Available Stock ({totalInStock})
+                  Browse Available EV Bikes ({totalInStock})
                   <ArrowRight className="ml-1.5 size-4" />
                 </Button>
               </a>
@@ -247,10 +251,10 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
                 Live Inventory
               </Badge>
               <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                Electric Vehicles in Stock
+                Electric Bikes & Scooters in Stock
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Filter by brand, model, and view live down payment and bank lease calculations.
+                Filter by brand, model, and view live down payment and lease installment calculations.
               </p>
             </div>
 
@@ -322,7 +326,7 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
             <span className="font-semibold text-foreground">
               {organization.businessName}
             </span>
-            <span>— Powered by VoltPOS EV Cloud ERP</span>
+            <span>— Powered by Ev Sale Pos</span>
           </div>
 
           <div className="flex items-center gap-4">

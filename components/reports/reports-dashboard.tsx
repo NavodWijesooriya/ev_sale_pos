@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table"
 import {
   DollarSign,
-  CarFront,
+  Bike,
   Warehouse,
   Wrench,
   Download,
@@ -366,21 +366,21 @@ export function ReportsDashboard({
           </CardContent>
         </Card>
 
-        {/* KPI 2: Total Vehicles Sold */}
+        {/* KPI 2: Total EV Bikes Sold */}
         <Card className="relative overflow-hidden border-border/80 shadow-xs hover:border-blue-500/40 transition-colors">
           <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Vehicles Sold
+              EV Bikes Sold
             </span>
             <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
-              <CarFront className="h-4 w-4" />
+              <Bike className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-2xl font-bold tracking-tight text-foreground">
               {data.kpis.totalVehiclesSold}{" "}
-              <span className="text-sm font-normal text-muted-foreground">units</span>
+              <span className="text-sm font-normal text-muted-foreground">bikes</span>
             </div>
             <p className="text-xs text-muted-foreground">
               Avg Deal:{" "}
@@ -517,7 +517,7 @@ export function ReportsDashboard({
                 <TableRow>
                   <TableHead className="font-semibold text-xs">Date</TableHead>
                   <TableHead className="font-semibold text-xs">Customer</TableHead>
-                  <TableHead className="font-semibold text-xs">Vehicle Model</TableHead>
+                  <TableHead className="font-semibold text-xs">EV Bike Model</TableHead>
                   <TableHead className="font-semibold text-xs">Branch</TableHead>
                   <TableHead className="font-semibold text-xs">Payment</TableHead>
                   <TableHead className="font-semibold text-xs">Status</TableHead>

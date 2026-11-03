@@ -15,7 +15,7 @@ import {
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BarChart3, LineChart as LineChartIcon, DollarSign, CarFront } from "lucide-react"
+import { BarChart3, LineChart as LineChartIcon, DollarSign, Bike } from "lucide-react"
 
 interface RevenueChartProps {
   data: {
@@ -78,10 +78,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
           </div>
         ) : !hasData ? (
           <div className="h-[320px] w-full flex flex-col items-center justify-center bg-muted/10 rounded-lg border border-dashed text-center p-6">
-            <CarFront className="h-10 w-10 text-muted-foreground/40 mb-2" />
+            <Bike className="h-10 w-10 text-muted-foreground/40 mb-2" />
             <h4 className="font-medium text-foreground">No Sales Data In This Range</h4>
             <p className="text-sm text-muted-foreground max-w-sm mt-1">
-              No vehicle sales or revenue transactions were logged within the selected date window. Try expanding your date filter.
+              No EV bike sales or revenue transactions were logged within the selected date window. Try expanding your date filter.
             </p>
           </div>
         ) : (

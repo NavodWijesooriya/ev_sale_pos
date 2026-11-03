@@ -18,7 +18,7 @@ import {
   Trash2,
   Building2,
   Truck,
-  CarFront,
+  Bike,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -282,7 +282,7 @@ export function CreateGRNDialog({
               </div>
             </div>
 
-            {/* Step 2: Dynamic Vehicles List */}
+            {/* Step 2: Dynamic EV Bikes List */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -291,10 +291,10 @@ export function CreateGRNDialog({
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                      Vehicles to Intake ({items.length} Units)
+                      EV Bikes to Intake ({items.length} Units)
                     </h4>
                     <p className="text-[11px] text-muted-foreground">
-                      Enter individual chassis number (VIN), battery serial, and procurement cost.
+                      Enter individual chassis number, motor number, battery serial, and procurement cost.
                     </p>
                   </div>
                 </div>
@@ -307,7 +307,7 @@ export function CreateGRNDialog({
                   className="h-7 text-xs"
                 >
                   <Plus className="mr-1 size-3" />
-                  Add Vehicle
+                  Add EV Bike
                 </Button>
               </div>
 
@@ -319,8 +319,8 @@ export function CreateGRNDialog({
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                        <CarFront className="size-3.5 text-blue-500" />
-                        Vehicle #{idx + 1}
+                        <Bike className="size-3.5 text-blue-500" />
+                        EV Bike #{idx + 1}
                       </span>
 
                       {items.length > 1 && (
@@ -328,7 +328,7 @@ export function CreateGRNDialog({
                           type="button"
                           onClick={() => handleRemoveItem(idx)}
                           className="text-muted-foreground hover:text-red-500 p-1 rounded transition-colors"
-                          title="Remove vehicle"
+                          title="Remove EV Bike"
                         >
                           <Trash2 className="size-3.5" />
                         </button>

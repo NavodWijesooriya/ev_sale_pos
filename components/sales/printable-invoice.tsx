@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   CreditCard,
-  Car,
+  Bike,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -164,7 +164,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   {sale.organization.businessName}
                 </h1>
                 <p className="text-xs text-muted-foreground print:text-zinc-600 font-medium">
-                  Official Electric Vehicle Dealership
+                  Official Electric Bike Dealership
                 </p>
               </div>
             </div>
@@ -280,7 +280,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
               </div>
 
               <div className="flex justify-between items-center pt-1 border-t border-border/60 print:border-zinc-300">
-                <span className="font-semibold text-foreground print:text-black">Vehicle Delivery:</span>
+                <span className="font-semibold text-foreground print:text-black">EV Bike Delivery:</span>
                 <span className="font-semibold text-emerald-600 print:text-black flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Ownership Transferred
@@ -293,7 +293,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
         {/* ITEMIZED VEHICLE TABLE */}
         <div className="py-6">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 mb-3">
-            Itemized Vehicle Specification
+            Itemized EV Bike Specification
           </h3>
 
           <div className="overflow-x-auto">
@@ -301,7 +301,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
               <thead>
                 <tr className="border-b-2 border-border print:border-black bg-muted/30 print:bg-zinc-100">
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Item #</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Vehicle Description</th>
+                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">EV Bike Description</th>
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Chassis No. (VIN)</th>
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Motor No.</th>
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Specs</th>
@@ -497,7 +497,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
             This document serves as an official commercial tax invoice and receipt of payment. Keep safe for warranty claims and motor traffic vehicle registration.
           </p>
           <p className="font-mono text-[9px] pt-1">
-            Generated via VoltPOS EV Dealership ERP • Document ID: {sale.id} • Printed: {formattedPrintDate}
+            Generated via Ev Sale Pos • Document ID: {sale.id} • Printed: {formattedPrintDate}
           </p>
         </div>
       </div>

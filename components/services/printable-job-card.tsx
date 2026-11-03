@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   BatteryCharging,
-  Car,
+  Bike,
   Clock,
   Sparkles,
   User,
@@ -283,8 +283,8 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
           {/* Vehicle & High-Voltage Battery Profile */}
           <div className="p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
-              <Car className="size-3.5 text-emerald-500" />
-              Electric Vehicle Specifications
+              <Bike className="size-3.5 text-emerald-500" />
+              Electric Bike Specifications
             </span>
             <h3 className="font-bold text-base text-foreground print:text-black">
               {record.vehicle.vehicleModel.brand} {record.vehicle.vehicleModel.modelName}
@@ -430,7 +430,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
             This official job card serves as verification of work performed and battery health inspection. Please retain for vehicle service history and warranty records.
           </p>
           <p className="font-mono text-[9px] pt-1">
-            Generated via VoltPOS EV Dealership ERP • Document ID: {record.id} • Printed: {formattedPrintDate}
+            Generated via Ev Sale Pos • Document ID: {record.id} • Printed: {formattedPrintDate}
           </p>
         </div>
       </div>

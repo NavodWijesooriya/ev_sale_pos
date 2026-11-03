@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  CarFront,
+  Bike,
   Plus,
   BatteryCharging,
   Gauge,
@@ -32,6 +32,8 @@ import {
   Search,
   ImageIcon,
   CheckCircle2,
+  Zap,
+  Clock,
 } from "lucide-react"
 import { createVehicleModel, CreateVehicleModelInput } from "@/app/actions/inventory"
 import { toast } from "sonner"
@@ -42,8 +44,12 @@ export interface VehicleModelRecord {
   brand: string
   modelName: string
   imageUrl: string | null
+  motorPower?: string | null
   batteryCapacity: string | null
+  rangePerCharge?: string | null
   range: string | null
+  topSpeed?: string | null
+  chargingTime?: string | null
   defaultPrice: number
   minDownPayment: number | null
   _count?: {
@@ -65,9 +71,16 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
   const [form, setForm] = React.useState<CreateVehicleModelInput>({
     brand: "",
     modelName: "",
-    defaultPrice: 45000,
-    minDownPayment: 4500,
-    batteryCapacity: "75 kWh",
+    defaultPrice: 2450,
+    minDownPayment: 250,
+    motorPower: "2000W",
+    batteryCapacity: "60V 32Ah",
+    rangePerCharge: "120km",
+    range: "120km",
+    topSpeed: "55 km/h",
+    chargingTime: "4-6 Hours",
+    imageUrl: "",
+  })
     range: "500 km",
     imageUrl: "",
   })
@@ -147,14 +160,14 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <CarFront className="size-4 text-blue-500" />
-              EV Vehicle Models Catalog
+              <Bike className="size-4 text-blue-500" />
+              EV Bike Models Catalog
               <Badge variant="outline" className="text-[11px] font-normal">
                 {models.length} Models
               </Badge>
             </CardTitle>
             <CardDescription className="text-xs">
-              Manage vehicle models, technical specifications, and catalog prices for this dealership.
+              Manage electric bike models, motor ratings, battery capacities, and catalog prices.
             </CardDescription>
           </div>
 
@@ -163,7 +176,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
               <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search models..."
+                placeholder="Search EV bike models..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-input bg-muted/30 placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
@@ -176,17 +189,17 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                 render={
                   <Button size="sm" className="h-8 text-xs bg-primary text-primary-foreground">
                     <Plus className="mr-1.5 size-3.5" />
-                    Add Model
+                    Add EV Bike Model
                   </Button>
                 }
               />
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-base font-semibold">
-                    Add New EV Vehicle Model
+                    Add New EV Bike Model
                   </DialogTitle>
                   <DialogDescription className="text-xs">
-                    Define specifications and default retail pricing for your showroom catalog.
+                    Define motor, battery, speed, and default retail pricing for your bike catalog.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -198,7 +211,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                       </Label>
                       <Input
                         id="brand"
-                        placeholder="e.g. Volt Motors, BYD"
+                        placeholder="e.g. Volt Motors, Super Soco"
                         value={form.brand}
                         onChange={(e) => setForm({ ...form, brand: e.target.value })}
                         className="text-xs h-8"
@@ -211,7 +224,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                       </Label>
                       <Input
                         id="modelName"
-                        placeholder="e.g. Apex GT Sedan"
+                        placeholder="e.g. Apex 2000W Scooter"
                         value={form.modelName}
                         onChange={(e) => setForm({ ...form, modelName: e.target.value })}
                         className="text-xs h-8"
@@ -223,12 +236,12 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                   <div className="space-y-1">
                     <Label htmlFor="imageUrl" className="text-xs font-medium flex items-center gap-1">
                       <ImageIcon className="size-3 text-muted-foreground" />
-                      Vehicle Image URL (Optional)
+                      EV Bike Image URL (Optional)
                     </Label>
                     <Input
                       id="imageUrl"
                       type="url"
-                      placeholder="https://images.unsplash.com/... or /cars/model.png"
+                      placeholder="https://images.unsplash.com/... or /bikes/model.png"
                       value={form.imageUrl || ""}
                       onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
                       className="text-xs h-8"
@@ -237,26 +250,67 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
+                      <Label htmlFor="motorPower" className="text-xs font-medium">
+                        Motor Power
+                      </Label>
+                      <Input
+                        id="motorPower"
+                        placeholder="e.g. 2000W"
+                        value={form.motorPower || ""}
+                        onChange={(e) => setForm({ ...form, motorPower: e.target.value })}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <Label htmlFor="battery" className="text-xs font-medium">
                         Battery Capacity
                       </Label>
                       <Input
                         id="battery"
-                        placeholder="e.g. 82 kWh"
+                        placeholder="e.g. 60V 32Ah"
                         value={form.batteryCapacity || ""}
                         onChange={(e) => setForm({ ...form, batteryCapacity: e.target.value })}
                         className="text-xs h-8"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <Label htmlFor="range" className="text-xs font-medium">
-                        WLTP / EPA Range
+                        Range / Charge
                       </Label>
                       <Input
                         id="range"
-                        placeholder="e.g. 580 km"
-                        value={form.range || ""}
-                        onChange={(e) => setForm({ ...form, range: e.target.value })}
+                        placeholder="e.g. 120km"
+                        value={form.rangePerCharge || form.range || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, rangePerCharge: e.target.value, range: e.target.value })
+                        }
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="topSpeed" className="text-xs font-medium">
+                        Top Speed
+                      </Label>
+                      <Input
+                        id="topSpeed"
+                        placeholder="e.g. 55 km/h"
+                        value={form.topSpeed || ""}
+                        onChange={(e) => setForm({ ...form, topSpeed: e.target.value })}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="chargingTime" className="text-xs font-medium">
+                        Charging Time
+                      </Label>
+                      <Input
+                        id="chargingTime"
+                        placeholder="e.g. 4-6 Hours"
+                        value={form.chargingTime || ""}
+                        onChange={(e) => setForm({ ...form, chargingTime: e.target.value })}
                         className="text-xs h-8"
                       />
                     </div>
@@ -270,8 +324,8 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                       <Input
                         id="price"
                         type="number"
-                        min="1000"
-                        step="100"
+                        min="100"
+                        step="10"
                         value={form.defaultPrice}
                         onChange={(e) =>
                           setForm({
@@ -292,7 +346,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                         id="downPayment"
                         type="number"
                         min="0"
-                        step="100"
+                        step="10"
                         value={form.minDownPayment ?? 0}
                         onChange={(e) =>
                           setForm({ ...form, minDownPayment: parseFloat(e.target.value) || 0 })
@@ -343,18 +397,19 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 text-[11px] font-semibold text-muted-foreground">
-                <TableHead className="py-2.5 pl-4">Model & Brand</TableHead>
-                <TableHead className="py-2.5">Battery & Range</TableHead>
+                <TableHead className="py-2.5 pl-4">EV Bike Model & Brand</TableHead>
+                <TableHead className="py-2.5">Motor & Battery</TableHead>
+                <TableHead className="py-2.5">Range & Speed</TableHead>
                 <TableHead className="py-2.5">Retail Price</TableHead>
                 <TableHead className="py-2.5">Min Down Payment</TableHead>
-                <TableHead className="py-2.5 pr-4 text-right">In-Stock Count</TableHead>
+                <TableHead className="py-2.5 pr-4 text-right">In-Stock Bikes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-28 text-center text-xs text-muted-foreground">
-                    No vehicle models found. Click "Add Model" to register your first model.
+                  <TableCell colSpan={6} className="h-28 text-center text-xs text-muted-foreground">
+                    No EV bike models found. Click "Add EV Bike Model" to register your first model.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -365,7 +420,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                       <TableCell className="py-3 pl-4">
                         <div className="flex items-center gap-2.5">
                           <div className="size-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
-                            <CarFront className="size-4" />
+                            <Bike className="size-4" />
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-semibold text-foreground">
@@ -379,15 +434,29 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                       </TableCell>
 
                       <TableCell className="py-3">
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 font-mono">
+                            <Zap className="size-3 text-amber-500" />
+                            {m.motorPower || "2000W"}
+                          </span>
                           <span className="flex items-center gap-1 font-mono">
                             <BatteryCharging className="size-3 text-emerald-500" />
-                            {m.batteryCapacity || "N/A"}
+                            {m.batteryCapacity || "60V 32Ah"}
                           </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1 font-mono">
                             <Gauge className="size-3 text-cyan-500" />
-                            {m.range || "N/A"}
+                            {m.rangePerCharge || m.range || "120km"}
                           </span>
+                          {m.topSpeed && (
+                            <span className="text-[11px] text-muted-foreground font-mono">
+                              Top Speed: {m.topSpeed}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
 
@@ -408,7 +477,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                               : "text-muted-foreground"
                           }`}
                         >
-                          {stock} Units In Stock
+                          {stock} Bikes In Stock
                         </Badge>
                       </TableCell>
                     </TableRow>

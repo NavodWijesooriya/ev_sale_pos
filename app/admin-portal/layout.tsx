@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Super Admin Portal | VoltPOS ERP",
+  title: "Super Admin Portal | Ev Sale Pos",
   description: "Platform Administration and Tenant Management",
 }
 

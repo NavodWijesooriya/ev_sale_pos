@@ -79,7 +79,7 @@ function LoginForm() {
           <div className="inline-flex size-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-cyan-400 items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-3">
             <Zap className="size-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">VoltPOS Cloud ERP</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Ev Sale Pos</h1>
           <p className="text-xs text-slate-400 mt-1">Multi-Tenant EV Dealership Management System</p>
         </div>
 

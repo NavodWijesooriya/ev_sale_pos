@@ -6,7 +6,7 @@ import { SaleOverview } from "@/components/sales/sale-overview"
 export const instant = false
 
 export const metadata = {
-  title: "Sale Overview & DMT Registration | VoltPOS EV Dealership ERP",
+  title: "Sale Overview & DMT Registration | Ev Sale Pos",
   description: "Vehicle handover, delivery note, warranty activation and DMT registration tracking",
 }
 

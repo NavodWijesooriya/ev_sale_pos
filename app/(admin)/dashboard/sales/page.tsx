@@ -6,7 +6,7 @@ import { SalesDashboard } from "@/components/sales/sales-dashboard"
 export const instant = false
 
 export const metadata = {
-  title: "Sales & POS Management | VoltPOS EV Dealership ERP",
+  title: "Sales & POS Management | Ev Sale Pos",
   description: "Point of Sale terminal, EV customer billing, cash & bank leasing management",
 }
 

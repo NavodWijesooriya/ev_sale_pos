@@ -52,20 +52,24 @@ async function main() {
 
   console.log(`Created Admin User: ${adminUser.email} (Password: password123)`)
 
-  // 4. Create Vehicle Models
+  // 4. Create EV Bike Models
   const model1 = await prisma.vehicleModel.create({
     data: {
       organizationId: org.id,
       brand: "Volt Motors",
-      modelName: "Apex GT Sedan",
-      batteryCapacity: "82 kWh",
-      range: "580 km",
-      defaultPrice: 48500,
-      minDownPayment: 4850,
+      modelName: "Apex GT Electric Bike",
+      motorPower: "2000W",
+      batteryCapacity: "60V 32Ah",
+      rangePerCharge: "120km",
+      range: "120km",
+      topSpeed: "55 km/h",
+      chargingTime: "4-6 Hours",
+      defaultPrice: 2450,
+      minDownPayment: 250,
     },
   })
 
-  console.log(`Created Vehicle Model: ${model1.brand} ${model1.modelName}`)
+  console.log(`Created EV Bike Model: ${model1.brand} ${model1.modelName}`)
   console.log("Seed complete!")
 }
 

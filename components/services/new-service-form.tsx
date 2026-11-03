@@ -6,7 +6,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import {
   Wrench,
-  Car,
+  Bike,
   User,
   Phone,
   Calendar,
@@ -259,14 +259,14 @@ export function NewServiceForm({
                     1
                   </div>
                   <div>
-                    <CardTitle className="text-base font-bold text-foreground">Select Sold Vehicle</CardTitle>
+                    <CardTitle className="text-base font-bold text-foreground">Select Sold EV Bike</CardTitle>
                     <CardDescription className="text-xs">
-                      Search customer vehicles by VIN, Battery Serial, Customer Name, or Phone
+                      Search customer bikes by Chassis #, Battery Serial, Customer Name, or Phone
                     </CardDescription>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold">
-                  {vehicles.length} Sold Units Active
+                  {vehicles.length} Sold Bikes Active
                 </Badge>
               </div>
             </CardHeader>
@@ -274,9 +274,9 @@ export function NewServiceForm({
               {vehicles.length === 0 ? (
                 <div className="p-8 text-center rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5">
                   <Clock className="h-8 w-8 text-amber-500 mx-auto mb-2 opacity-80" />
-                  <p className="font-semibold text-foreground text-sm">No Sold Vehicles Registered</p>
+                  <p className="font-semibold text-foreground text-sm">No Sold EV Bikes Registered</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Process vehicle sales in the POS terminal first before booking service jobs.
+                    Process EV bike sales in the POS terminal first before booking service jobs.
                   </p>
                 </div>
               ) : (

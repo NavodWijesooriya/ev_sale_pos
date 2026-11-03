@@ -18,7 +18,7 @@ import Link from "next/link"
 export const instant = false
 
 export const metadata = {
-  title: "Super Admin Platform Console | VoltPOS SaaS ERP",
+  title: "Super Admin Platform Console | Ev Sale Pos",
   description: "Platform owner console to onboard and manage EV dealership tenants",
 }
 
@@ -83,7 +83,7 @@ export default async function SuperAdminPage() {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm tracking-tight text-foreground">
-                VoltPOS Platform Control Plane
+                Ev Sale Pos Platform Control Plane
               </span>
               <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
                 Super Admin

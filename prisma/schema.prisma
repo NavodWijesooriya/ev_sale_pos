@@ -117,16 +117,20 @@ model Supplier {
 }
 
 model VehicleModel {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  brand          String
-  modelName      String
-  imageUrl       String?
-  batteryCapacity String?
-  range          String?
-  defaultPrice   Float
-  minDownPayment Float?
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand           String
+  modelName       String
+  imageUrl        String?
+  motorPower      String?      // e.g., "2000W"
+  batteryCapacity String?      // e.g., "60V 32Ah"
+  rangePerCharge  String?      // e.g., "120km"
+  range           String?      // backward compatibility alias
+  topSpeed        String?      // e.g., "55 km/h"
+  chargingTime    String?      // e.g., "4-6 Hours"
+  defaultPrice    Float
+  minDownPayment  Float?
 
   vehicles       Vehicle[]
 }
@@ -154,6 +158,11 @@ model Vehicle {
   color               String?
   status              VehicleStatus @default(InStock)
   purchasePrice       Float
+  motorPower          String?       // e.g., "2000W"
+  batteryCapacity     String?       // e.g., "60V 32Ah"
+  rangePerCharge      String?       // e.g., "120km"
+  topSpeed            String?       // e.g., "55 km/h"
+  chargingTime        String?       // e.g., "4-6 Hours"
   createdAt           DateTime      @default(now())
 
   grnItems            GRNItem[]

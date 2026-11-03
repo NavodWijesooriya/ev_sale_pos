@@ -11,7 +11,7 @@ import {
   Search,
   CheckCircle2,
   Clock,
-  CarFront,
+  Bike,
   Sparkles,
   ArrowRight,
   ShieldCheck,
@@ -23,6 +23,10 @@ export interface StockModelItem {
   modelName: string
   batteryCapacity: string | null
   range: string | null
+  motorPower?: string | null
+  rangePerCharge?: string | null
+  topSpeed?: string | null
+  chargingTime?: string | null
   defaultPrice: number
   minDownPayment: number | null
   inStockCount: number
@@ -83,7 +87,7 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
           <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search by brand, EV model name..."
+            placeholder="Search by brand, EV bike model..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-9 pl-9 pr-3 text-xs rounded-lg border border-input bg-muted/30 placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
@@ -127,8 +131,8 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
       {/* Models Grid */}
       {filtered.length === 0 ? (
         <div className="p-12 text-center rounded-2xl border border-dashed bg-card/40">
-          <CarFront className="size-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-          <h3 className="text-sm font-semibold text-foreground">No EV models match your filters</h3>
+          <Bike className="size-10 text-muted-foreground mx-auto mb-2 opacity-50" />
+          <h3 className="text-sm font-semibold text-foreground">No EV bikes match your filters</h3>
           <p className="text-xs text-muted-foreground mt-1">
             Try adjusting your search query or clear the "In Stock Only" filter.
           </p>
@@ -146,7 +150,7 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
                 className="overflow-hidden border-border/80 hover:border-primary/40 hover:shadow-lg transition-all duration-200 flex flex-col justify-between bg-card/60 backdrop-blur-xs group"
               >
                 <div>
-                  {/* Vehicle Image Placeholder Area */}
+                  {/* EV Bike Image Placeholder Area */}
                   <div className="relative h-48 w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col justify-between p-4 overflow-hidden border-b">
                     {/* Ambient light glow */}
                     <div className="absolute -top-10 -right-10 size-32 bg-blue-500/20 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
@@ -170,13 +174,13 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
                       )}
                     </div>
 
-                    {/* Central Stylized EV Silhouette / Icon */}
+                    {/* Central Stylized EV Bike Silhouette / Icon */}
                     <div className="flex flex-col items-center justify-center my-auto z-10">
                       <div className="size-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform duration-200">
-                        <CarFront className="size-9 text-slate-300 group-hover:text-blue-400 transition-colors" />
+                        <Bike className="size-9 text-slate-300 group-hover:text-blue-400 transition-colors" />
                       </div>
                       <span className="text-[10px] text-slate-400 mt-2 font-mono tracking-wide">
-                        100% Electric Powertrain
+                        100% Electric EV Bike
                       </span>
                     </div>
 
@@ -184,11 +188,11 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
                     <div className="flex items-center justify-between text-[11px] text-slate-300 z-10 pt-1 border-t border-white/10">
                       <span className="flex items-center gap-1">
                         <Gauge className="size-3 text-cyan-400" />
-                        {model.range || "500 km Range"}
+                        {model.topSpeed || "55 km/h Top Speed"}
                       </span>
                       <span className="flex items-center gap-1">
-                        <BatteryCharging className="size-3 text-emerald-400" />
-                        {model.batteryCapacity || "75 kWh"}
+                        <Clock className="size-3 text-amber-400" />
+                        {model.chargingTime || "4-6 Hours Charge"}
                       </span>
                     </div>
                   </div>
@@ -198,30 +202,11 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
                       {model.modelName}
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Available at {dealershipName} Showroom
+                      Electric Bike • Available at {dealershipName} Showroom
                     </CardDescription>
                   </CardHeader>
 
                   <CardContent className="space-y-4 pt-0">
-                    {/* Available Colors */}
-                    {model.availableColors.length > 0 && (
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-medium text-muted-foreground">
-                          In-Stock Colors:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {model.availableColors.map((color, i) => (
-                            <span
-                              key={i}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-muted border text-muted-foreground font-medium"
-                            >
-                              {color}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Pricing & Down Payment Breakdown */}
                     <div className="p-3 rounded-xl bg-muted/40 border space-y-2">
                       <div className="flex items-baseline justify-between">
@@ -241,12 +226,62 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>Est. Bank Lease:</span>
+                        <span>Est. Installment Lease:</span>
                         <span className="font-medium text-foreground">
                           ~{formatCurrency(estimatedMonthly)}/mo (48 mos)
                         </span>
                       </div>
                     </div>
+
+                    {/* Key EV Bike Specifications Highlight */}
+                    <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-center">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px]">
+                          <Zap className="size-3 text-amber-500 shrink-0" />
+                          <span>Motor</span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {model.motorPower || "2000W"}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5 border-x border-border/60 px-1">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px]">
+                          <Gauge className="size-3 text-cyan-500 shrink-0" />
+                          <span>Range</span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {model.rangePerCharge || model.range || "120km"}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px]">
+                          <BatteryCharging className="size-3 text-emerald-500 shrink-0" />
+                          <span>Battery</span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate">
+                          {model.batteryCapacity || "60V 32Ah"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Available Colors */}
+                    {model.availableColors.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                          In-Stock Colors:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {model.availableColors.map((color, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] px-2 py-0.5 rounded-md bg-muted border text-muted-foreground font-medium"
+                            >
+                              {color}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </div>
 
@@ -256,11 +291,11 @@ export function StockGrid({ models, dealershipName }: StockGridProps) {
                     className="w-full text-xs h-9 bg-primary text-primary-foreground font-medium shadow-xs"
                     onClick={() => {
                       alert(
-                        `Inquiry for ${model.brand} ${model.modelName}.\nPlease call ${dealershipName} to reserve this VIN stock!`
+                        `Inquiry for ${model.brand} ${model.modelName}.\nPlease call ${dealershipName} to reserve this EV Bike!`
                       )
                     }}
                   >
-                    <span>Reserve / Inquire Stock</span>
+                    <span>Reserve / Inquire EV Bike</span>
                     <ArrowRight className="ml-1.5 size-3.5" />
                   </Button>
                 </div>

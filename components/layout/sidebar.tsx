@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   Building2,
-  CarFront,
+  Bike,
   BadgeDollarSign,
   Users2,
   Wrench,
@@ -41,15 +41,15 @@ export const navigationItems: NavItem[] = [
   },
   {
     title: "Branches",
-    href: "/dashboard/branches",
+    href: "/dashboard/settings/branches",
     icon: Building2,
     roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
   },
   {
-    title: "Inventory (GRN & Stock)",
+    title: "EV Bikes (GRN & Stock)",
     href: "/dashboard/inventory",
-    icon: CarFront,
-    badge: "Chassis/VIN",
+    icon: Bike,
+    badge: "Chassis/Bike",
     roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"],
   },
   {
@@ -123,7 +123,7 @@ export function SidebarContent({
           href="/dashboard"
           onClick={onNavigate}
           className="flex items-center gap-3 group overflow-hidden"
-          title="VoltPOS ERP"
+          title="Ev Sale Pos"
         >
           <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
             <Zap className="size-5" />
@@ -131,7 +131,7 @@ export function SidebarContent({
           {!isCollapsed && (
             <div className="flex flex-col truncate">
               <span className="text-sm font-extrabold tracking-tight text-foreground">
-                VoltPOS ERP
+                Ev Sale Pos
               </span>
               <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[130px]">
                 {organizationName}
@@ -190,7 +190,7 @@ export function SidebarContent({
                 </span>
               </Link>
 
-              {/* Card 2: Products / Catalog */}
+              {/* Card 2: EV Bikes / Catalog */}
               <Link
                 href="/dashboard/inventory"
                 onClick={onNavigate}
@@ -198,17 +198,17 @@ export function SidebarContent({
               >
                 <div className="flex items-center justify-between w-full">
                   <div className="size-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                    <CarFront className="size-3.5" />
+                    <Bike className="size-3.5" />
                   </div>
                   <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1 rounded">
-                    EV
+                    Bikes
                   </span>
                 </div>
                 <span className="text-xs font-bold text-foreground mt-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                  Products
+                  EV Bikes
                 </span>
                 <span className="text-[10px] text-muted-foreground truncate">
-                  EV Catalog
+                  Bike Catalog
                 </span>
               </Link>
 
@@ -375,7 +375,7 @@ export function SidebarContent({
         {!isCollapsed ? (
           <>
             <span className="text-[11px] text-muted-foreground">
-              Code GN • v1.0
+              Ev Sale Pos • v1.0
             </span>
             {onToggleCollapse && (
               <Button
