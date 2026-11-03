@@ -212,6 +212,8 @@ export interface GRNVehicleItem {
   vehicleModelId: string
   chassisNumber: string
   motorNumber?: string
+  batterySerialNumber?: string
+  warrantyPeriod?: string
   color?: string
   purchasePrice: number
 }
@@ -336,6 +338,8 @@ export async function createGRN(input: CreateGRNInput) {
             vehicleModelId: item.vehicleModelId,
             chassisNumber: item.chassisNumber.trim().toUpperCase(),
             motorNumber: item.motorNumber?.trim() || null,
+            batterySerialNumber: item.batterySerialNumber?.trim() || null,
+            warrantyPeriod: item.warrantyPeriod?.trim() || "3 Years",
             color: item.color?.trim() || "Standard",
             purchasePrice: item.purchasePrice,
             status: VehicleStatus.InStock,

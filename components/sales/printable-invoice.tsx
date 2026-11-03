@@ -26,6 +26,8 @@ export interface InvoiceSaleData {
   id: string
   saleDate: Date | string
   totalAmount: number
+  discount?: number
+  additionalCharges?: number
   paymentMethod: PaymentMethod
   status: string
   organization: {
@@ -63,6 +65,8 @@ export interface InvoiceSaleData {
       id: string
       chassisNumber: string
       motorNumber?: string | null
+      batterySerialNumber?: string | null
+      warrantyPeriod?: string | null
       color?: string | null
       vehicleModel: {
         brand: string
@@ -330,6 +334,12 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                       <td className="py-3 px-3 text-[11px] text-muted-foreground print:text-zinc-700">
                         {m.batteryCapacity && <div>Battery: {m.batteryCapacity}</div>}
                         {m.range && <div>Range: {m.range}</div>}
+                        {v.batterySerialNumber && (
+                          <div className="font-mono text-[10px] text-emerald-600 print:text-black">
+                            Bat S/N: {v.batterySerialNumber}
+                          </div>
+                        )}
+                        {v.warrantyPeriod && <div>Warranty: {v.warrantyPeriod}</div>}
                       </td>
                       <td className="py-3 px-3 font-bold text-sm text-right text-foreground print:text-black">
                         ${item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -398,26 +408,39 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
           {/* Right Column: Totals */}
           <div className="sm:col-span-5 space-y-2 text-xs">
             <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Subtotal</span>
+              <span>Agreed Vehicle Price</span>
               <span className="font-semibold text-foreground print:text-black">
-                ${sale.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ${(sale.items[0]?.price || sale.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Government EV Rebate / Concession</span>
-              <span className="font-medium text-foreground print:text-black">$0.00</span>
-            </div>
+            {!!sale.additionalCharges && sale.additionalCharges > 0 && (
+              <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
+                <span>Additional Charges & Reg</span>
+                <span className="font-semibold text-foreground print:text-black">
+                  +${sale.additionalCharges.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+
+            {!!sale.discount && sale.discount > 0 && (
+              <div className="flex justify-between py-1 text-emerald-600 dark:text-emerald-400 print:text-black">
+                <span>Dealership Discount</span>
+                <span className="font-semibold">
+                  -${sale.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
 
             <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Documentation & Registration Fee</span>
+              <span>Documentation & PDI</span>
               <span className="font-medium text-foreground print:text-black">Included</span>
             </div>
 
             <Separator className="my-2" />
 
             <div className="flex justify-between items-baseline pt-1">
-              <span className="text-sm font-bold text-foreground print:text-black">Total Amount</span>
+              <span className="text-sm font-bold text-foreground print:text-black">Final Total</span>
               <span className="text-2xl font-black text-emerald-600 print:text-black">
                 ${sale.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>

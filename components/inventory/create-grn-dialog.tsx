@@ -60,6 +60,8 @@ export function CreateGRNDialog({
       vehicleModelId: models[0]?.id || "",
       chassisNumber: "",
       motorNumber: "",
+      batterySerialNumber: "",
+      warrantyPeriod: "3 Years",
       color: "Pearl White",
       purchasePrice: models[0] ? Math.round(models[0].defaultPrice * 0.85) : 35000,
     },
@@ -73,6 +75,8 @@ export function CreateGRNDialog({
         vehicleModelId: defaultModel?.id || "",
         chassisNumber: "",
         motorNumber: "",
+        batterySerialNumber: "",
+        warrantyPeriod: "3 Years",
         color: "Pearl White",
         purchasePrice: defaultModel ? Math.round(defaultModel.defaultPrice * 0.85) : 35000,
       },
@@ -165,6 +169,8 @@ export function CreateGRNDialog({
             vehicleModelId: models[0]?.id || "",
             chassisNumber: "",
             motorNumber: "",
+            batterySerialNumber: "",
+            warrantyPeriod: "3 Years",
             color: "Pearl White",
             purchasePrice: models[0] ? Math.round(models[0].defaultPrice * 0.85) : 35000,
           },
@@ -313,69 +319,116 @@ export function CreateGRNDialog({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-                      {/* Model Selector */}
-                      <div className="sm:col-span-2 space-y-1">
-                        <Label className="text-[11px] font-medium">Model</Label>
-                        <select
-                          value={item.vehicleModelId}
-                          onChange={(e) => handleItemChange(idx, "vehicleModelId", e.target.value)}
-                          className="w-full h-8 rounded-lg border border-input bg-transparent px-2 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
-                          required
-                        >
-                          {models.map((m) => (
-                            <option
-                              key={m.id}
-                              value={m.id}
-                              className="bg-popover text-popover-foreground"
-                            >
-                              {m.brand} {m.modelName} ({formatCurrency(m.defaultPrice)})
-                            </option>
-                          ))}
-                        </select>
+                    <div className="space-y-2.5">
+                      {/* Row 1: Model, Chassis, Color, Cost */}
+                      <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+                        {/* Model Selector */}
+                        <div className="sm:col-span-2 space-y-1">
+                          <Label className="text-[11px] font-medium">Model <span className="text-red-500">*</span></Label>
+                          <select
+                            value={item.vehicleModelId}
+                            onChange={(e) => handleItemChange(idx, "vehicleModelId", e.target.value)}
+                            className="w-full h-8 rounded-lg border border-input bg-transparent px-2 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                            required
+                          >
+                            {models.map((m) => (
+                              <option
+                                key={m.id}
+                                value={m.id}
+                                className="bg-popover text-popover-foreground"
+                              >
+                                {m.brand} {m.modelName} ({formatCurrency(m.defaultPrice)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Chassis Number (VIN) */}
+                        <div className="sm:col-span-2 space-y-1">
+                          <Label className="text-[11px] font-medium">
+                            Chassis (VIN) <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="e.g. VIN-2026-900"
+                            value={item.chassisNumber}
+                            onChange={(e) =>
+                              handleItemChange(idx, "chassisNumber", e.target.value.toUpperCase())
+                            }
+                            className="text-xs font-mono h-8 uppercase"
+                            required
+                          />
+                        </div>
+
+                        {/* Color */}
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-medium">Color</Label>
+                          <Input
+                            placeholder="e.g. Pearl White"
+                            value={item.color}
+                            onChange={(e) => handleItemChange(idx, "color", e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
+
+                        {/* Purchase Cost */}
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-medium">Cost ($) <span className="text-red-500">*</span></Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="100"
+                            value={item.purchasePrice}
+                            onChange={(e) =>
+                              handleItemChange(idx, "purchasePrice", parseFloat(e.target.value) || 0)
+                            }
+                            className="text-xs font-mono h-8"
+                            required
+                          />
+                        </div>
                       </div>
 
-                      {/* Chassis Number (VIN) */}
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-medium">
-                          Chassis (VIN) <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          placeholder="e.g. VIN-2026-900"
-                          value={item.chassisNumber}
-                          onChange={(e) =>
-                            handleItemChange(idx, "chassisNumber", e.target.value.toUpperCase())
-                          }
-                          className="text-xs font-mono h-8 uppercase"
-                          required
-                        />
-                      </div>
+                      {/* Row 2: Motor Number, Battery Serial Number, Warranty Period */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-border/40">
+                        {/* Motor Number */}
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-medium text-muted-foreground">
+                            Motor Number (Optional)
+                          </Label>
+                          <Input
+                            placeholder="e.g. MOT-8921-X"
+                            value={item.motorNumber || ""}
+                            onChange={(e) => handleItemChange(idx, "motorNumber", e.target.value)}
+                            className="text-xs font-mono h-8"
+                          />
+                        </div>
 
-                      {/* Color */}
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-medium">Color</Label>
-                        <Input
-                          placeholder="e.g. Pearl White"
-                          value={item.color}
-                          onChange={(e) => handleItemChange(idx, "color", e.target.value)}
-                          className="text-xs h-8"
-                        />
-                      </div>
+                        {/* Battery Serial Number */}
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-medium text-foreground">
+                            Battery Serial No. <span className="text-emerald-600 dark:text-emerald-400 font-semibold">(EV Spec)</span>
+                          </Label>
+                          <Input
+                            placeholder="e.g. BAT-2026-82KW-900"
+                            value={item.batterySerialNumber || ""}
+                            onChange={(e) =>
+                              handleItemChange(idx, "batterySerialNumber", e.target.value.toUpperCase())
+                            }
+                            className="text-xs font-mono h-8 uppercase bg-emerald-500/5 border-emerald-500/30"
+                          />
+                        </div>
 
-                      {/* Purchase Cost */}
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-medium">Cost ($)</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          step="100"
-                          value={item.purchasePrice}
-                          onChange={(e) =>
-                            handleItemChange(idx, "purchasePrice", parseFloat(e.target.value) || 0)
-                          }
-                          className="text-xs font-mono h-8"
-                          required
-                        />
+                        {/* Warranty Period */}
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-medium text-foreground">
+                            Warranty Period
+                          </Label>
+                          <Input
+                            placeholder="e.g. 3 Years / 100,000 km"
+                            value={item.warrantyPeriod || "3 Years"}
+                            onChange={(e) => handleItemChange(idx, "warrantyPeriod", e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -42,14 +42,13 @@ model Organization {
   businessName       String
   domain             String?            @unique
   subdomain          String?            @unique
-  phone              String?            // අලුතින් එකතු කළ ඩීලර්ගේ දුරකථන අංකය
-  logoUrl            String?            // අලුතින් එකතු කළ ලෝගෝ පින්තූරය
+  phone              String?
+  logoUrl            String?
   subscriptionPlan   SubscriptionPlan   @default(Free)
   subscriptionStatus SubscriptionStatus @default(Active)
   expiryDate         DateTime?
   createdAt          DateTime           @default(now())
 
-  // Relations
   users              User[]
   branches           Branch[]
   suppliers          Supplier[]
@@ -119,7 +118,7 @@ model VehicleModel {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   brand          String
   modelName      String
-  imageUrl       String?      // අලුතින් එකතු කළ වාහනයේ පින්තූරය
+  imageUrl       String?
   batteryCapacity String?
   range          String?
   defaultPrice   Float
@@ -136,24 +135,26 @@ enum VehicleStatus {
 }
 
 model Vehicle {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branchId       String
-  branch         Branch       @relation(fields: [branchId], references: [id])
-  vehicleModelId String
-  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+  id                  String        @id @default(uuid())
+  organizationId      String
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId            String
+  branch              Branch        @relation(fields: [branchId], references: [id])
+  vehicleModelId      String
+  vehicleModel        VehicleModel  @relation(fields: [vehicleModelId], references: [id])
   
-  chassisNumber  String       @unique
-  motorNumber    String?
-  color          String?
-  status         VehicleStatus @default(InStock)
-  purchasePrice  Float
-  createdAt      DateTime      @default(now())
+  chassisNumber       String        @unique
+  motorNumber         String?
+  batterySerialNumber String?       @unique // අලුතින් එකතු කළ කොටස
+  warrantyPeriod      String?       // අලුතින් එකතු කළ කොටස (උදා: 3 Years)
+  color               String?
+  status              VehicleStatus @default(InStock)
+  purchasePrice       Float
+  createdAt           DateTime      @default(now())
 
-  grnItems       GRNItem[]
-  saleItems      SaleItem[]
-  serviceRecords ServiceRecord[]
+  grnItems            GRNItem[]
+  saleItems           SaleItem[]
+  serviceRecords      ServiceRecord[]
 }
 
 model GRN {
@@ -182,7 +183,7 @@ model GRNItem {
 }
 
 // ==========================================
-// 3. Sales, Finance & Customers
+// 3. Sales, Finance, Customers & DMT
 // ==========================================
 
 model Customer {
@@ -208,23 +209,27 @@ enum PaymentMethod {
 }
 
 model Sale {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branchId       String
-  branch         Branch       @relation(fields: [branchId], references: [id])
-  customerId     String
-  customer       Customer     @relation(fields: [customerId], references: [id])
-  userId         String
-  soldBy         User         @relation("SoldBy", fields: [userId], references: [id])
+  id                String           @id @default(uuid())
+  organizationId    String
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId          String
+  branch            Branch           @relation(fields: [branchId], references: [id])
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id])
+  userId            String
+  soldBy            User             @relation("SoldBy", fields: [userId], references: [id])
   
-  saleDate       DateTime     @default(now())
-  totalAmount    Float
-  paymentMethod  PaymentMethod
-  status         String       @default("Completed")
+  saleDate          DateTime         @default(now())
+  totalAmount       Float
+  discount          Float            @default(0) // අලුතින් එකතු කළ කොටස
+  additionalCharges Float            @default(0) // අලුතින් එකතු කළ කොටස
+  deliveryDate      DateTime?        // අලුතින් එකතු කළ කොටස
+  paymentMethod     PaymentMethod
+  status            String           @default("Completed")
 
-  items          SaleItem[]
-  financeDetail  FinanceDetail?
+  items             SaleItem[]
+  financeDetail     FinanceDetail?
+  dmtRegistration   DMTRegistration? // අලුතින් එකතු කළ කොටස
 }
 
 model SaleItem {
@@ -250,6 +255,26 @@ model FinanceDetail {
   downPaymentPaid    Float
   dealerCommission   Float?
   status             FinanceStatus @default(Pending)
+}
+
+enum DMTStatus {
+  Pending
+  DocumentsCollected
+  Processing
+  Completed
+}
+
+// අලුතින් එකතු කළ DMT Tracking Model එක
+model DMTRegistration {
+  id               String    @id @default(uuid())
+  saleId           String    @unique
+  sale             Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  status           DMTStatus @default(Pending)
+  hasMTA2          Boolean   @default(false)
+  hasNIC           Boolean   @default(false)
+  hasPhotos        Boolean   @default(false)
+  hasTIN           Boolean   @default(false)
+  registeredNumber String?   
 }
 
 // ==========================================

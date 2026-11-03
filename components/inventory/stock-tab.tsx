@@ -32,6 +32,8 @@ export interface StockVehicleRecord {
   id: string
   chassisNumber: string
   motorNumber: string | null
+  batterySerialNumber?: string | null
+  warrantyPeriod?: string | null
   color: string | null
   purchasePrice: number
   status: string
@@ -340,9 +342,16 @@ export function StockTab({ vehicles }: StockTabProps) {
                     <TableRow key={v.id} className="hover:bg-muted/30 transition-colors">
                       {/* 1. Chassis Number (VIN) */}
                       <TableCell className="py-3 pl-4">
-                        <span className="text-xs font-mono font-bold text-foreground tracking-wide">
-                          {v.chassisNumber}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-mono font-bold text-foreground tracking-wide">
+                            {v.chassisNumber}
+                          </span>
+                          {v.batterySerialNumber && (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono mt-0.5" title="Battery Serial Number">
+                              Bat: {v.batterySerialNumber}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
 
                       {/* 2. Motor Number */}

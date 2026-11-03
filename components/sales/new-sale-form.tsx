@@ -112,6 +112,14 @@ export function NewSaleForm({
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("")
   const [vehicleSearchQuery, setVehicleSearchQuery] = useState("")
   const [salePrice, setSalePrice] = useState<number | "">("")
+  const [discount, setDiscount] = useState<number | "">("")
+  const [additionalCharges, setAdditionalCharges] = useState<number | "">("")
+
+  // Financial calculations
+  const baseVehiclePrice = typeof salePrice === "number" ? salePrice : 0
+  const numDiscount = typeof discount === "number" ? discount : 0
+  const numAdditional = typeof additionalCharges === "number" ? additionalCharges : 0
+  const dynamicTotal = Math.max(0, baseVehiclePrice + numAdditional - numDiscount)
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.Cash)
@@ -208,9 +216,8 @@ export function NewSaleForm({
   // Handle down payment change to recalculate financed amount
   const handleDownPaymentChange = (val: number) => {
     setDownPaymentPaid(val)
-    const price = typeof salePrice === "number" ? salePrice : 0
-    if (price > 0) {
-      setTotalFinanceAmount(Math.max(0, price - val))
+    if (dynamicTotal > 0) {
+      setTotalFinanceAmount(Math.max(0, dynamicTotal - val))
     }
   }
 
@@ -219,6 +226,8 @@ export function NewSaleForm({
     setSelectedVehicleId("")
     setVehicleSearchQuery("")
     setSalePrice("")
+    setDiscount("")
+    setAdditionalCharges("")
     setSelectedCustomerId("new")
     setCustomerSearchQuery("")
     setCustomerName("")
@@ -284,6 +293,8 @@ export function NewSaleForm({
         customerAddress: customerAddress.trim() || undefined,
         vehicleId: selectedVehicleId,
         salePrice: Number(salePrice),
+        discount: typeof discount === "number" ? discount : 0,
+        additionalCharges: typeof additionalCharges === "number" ? additionalCharges : 0,
         paymentMethod,
         financeCompany: isFinance ? financeCompany.trim() : undefined,
         totalFinanceAmount: isFinance ? Number(totalFinanceAmount) : undefined,
@@ -428,33 +439,75 @@ export function NewSaleForm({
                         VIN: {selectedVehicle.chassisNumber} • Branch: {selectedVehicle.branch.name}
                       </p>
                     </div>
+                  </div>
 
-                    <div className="sm:w-48">
-                      <Label className="text-xs font-semibold">Agreed Sale Price ($)</Label>
+                  <div className="pt-2 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs font-semibold">Agreed Base Price ($) <span className="text-destructive">*</span></Label>
                       <div className="relative mt-1">
                         <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                           type="number"
                           min="1"
                           step="0.01"
-                          placeholder="Sale Price"
+                          placeholder="Base Price"
                           value={salePrice}
                           onChange={(e) => {
                             const val = e.target.value === "" ? "" : parseFloat(e.target.value)
                             setSalePrice(val)
-                            if (
-                              typeof val === "number" &&
-                              (paymentMethod === PaymentMethod.Finance ||
-                                paymentMethod === PaymentMethod.SplitPayment)
-                            ) {
-                              const down = typeof downPaymentPaid === "number" ? downPaymentPaid : 0
-                              setTotalFinanceAmount(Math.max(0, val - down))
-                            }
                           }}
-                          className="pl-8 font-bold text-emerald-600 dark:text-emerald-400"
+                          className="pl-8 font-bold text-foreground"
+                          required
                         />
                       </div>
                     </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Additional Charges ($)</Label>
+                      <div className="relative mt-1">
+                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="e.g. Registration"
+                          value={additionalCharges}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? "" : parseFloat(e.target.value)
+                            setAdditionalCharges(val)
+                          }}
+                          className="pl-8"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Dealership Discount ($)</Label>
+                      <div className="relative mt-1">
+                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="e.g. Seasonal Promo"
+                          value={discount}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? "" : parseFloat(e.target.value)
+                            setDiscount(val)
+                          }}
+                          className="pl-8 text-amber-600 dark:text-amber-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40 bg-muted/20 px-3 py-2 rounded-lg">
+                    <span className="text-muted-foreground font-medium">
+                      Calculated Net Total: ({baseVehiclePrice.toLocaleString()} + {numAdditional.toLocaleString()}) - {numDiscount.toLocaleString()}
+                    </span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                      = ${dynamicTotal.toLocaleString()}
+                    </span>
                   </div>
                 </div>
               )}
@@ -828,11 +881,29 @@ export function NewSaleForm({
               {/* Pricing Breakdown */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Agreed Price</span>
+                  <span className="text-muted-foreground">Vehicle Base Price</span>
                   <span className="font-semibold text-foreground">
-                    ${typeof salePrice === "number" ? salePrice.toLocaleString() : "0.00"}
+                    ${baseVehiclePrice.toLocaleString()}
                   </span>
                 </div>
+
+                {numAdditional > 0 && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Additional Charges:</span>
+                    <span className="font-medium text-foreground">
+                      +${numAdditional.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {numDiscount > 0 && (
+                  <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
+                    <span>Dealership Discount:</span>
+                    <span className="font-medium">
+                      -${numDiscount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
 
                 {isFinanceSelected && (
                   <>
@@ -854,9 +925,9 @@ export function NewSaleForm({
                 <Separator />
 
                 <div className="flex justify-between items-baseline pt-1">
-                  <span className="font-bold text-base text-foreground">Total Due</span>
+                  <span className="font-bold text-base text-foreground">Final Total Due</span>
                   <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                    ${typeof salePrice === "number" ? salePrice.toLocaleString() : "0.00"}
+                    ${dynamicTotal.toLocaleString()}
                   </span>
                 </div>
               </div>

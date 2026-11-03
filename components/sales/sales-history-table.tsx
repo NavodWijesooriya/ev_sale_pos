@@ -35,13 +35,16 @@ import {
   FileSpreadsheet,
   FileText,
   Printer,
+  FileCheck2,
 } from "lucide-react"
-import { PaymentMethod, FinanceStatus } from "@prisma/client"
+import { PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
 
 export interface SaleRecordItem {
   id: string
   saleDate: Date | string
   totalAmount: number
+  discount?: number
+  additionalCharges?: number
   paymentMethod: PaymentMethod
   status: string
   customer: {
@@ -85,6 +88,11 @@ export interface SaleRecordItem {
     downPaymentPaid: number
     dealerCommission?: number | null
     status: FinanceStatus
+  } | null
+  dmtRegistration?: {
+    id: string
+    status: DMTStatus
+    registeredNumber?: string | null
   } | null
 }
 
@@ -424,18 +432,31 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                         </div>
                       </TableCell>
 
-                      {/* Printable Invoice Action */}
+                      {/* Actions: DMT Overview & Printable Invoice */}
                       <TableCell className="align-top py-3.5 text-right">
-                        <Link href={`/dashboard/sales/${sale.id}/invoice`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            View Invoice
-                          </Button>
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link href={`/dashboard/sales/${sale.id}`}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 gap-1 text-xs font-semibold hover:bg-purple-600 hover:text-white transition-all"
+                              title="DMT Registration Tracker & Delivery Handover"
+                            >
+                              <FileCheck2 className="size-3.5 text-purple-600 group-hover:text-white" />
+                              DMT & Handover
+                            </Button>
+                          </Link>
+                          <Link href={`/dashboard/sales/${sale.id}/invoice`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
+                            >
+                              <FileText className="size-3.5" />
+                              Invoice
+                            </Button>
+                          </Link>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

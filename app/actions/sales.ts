@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
-import { VehicleStatus, PaymentMethod, FinanceStatus } from "@prisma/client"
+import { VehicleStatus, PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
 
 /**
  * Enforces session authentication and extracts the user's organizationId and userId
@@ -32,6 +32,9 @@ export interface ProcessSaleInput {
   // Vehicle info
   vehicleId: string
   salePrice: number
+  discount?: number
+  additionalCharges?: number
+  deliveryDate?: Date | string
 
   // Payment info
   paymentMethod: PaymentMethod
@@ -133,6 +136,7 @@ export async function getSalesHistory() {
           },
         },
         financeDetail: true,
+        dmtRegistration: true,
       },
     })
 
@@ -272,6 +276,11 @@ export async function processSale(input: ProcessSaleInput) {
         )
       }
 
+      // Dynamic financial calculation: (Vehicle Price + Additional Charges) - Discount
+      const discount = Math.max(0, Number(input.discount) || 0)
+      const additionalCharges = Math.max(0, Number(input.additionalCharges) || 0)
+      const calculatedTotal = Math.max(0, (input.salePrice + additionalCharges) - discount)
+
       // Step C: Create Sale record
       const sale = await tx.sale.create({
         data: {
@@ -279,7 +288,10 @@ export async function processSale(input: ProcessSaleInput) {
           branchId: vehicle.branchId,
           customerId,
           userId,
-          totalAmount: input.salePrice,
+          totalAmount: calculatedTotal,
+          discount,
+          additionalCharges,
+          deliveryDate: input.deliveryDate ? new Date(input.deliveryDate) : new Date(),
           paymentMethod: input.paymentMethod,
           status: "Completed",
           saleDate: new Date(),
@@ -318,12 +330,25 @@ export async function processSale(input: ProcessSaleInput) {
         })
       }
 
+      // Step G: Automatically create an empty DMTRegistration record linked to the new Sale
+      const dmtRecord = await tx.dMTRegistration.create({
+        data: {
+          saleId: sale.id,
+          status: DMTStatus.Pending,
+          hasMTA2: false,
+          hasNIC: false,
+          hasPhotos: false,
+          hasTIN: false,
+        },
+      })
+
       return {
         sale,
         saleItem,
         chassisNumber: vehicle.chassisNumber,
         modelName: `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName}`,
         financeRecord,
+        dmtRecord,
       }
     })
 
@@ -342,6 +367,123 @@ export async function processSale(input: ProcessSaleInput) {
     return {
       success: false,
       error: (error as Error).message || "Failed to process sale.",
+    }
+  }
+}
+
+/**
+ * Fetch a single sale's comprehensive overview, customer, vehicle, warranty, finance, and DMT record
+ */
+export async function getSaleDetails(saleId: string) {
+  try {
+    const { organizationId } = await requireAuthOrg()
+
+    const sale = await prisma.sale.findFirst({
+      where: { id: saleId, organizationId },
+      include: {
+        organization: true,
+        branch: true,
+        customer: true,
+        soldBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        items: {
+          include: {
+            vehicle: {
+              include: {
+                vehicleModel: true,
+              },
+            },
+          },
+        },
+        financeDetail: true,
+        dmtRegistration: true,
+      },
+    })
+
+    if (!sale) {
+      return { success: false, error: "Sale not found in your dealership records.", data: null }
+    }
+
+    return { success: true, data: sale }
+  } catch (error) {
+    console.error("getSaleDetails error:", error)
+    return { success: false, error: (error as Error).message, data: null }
+  }
+}
+
+export interface UpdateDMTRegistrationInput {
+  saleId: string
+  status?: DMTStatus
+  hasMTA2?: boolean
+  hasNIC?: boolean
+  hasPhotos?: boolean
+  hasTIN?: boolean
+  registeredNumber?: string
+}
+
+/**
+ * Updates the DMT Registration details and document checklist for an EV sale
+ */
+export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
+  try {
+    const { organizationId } = await requireAuthOrg()
+
+    if (!input.saleId) {
+      throw new Error("Sale ID is required.")
+    }
+
+    // Verify sale ownership
+    const sale = await prisma.sale.findFirst({
+      where: { id: input.saleId, organizationId },
+    })
+
+    if (!sale) {
+      throw new Error("Sale not found in your dealership records.")
+    }
+
+    const dmt = await prisma.dMTRegistration.upsert({
+      where: { saleId: input.saleId },
+      update: {
+        ...(input.status !== undefined && { status: input.status }),
+        ...(input.hasMTA2 !== undefined && { hasMTA2: input.hasMTA2 }),
+        ...(input.hasNIC !== undefined && { hasNIC: input.hasNIC }),
+        ...(input.hasPhotos !== undefined && { hasPhotos: input.hasPhotos }),
+        ...(input.hasTIN !== undefined && { hasTIN: input.hasTIN }),
+        ...(input.registeredNumber !== undefined && {
+          registeredNumber: input.registeredNumber.trim() || null,
+        }),
+      },
+      create: {
+        saleId: input.saleId,
+        status: input.status || DMTStatus.Pending,
+        hasMTA2: input.hasMTA2 ?? false,
+        hasNIC: input.hasNIC ?? false,
+        hasPhotos: input.hasPhotos ?? false,
+        hasTIN: input.hasTIN ?? false,
+        registeredNumber: input.registeredNumber?.trim() || null,
+      },
+    })
+
+    revalidatePath(`/dashboard/sales/${input.saleId}`)
+    revalidatePath(`/dashboard/sales/${input.saleId}/invoice`)
+    revalidatePath("/dashboard/sales")
+
+    return {
+      success: true,
+      message: "DMT registration status updated successfully!",
+      data: dmt,
+    }
+  } catch (error) {
+    console.error("updateDMTRegistration error:", error)
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to update DMT registration.",
     }
   }
 }
