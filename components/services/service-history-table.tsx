@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import {
   Table,
   TableBody,
@@ -32,6 +33,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Building,
+  Printer,
+  FileText,
 } from "lucide-react"
 import { ServiceType } from "@prisma/client"
 
@@ -299,12 +302,13 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
                 <TableHead className="font-semibold text-xs">Workshop Branch</TableHead>
                 <TableHead className="font-semibold text-xs">Next Due Date</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Cost</TableHead>
+                <TableHead className="font-semibold text-xs text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <Wrench className="size-8 text-muted-foreground/40 mb-1" />
                       <p className="font-semibold text-sm">No service records found</p>
@@ -398,6 +402,21 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
                         ) : (
                           `$${r.totalCost.toLocaleString()}`
                         )}
+                      </TableCell>
+
+                      {/* Action: Print Job Card */}
+                      <TableCell className="align-top py-3.5 text-right">
+                        <Link href={`/dashboard/services/${r.id}/job-card`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
+                            title="Print Customer Service Job Card"
+                          >
+                            <Printer className="size-3.5" />
+                            Print Job Card
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   )

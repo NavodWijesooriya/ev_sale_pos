@@ -95,7 +95,7 @@ interface NewServiceFormProps {
   vehicles: SoldVehicleItem[]
   branches: BranchOption[]
   customers: CustomerOption[]
-  onSuccess?: () => void
+  onSuccess?: (serviceId?: string) => void
 }
 
 export function NewServiceForm({
@@ -221,7 +221,7 @@ export function NewServiceForm({
       if (res.success) {
         toast.success(res.message || "Service job recorded successfully!")
         handleReset()
-        if (onSuccess) onSuccess()
+        if (onSuccess) onSuccess(res.data?.id)
       } else {
         toast.error(res.error || "Failed to log service record.")
       }

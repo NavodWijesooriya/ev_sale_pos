@@ -75,9 +75,13 @@ export function ServiceDashboard({
     setTimeout(() => setIsRefreshing(false), 600)
   }
 
-  const handleServiceSuccess = () => {
+  const handleServiceSuccess = (serviceId?: string) => {
     router.refresh()
-    setActiveTab("history")
+    if (serviceId) {
+      router.push(`/dashboard/services/${serviceId}/job-card`)
+    } else {
+      setActiveTab("history")
+    }
   }
 
   return (
