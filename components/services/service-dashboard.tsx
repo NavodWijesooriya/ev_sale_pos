@@ -7,9 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,8 +17,6 @@ import {
   DollarSign,
   PlusCircle,
   RefreshCw,
-  Clock,
-  Car,
   History,
   TrendingUp,
 } from "lucide-react"
@@ -84,12 +79,22 @@ export function ServiceDashboard({
     }
   }
 
+  const recentRecords = initialRecords.slice(0, 3).map((r) => ({
+    id: r.id,
+    customerName: r.customer.name,
+    vehicleModel: `${r.vehicle.vehicleModel.brand} ${r.vehicle.vehicleModel.modelName}`,
+    chassisNumber: r.vehicle.chassisNumber,
+    serviceType: r.serviceType,
+    totalCost: r.totalCost,
+    date: new Date(r.serviceDate).toLocaleDateString(),
+  }))
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
               After-Sales Service & Maintenance
             </h1>
@@ -98,7 +103,7 @@ export function ServiceDashboard({
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Log periodic inspections, battery diagnostics, and warranty service jobs for{" "}
+            Manage routine inspections, battery diagnostics, and warranty service jobs for{" "}
             <span className="font-semibold text-foreground">{dealershipName}</span>.
           </p>
         </div>
@@ -109,7 +114,7 @@ export function ServiceDashboard({
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="h-9 gap-1.5 text-xs font-medium"
+            className="h-9 gap-1.5 text-xs font-medium border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs"
           >
             <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh Data
@@ -117,38 +122,38 @@ export function ServiceDashboard({
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards: Structured White Cards with Subtle Borders */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+        <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Total Services Logged
               </p>
-              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
+              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
                 {totalServices}
               </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                All maintenance jobs
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                <CheckCircle2 className="size-3" />
+                Workshop activity
               </p>
             </div>
-            <div className="size-10 sm:size-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="size-10 sm:size-12 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Wrench className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+        <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Free Inspections
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Free Service Jobs
               </p>
-              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
+              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
                 {freeServicesCount}
               </h3>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                <CheckCircle2 className="size-3" />
+              <p className="text-[11px] text-muted-foreground mt-0.5">
                 Complimentary checks
               </p>
             </div>
@@ -158,32 +163,32 @@ export function ServiceDashboard({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+        <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Warranty Claims
               </p>
-              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
+              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
                 {warrantyClaimsCount}
               </h3>
-              <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium mt-0.5">
-                Battery & component claims
+              <p className="text-[11px] text-purple-600 dark:text-purple-400 font-medium mt-0.5">
+                Battery & parts covered
               </p>
             </div>
-            <div className="size-10 sm:size-12 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <div className="size-10 sm:size-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
               <ShieldCheck className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+        <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Service Revenue
               </p>
-              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
+              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
                 ${totalServiceRevenue.toLocaleString()}
               </h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -197,17 +202,17 @@ export function ServiceDashboard({
         </Card>
       </div>
 
-      {/* Main Tabs Navigation */}
+      {/* Main Tabs Navigation (Requirement 3: shadcn Tabs for top-level page navigation) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 max-w-md h-11 bg-muted/80 p-1">
-          <TabsTrigger value="new-service" className="gap-2 text-xs font-bold">
+        <TabsList className="grid grid-cols-2 max-w-md h-12 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 shadow-xs">
+          <TabsTrigger value="new-service" className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs">
             <PlusCircle className="size-4" />
             New Service Job
             <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
               {initialVehicles.length} Sold
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2 text-xs font-bold">
+          <TabsTrigger value="history" className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs">
             <History className="size-4" />
             Service History
             <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
@@ -222,6 +227,7 @@ export function ServiceDashboard({
             vehicles={initialVehicles}
             branches={branches}
             customers={customers}
+            recentRecords={recentRecords}
             onSuccess={handleServiceSuccess}
           />
         </TabsContent>

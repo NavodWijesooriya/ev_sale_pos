@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import {
   Wrench,
@@ -20,6 +21,8 @@ import {
   Clock,
   Sparkles,
   FileText,
+  BookmarkCheck,
+  ExternalLink,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -95,6 +98,15 @@ interface NewServiceFormProps {
   vehicles: SoldVehicleItem[]
   branches: BranchOption[]
   customers: CustomerOption[]
+  recentRecords?: Array<{
+    id: string
+    customerName: string
+    vehicleModel: string
+    chassisNumber: string
+    serviceType: ServiceType
+    totalCost: number
+    date: string
+  }>
   onSuccess?: (serviceId?: string) => void
 }
 
@@ -102,6 +114,7 @@ export function NewServiceForm({
   vehicles,
   branches,
   customers,
+  recentRecords = [],
   onSuccess,
 }: NewServiceFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -237,22 +250,22 @@ export function NewServiceForm({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Form Details (8 Cols) */}
         <div className="lg:col-span-8 space-y-6">
-          {/* SECTION 1: SOLD VEHICLE SELECTION */}
-          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+          {/* SECTION 1: SOLD VEHICLE SELECTION (Numbered Step 1) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                    <Car className="h-5 w-5" />
+                <div className="flex items-center gap-3">
+                  <div className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-xs shrink-0 shadow-xs">
+                    1
                   </div>
                   <div>
-                    <CardTitle className="text-base font-bold">1. Select Sold Vehicle</CardTitle>
+                    <CardTitle className="text-base font-bold text-foreground">Select Sold Vehicle</CardTitle>
                     <CardDescription className="text-xs">
                       Search customer vehicles by VIN, Battery Serial, Customer Name, or Phone
                     </CardDescription>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs bg-blue-500/5 text-blue-600 border-blue-500/20">
+                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold">
                   {vehicles.length} Sold Units Active
                 </Badge>
               </div>
@@ -370,15 +383,15 @@ export function NewServiceForm({
             </CardContent>
           </Card>
 
-          {/* SECTION 2: SERVICE DETAILS & WORKSHOP */}
-          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+          {/* SECTION 2: SERVICE DETAILS & WORKSHOP (Numbered Step 2) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
             <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                  <Wrench className="h-5 w-5" />
+              <div className="flex items-center gap-3">
+                <div className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-xs shrink-0 shadow-xs">
+                  2
                 </div>
                 <div>
-                  <CardTitle className="text-base font-bold">2. Service & Maintenance Job Details</CardTitle>
+                  <CardTitle className="text-base font-bold text-foreground">Service & Maintenance Job Details</CardTitle>
                   <CardDescription className="text-xs">
                     Select service category, log technician work done, and schedule next due date
                   </CardDescription>
@@ -512,21 +525,22 @@ export function NewServiceForm({
           </Card>
         </div>
 
-        {/* Right Column: Job Summary & Action (4 Cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="sticky top-6 border-border/60 shadow-lg bg-card/80 backdrop-blur">
-            <CardHeader className="pb-3 border-b border-border/40">
+        {/* Right Column: Persistent Summary & Saved Results Panel (~320px) */}
+        <div className="lg:col-span-4 lg:w-[320px] xl:w-[340px] shrink-0 space-y-4">
+          {/* Card 1: Real-time Service Job Estimation Card */}
+          <Card className="sticky top-20 border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
+            <CardHeader className="pb-3 border-b border-slate-200/80 dark:border-slate-800">
               <CardTitle className="text-base font-bold flex items-center justify-between">
                 <span>Service Job Card</span>
-                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                  Ready to Issue
+                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 font-semibold">
+                  Live Estimate
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4 text-xs">
               {/* Selected Vehicle Preview */}
               {selectedVehicle ? (
-                <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-2">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-2">
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary" className="text-[10px] font-semibold">
                       {selectedVehicle.vehicleModel.brand}
@@ -548,7 +562,7 @@ export function NewServiceForm({
                   )}
                 </div>
               ) : (
-                <div className="p-4 rounded-xl border border-dashed text-center text-muted-foreground">
+                <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-muted-foreground bg-slate-50/50 dark:bg-slate-900/50">
                   No vehicle selected yet
                 </div>
               )}
@@ -588,17 +602,17 @@ export function NewServiceForm({
               {/* Billing Summary */}
               <div className="flex justify-between items-baseline pt-1">
                 <span className="font-bold text-sm text-foreground">Service Total</span>
-                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
                   ${typeof totalCost === "number" ? totalCost.toLocaleString() : "0.00"}
                 </span>
               </div>
             </CardContent>
 
-            <CardFooter className="flex-col gap-2 pt-2 pb-5 border-t border-border/40">
+            <CardFooter className="flex-col gap-2 pt-2 pb-5 border-t border-slate-200/80 dark:border-slate-800">
               <Button
                 type="submit"
                 disabled={isSubmitting || !selectedVehicle || !description.trim()}
-                className="w-full h-11 text-xs font-bold bg-primary text-primary-foreground shadow-md gap-2"
+                className="w-full h-11 text-xs font-bold bg-primary text-primary-foreground shadow-sm gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -625,6 +639,60 @@ export function NewServiceForm({
                 Clear Form
               </Button>
             </CardFooter>
+          </Card>
+
+          {/* Card 2: Saved Results / Recent Service Jobs (Requirement 4) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
+            <CardHeader className="pb-2.5 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <BookmarkCheck className="size-4 text-blue-500" />
+                  Saved Results
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {recentRecords.length} Recent Jobs
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 pb-3 space-y-2.5">
+              {recentRecords.length === 0 ? (
+                <div className="py-4 text-center text-xs text-muted-foreground">
+                  Logged service jobs will appear here with instant job-card print links.
+                </div>
+              ) : (
+                recentRecords.map((rec) => (
+                  <div
+                    key={rec.id}
+                    className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-xs space-y-1 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground truncate max-w-[150px]">
+                        {rec.customerName}
+                      </span>
+                      <span className="font-mono font-bold text-foreground">
+                        {rec.totalCost === 0 ? "Free / Covered" : `$${rec.totalCost.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="truncate max-w-[140px]">{rec.vehicleModel}</span>
+                      <span className="font-mono">{rec.date}</span>
+                    </div>
+                    <div className="pt-1.5 flex items-center justify-between border-t border-slate-200/60 dark:border-slate-700">
+                      <Badge variant="outline" className="text-[9px] py-0 px-1">
+                        {rec.serviceType}
+                      </Badge>
+                      <Link
+                        href={`/dashboard/services/${rec.id}/job-card`}
+                        className="text-[10px] text-primary font-semibold hover:underline flex items-center gap-0.5"
+                      >
+                        Job Card
+                        <ExternalLink className="size-2.5" />
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>

@@ -228,59 +228,75 @@ export function CreateGRNDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 pt-3">
-            {/* Header Settings: Supplier & Target Branch */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 rounded-xl bg-muted/40 border">
-              <div className="space-y-1.5">
-                <Label htmlFor="grnSupplier" className="text-xs font-medium flex items-center gap-1.5">
-                  <Truck className="size-3.5 text-muted-foreground" />
-                  Supplier / Logistics Importer <span className="text-red-500">*</span>
-                </Label>
-                <select
-                  id="grnSupplier"
-                  value={supplierId}
-                  onChange={(e) => setSupplierId(e.target.value)}
-                  className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
-                  required
-                >
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-popover text-popover-foreground">
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+            {/* Step 1: Supplier & Target Branch */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-[11px] shrink-0 shadow-xs">
+                  1
+                </div>
+                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Logistics & Destination
+                </h4>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="grnBranch" className="text-xs font-medium flex items-center gap-1.5">
-                  <Building2 className="size-3.5 text-muted-foreground" />
-                  Receiving Showroom Branch <span className="text-red-500">*</span>
-                </Label>
-                <select
-                  id="grnBranch"
-                  value={branchId}
-                  onChange={(e) => setBranchId(e.target.value)}
-                  className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
-                  required
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id} className="bg-popover text-popover-foreground">
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <div className="space-y-1.5">
+                  <Label htmlFor="grnSupplier" className="text-xs font-medium flex items-center gap-1.5">
+                    <Truck className="size-3.5 text-muted-foreground" />
+                    Supplier / Logistics Importer <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    id="grnSupplier"
+                    value={supplierId}
+                    onChange={(e) => setSupplierId(e.target.value)}
+                    className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                    required
+                  >
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id} className="bg-popover text-popover-foreground">
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="grnBranch" className="text-xs font-medium flex items-center gap-1.5">
+                    <Building2 className="size-3.5 text-muted-foreground" />
+                    Receiving Showroom Branch <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    id="grnBranch"
+                    value={branchId}
+                    onChange={(e) => setBranchId(e.target.value)}
+                    className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                    required
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id} className="bg-popover text-popover-foreground">
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Dynamic Vehicles List */}
-            <div className="space-y-3">
+            {/* Step 2: Dynamic Vehicles List */}
+            <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                    Vehicles to Intake ({items.length} Units)
-                  </h4>
-                  <p className="text-[11px] text-muted-foreground">
-                    Enter individual chassis number (VIN) and procurement cost for each unit.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-[11px] shrink-0 shadow-xs">
+                    2
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      Vehicles to Intake ({items.length} Units)
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground">
+                      Enter individual chassis number (VIN), battery serial, and procurement cost.
+                    </p>
+                  </div>
                 </div>
 
                 <Button

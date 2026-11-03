@@ -113,18 +113,24 @@ export function AdvancedReportsDashboard({ initialData }: AdvancedReportsDashboa
           </div>
         </div>
 
-        {/* Shadcn Tabs Component with 4 Core Sections */}
+        {/* Shadcn Tabs Component with 4 Core Sections (Requirement 3) */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-          <TabsList className="grid grid-cols-2 lg:grid-cols-4 max-w-3xl h-11 bg-muted/80 p-1">
+          <TabsList className="grid grid-cols-2 lg:grid-cols-4 max-w-3xl h-12 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 shadow-xs">
             {/* Tab 1 Trigger */}
-            <TabsTrigger value="financial" className="gap-2 text-xs font-bold">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
+            <TabsTrigger
+              value="financial"
+              className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs"
+            >
+              <TrendingUp className="h-4 w-4" />
               <span>Financial Performance</span>
             </TabsTrigger>
 
             {/* Tab 2 Trigger */}
-            <TabsTrigger value="aging" className="gap-2 text-xs font-bold">
-              <Warehouse className="h-4 w-4 text-amber-500" />
+            <TabsTrigger
+              value="aging"
+              className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs"
+            >
+              <Warehouse className="h-4 w-4" />
               <span>Inventory Aging</span>
               {data.inventoryAging.summary.criticalOver90Count > 0 && (
                 <Badge
@@ -137,8 +143,11 @@ export function AdvancedReportsDashboard({ initialData }: AdvancedReportsDashboa
             </TabsTrigger>
 
             {/* Tab 3 Trigger */}
-            <TabsTrigger value="dmt" className="gap-2 text-xs font-bold">
-              <FileCheck2 className="h-4 w-4 text-purple-500" />
+            <TabsTrigger
+              value="dmt"
+              className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs"
+            >
+              <FileCheck2 className="h-4 w-4" />
               <span>Pending DMT</span>
               {data.pendingDMT.summary.totalPending > 0 && (
                 <Badge
@@ -151,8 +160,11 @@ export function AdvancedReportsDashboard({ initialData }: AdvancedReportsDashboa
             </TabsTrigger>
 
             {/* Tab 4 Trigger */}
-            <TabsTrigger value="service" className="gap-2 text-xs font-bold">
-              <Wrench className="h-4 w-4 text-cyan-500" />
+            <TabsTrigger
+              value="service"
+              className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs"
+            >
+              <Wrench className="h-4 w-4" />
               <span>After-Sales Service</span>
               <Badge
                 variant="secondary"

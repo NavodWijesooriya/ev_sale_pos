@@ -125,9 +125,9 @@ export default async function DashboardPage() {
         {stats.map((stat, idx) => {
           const Icon = stat.icon
           return (
-            <Card key={idx} className="relative overflow-hidden">
+            <Card key={idx} className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900 relative overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {stat.title}
                 </CardTitle>
                 <div className={`p-2 rounded-lg border ${stat.bgColor}`}>
@@ -135,7 +135,7 @@ export default async function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</div>
+                <div className="text-2xl font-bold tracking-tight text-foreground font-mono">{stat.value}</div>
                 <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
                   <ArrowUpRight className="size-3 text-emerald-500" />
                   <span>{stat.change}</span>
@@ -149,7 +149,7 @@ export default async function DashboardPage() {
       {/* Main Grid: Recent Activity & Multi-Tenant Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Dealership Sales */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -179,7 +179,7 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                   <div className="text-right space-y-0.5">
-                    <div className="text-xs font-bold text-foreground">{tx.amount}</div>
+                    <div className="text-xs font-bold text-foreground font-mono">{tx.amount}</div>
                     <span
                       className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
                         tx.status === "Completed"
@@ -197,7 +197,7 @@ export default async function DashboardPage() {
         </Card>
 
         {/* Tenant Isolation Status Card */}
-        <Card className="flex flex-col justify-between">
+        <Card className="flex flex-col justify-between border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <ShieldCheck className="size-4 text-blue-500" />

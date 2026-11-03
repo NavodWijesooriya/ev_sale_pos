@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import {
   Car,
@@ -22,6 +23,10 @@ import {
   RotateCcw,
   ShieldCheck,
   Percent,
+  History,
+  Clock,
+  ExternalLink,
+  BookmarkCheck,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -88,6 +93,14 @@ interface NewSaleFormProps {
   vehicles: InStockVehicle[]
   customers: CustomerData[]
   branches: BranchData[]
+  recentSales?: Array<{
+    id: string
+    customerName: string
+    vehicleName: string
+    chassisNumber?: string
+    totalAmount: number
+    date: string
+  }>
   onSaleComplete?: (saleId?: string) => void
 }
 
@@ -95,6 +108,7 @@ export function NewSaleForm({
   vehicles,
   customers,
   branches,
+  recentSales = [],
   onSaleComplete,
 }: NewSaleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -330,22 +344,22 @@ export function NewSaleForm({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Form Details (8 Cols) */}
         <div className="lg:col-span-8 space-y-6">
-          {/* SECTION 1: VEHICLE SELECTION */}
-          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+          {/* SECTION 1: VEHICLE SELECTION (Numbered Step 1) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                    <Car className="h-5 w-5" />
+                <div className="flex items-center gap-3">
+                  <div className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-xs shrink-0 shadow-xs">
+                    1
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold">1. Select Electric Vehicle</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-base font-bold text-foreground">Select Electric Vehicle</CardTitle>
+                    <CardDescription className="text-xs">
                       Choose an in-stock EV from showroom inventory
                     </CardDescription>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
+                <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-semibold">
                   {vehicles.length} Units In Stock
                 </Badge>
               </div>
@@ -514,17 +528,17 @@ export function NewSaleForm({
             </CardContent>
           </Card>
 
-          {/* SECTION 2: CUSTOMER INFORMATION */}
-          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+          {/* SECTION 2: CUSTOMER INFORMATION (Numbered Step 2) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                    <User className="h-5 w-5" />
+                <div className="flex items-center gap-3">
+                  <div className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-xs shrink-0 shadow-xs">
+                    2
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold">2. Customer Details</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-base font-bold text-foreground">Customer Profile & Registration</CardTitle>
+                    <CardDescription className="text-xs">
                       Search existing buyer or register a new customer profile
                     </CardDescription>
                   </div>
@@ -660,16 +674,16 @@ export function NewSaleForm({
             </CardContent>
           </Card>
 
-          {/* SECTION 3: PAYMENT & FINANCE CONFIGURATION */}
-          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+          {/* SECTION 3: PAYMENT & FINANCE CONFIGURATION (Numbered Step 3) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
             <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                  <CreditCard className="h-5 w-5" />
+              <div className="flex items-center gap-3">
+                <div className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-xs shrink-0 shadow-xs">
+                  3
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-bold">3. Payment & Settlement</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-base font-bold text-foreground">Payment Method & Financing</CardTitle>
+                  <CardDescription className="text-xs">
                     Select payment terms, leasing partner, and down payment breakdown
                   </CardDescription>
                 </div>
@@ -811,21 +825,22 @@ export function NewSaleForm({
           </Card>
         </div>
 
-        {/* Right Column: Order Summary & Checkout (4 Cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="sticky top-6 border-border/60 shadow-lg bg-card/80 backdrop-blur">
-            <CardHeader className="pb-3 border-b border-border/40">
+        {/* Right Column: Persistent Summary & Saved Results Panel (~320px) */}
+        <div className="lg:col-span-4 lg:w-[320px] xl:w-[340px] shrink-0 space-y-4">
+          {/* Card 1: Real-time Invoice & Calculation Summary */}
+          <Card className="sticky top-20 border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
+            <CardHeader className="pb-3 border-b border-slate-200/80 dark:border-slate-800">
               <CardTitle className="text-base font-bold flex items-center justify-between">
                 <span>Sale Invoice Summary</span>
-                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                  Ready to Issue
+                <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-semibold">
+                  Live Calculator
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
               {/* Vehicle Preview Card */}
               {selectedVehicle ? (
-                <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-2.5">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-2">
                   <div className="flex items-center justify-between">
                     <Badge variant="secondary" className="text-[10px] font-semibold">
                       {selectedVehicle.vehicleModel.brand}
@@ -841,7 +856,7 @@ export function NewSaleForm({
                     VIN: <span className="text-foreground">{selectedVehicle.chassisNumber}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40">
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200 dark:border-slate-700">
                     <span className="text-muted-foreground">Color:</span>
                     <span className="font-medium text-foreground capitalize">
                       {selectedVehicle.color || "Standard"}
@@ -849,7 +864,7 @@ export function NewSaleForm({
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-xl border border-dashed text-center text-xs text-muted-foreground">
+                <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-muted-foreground bg-slate-50/50 dark:bg-slate-900/50">
                   No vehicle selected yet
                 </div>
               )}
@@ -870,7 +885,7 @@ export function NewSaleForm({
                 </div>
                 <div className="flex justify-between py-1 text-muted-foreground">
                   <span>Payment Method:</span>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-[10px] font-semibold">
                     {paymentMethod}
                   </Badge>
                 </div>
@@ -878,11 +893,11 @@ export function NewSaleForm({
 
               <Separator />
 
-              {/* Pricing Breakdown */}
+              {/* Real-time Pricing Breakdown */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Vehicle Base Price</span>
-                  <span className="font-semibold text-foreground">
+                  <span className="font-semibold text-foreground font-mono">
                     ${baseVehiclePrice.toLocaleString()}
                   </span>
                 </div>
@@ -890,7 +905,7 @@ export function NewSaleForm({
                 {numAdditional > 0 && (
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Additional Charges:</span>
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-foreground font-mono">
                       +${numAdditional.toLocaleString()}
                     </span>
                   </div>
@@ -899,7 +914,7 @@ export function NewSaleForm({
                 {numDiscount > 0 && (
                   <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
                     <span>Dealership Discount:</span>
-                    <span className="font-medium">
+                    <span className="font-medium font-mono">
                       -${numDiscount.toLocaleString()}
                     </span>
                   </div>
@@ -909,13 +924,13 @@ export function NewSaleForm({
                   <>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Down Payment:</span>
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-foreground font-mono">
                         ${typeof downPaymentPaid === "number" ? downPaymentPaid.toLocaleString() : "0.00"}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs text-purple-600 dark:text-purple-400">
                       <span>Lease / Financed:</span>
-                      <span className="font-medium">
+                      <span className="font-medium font-mono">
                         ${typeof totalFinanceAmount === "number" ? totalFinanceAmount.toLocaleString() : "0.00"}
                       </span>
                     </div>
@@ -926,18 +941,18 @@ export function NewSaleForm({
 
                 <div className="flex justify-between items-baseline pt-1">
                   <span className="font-bold text-base text-foreground">Final Total Due</span>
-                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
                     ${dynamicTotal.toLocaleString()}
                   </span>
                 </div>
               </div>
             </CardContent>
 
-            <CardFooter className="flex-col gap-2 pt-2 pb-5 border-t border-border/40">
+            <CardFooter className="flex-col gap-2 pt-2 pb-5 border-t border-slate-200/80 dark:border-slate-800">
               <Button
                 type="submit"
                 disabled={isSubmitting || !selectedVehicleId || !customerName || !customerPhone}
-                className="w-full h-12 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-2"
+                className="w-full h-11 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -964,6 +979,64 @@ export function NewSaleForm({
                 Clear Form
               </Button>
             </CardFooter>
+          </Card>
+
+          {/* Card 2: Persistent Saved Results & Recent Finalized Sales (Requirement 4) */}
+          <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
+            <CardHeader className="pb-2.5 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <BookmarkCheck className="size-4 text-blue-500" />
+                  Saved Results
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {recentSales.length} Recent Deals
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 pb-3 space-y-2.5">
+              {recentSales.length === 0 ? (
+                <div className="py-4 text-center text-xs text-muted-foreground">
+                  Completed sales will be saved and listed here for quick review.
+                </div>
+              ) : (
+                recentSales.map((sale) => (
+                  <div
+                    key={sale.id}
+                    className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-xs space-y-1 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground truncate max-w-[150px]">
+                        {sale.customerName}
+                      </span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        ${sale.totalAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="truncate max-w-[140px]">{sale.vehicleName}</span>
+                      <span className="font-mono">{sale.date}</span>
+                    </div>
+                    <div className="pt-1.5 flex items-center justify-end gap-2 border-t border-slate-200/60 dark:border-slate-700">
+                      <Link
+                        href={`/dashboard/sales/${sale.id}/invoice`}
+                        className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5"
+                      >
+                        Invoice
+                        <ExternalLink className="size-2.5" />
+                      </Link>
+                      <Link
+                        href={`/dashboard/sales/${sale.id}`}
+                        className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold hover:underline flex items-center gap-0.5"
+                      >
+                        DMT
+                        <ExternalLink className="size-2.5" />
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>

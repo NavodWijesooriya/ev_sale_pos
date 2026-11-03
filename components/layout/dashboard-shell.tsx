@@ -10,6 +10,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -25,21 +26,24 @@ interface DashboardShellProps {
 
 export function DashboardShell({ children, user }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  const [isCollapsed, setIsCollapsed] = React.useState(false)
 
   const orgName = user.organizationName || "Dealership ERP"
   const orgRole = user.role || "OrgAdmin"
 
   return (
-    <div className="min-h-screen bg-background print:bg-white print:block">
-      {/* Desktop Fixed Sidebar */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 print:bg-white print:block">
+      {/* Desktop Fixed Collapsible Sidebar */}
       <Sidebar
         organizationName={orgName}
         userRole={orgRole}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
       />
 
       {/* Mobile Sidebar Drawer (Sheet) */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-72 bg-card" showCloseButton={true}>
+        <SheetContent side="left" className="p-0 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800" showCloseButton={true}>
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Access dealership modules and settings</SheetDescription>
@@ -47,13 +51,19 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
           <SidebarContent
             organizationName={orgName}
             userRole={orgRole}
+            isCollapsed={false}
             onNavigate={() => setSidebarOpen(false)}
           />
         </SheetContent>
       </Sheet>
 
-      {/* Main Content Area offset for desktop sidebar */}
-      <div className="flex flex-col min-h-screen lg:pl-64 print:pl-0 print:block">
+      {/* Main Content Area offset dynamically for desktop sidebar */}
+      <div
+        className={cn(
+          "flex flex-col min-h-screen transition-all duration-300 ease-in-out print:pl-0 print:block",
+          isCollapsed ? "lg:pl-20" : "lg:pl-64"
+        )}
+      >
         {/* Header - Hidden completely during print */}
         <div className="print:hidden">
           <Header

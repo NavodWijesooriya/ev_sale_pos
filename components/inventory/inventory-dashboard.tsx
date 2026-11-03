@@ -113,11 +113,11 @@ export function InventoryDashboard({
         {stats.map((s, i) => {
           const Icon = s.icon
           return (
-            <Card key={i} className="border-border shadow-xs">
+            <Card key={i} className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
               <CardContent className="p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">{s.title}</p>
-                  <p className="text-2xl font-bold tracking-tight text-foreground mt-1">{s.value}</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{s.title}</p>
+                  <p className="text-2xl font-bold tracking-tight text-foreground mt-1 font-mono">{s.value}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{s.subtext}</p>
                 </div>
                 <div className={`p-2.5 rounded-xl border ${s.bg}`}>
@@ -129,12 +129,12 @@ export function InventoryDashboard({
         })}
       </div>
 
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation (Requirement 3: shadcn Tabs for top-level page navigation) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/60 p-1 rounded-xl border">
+        <TabsList className="bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xs">
           <TabsTrigger
             value="stock"
-            className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2"
+            className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2 rounded-lg font-semibold"
           >
             <Boxes className="size-3.5" />
             <span>Stock ({initialVehicles.length})</span>
@@ -142,7 +142,7 @@ export function InventoryDashboard({
 
           <TabsTrigger
             value="models"
-            className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2"
+            className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2 rounded-lg font-semibold"
           >
             <CarFront className="size-3.5" />
             <span>Vehicle Models ({initialModels.length})</span>
@@ -150,7 +150,7 @@ export function InventoryDashboard({
 
           <TabsTrigger
             value="suppliers"
-            className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2"
+            className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2 rounded-lg font-semibold"
           >
             <Truck className="size-3.5" />
             <span>Suppliers ({initialSuppliers.length})</span>
@@ -158,7 +158,7 @@ export function InventoryDashboard({
 
           <TabsTrigger
             value="grns"
-            className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2"
+            className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs px-3.5 py-1.5 flex items-center gap-2 rounded-lg font-semibold"
           >
             <FileText className="size-3.5" />
             <span>GRNs ({initialGRNs.length})</span>
