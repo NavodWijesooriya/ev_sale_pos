@@ -149,13 +149,13 @@ export function CreateDealershipDialog({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-card border-border shadow-2xl p-6">
         <DialogHeader className="pb-3 border-b space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
+            <div className="size-9 rounded-xl bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center border border-primary/20">
               <Building2 className="size-5" />
             </div>
             <div>
               <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                 Onboard New Dealership
-                <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30">
+                <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30">
                   New Tenant
                 </Badge>
               </DialogTitle>
@@ -177,7 +177,7 @@ export function CreateDealershipDialog({
           {/* Section 1: Dealership Details */}
           <div className="space-y-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="size-3.5 text-purple-500" />
+              <Sparkles className="size-3.5 text-primary-foreground" />
               1. Dealership Profile
             </div>
 
@@ -217,7 +217,7 @@ export function CreateDealershipDialog({
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Public URL preview:{" "}
-                <span className="text-purple-600 dark:text-purple-400 font-mono font-semibold">
+                <span className="text-primary-foreground dark:text-purple-400 font-mono font-semibold">
                   {subdomain ? `${subdomain}.lvh.me:3000` : "[subdomain].evsalepos.com"}
                 </span>
               </p>
@@ -265,7 +265,7 @@ export function CreateDealershipDialog({
           {/* Section 2: Initial OrgAdmin Credentials */}
           <div className="space-y-3 pt-3 border-t">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Lock className="size-3.5 text-purple-500" />
+              <Lock className="size-3.5 text-primary-foreground" />
               2. Initial OrgAdmin Login Credentials
             </div>
 
@@ -354,7 +354,7 @@ export function CreateDealershipDialog({
               type="submit"
               disabled={isLoading}
               size="sm"
-              className="text-xs h-9 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-sm"
+              className="text-xs h-9 rounded-xl bg-primary hover:bg-purple-700 text-white font-semibold shadow-sm"
             >
               {isLoading ? (
                 <>
@@ -374,3 +374,4 @@ export function CreateDealershipDialog({
     </Dialog>
   )
 }
+

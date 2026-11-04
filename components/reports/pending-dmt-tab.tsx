@@ -70,7 +70,7 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
         return (
           <Badge
             variant="outline"
-            className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 text-xs font-semibold gap-1"
+            className="bg-primary/15 text-primary-foreground dark:text-purple-400 border-primary/30 text-xs font-semibold gap-1"
           >
             <Clock className="h-3 w-3 shrink-0" />
             At DMT Office
@@ -177,19 +177,19 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
         </Card>
 
         {/* Processing at DMT */}
-        <Card className="border-purple-500/30 bg-purple-500/5 shadow-xs">
+        <Card className="border-primary/30 bg-primary/5 shadow-xs">
           <CardContent className="p-4 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-primary-foreground dark:text-purple-400 uppercase tracking-wider">
                 Processing
               </span>
-              <Clock className="h-4 w-4 text-purple-500" />
+              <Clock className="h-4 w-4 text-primary-foreground" />
             </div>
-            <div className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono">
+            <div className="text-2xl font-black text-primary-foreground dark:text-purple-400 font-mono">
               {data.summary.processingCount}{" "}
               <span className="text-xs font-normal text-muted-foreground">submitted</span>
             </div>
-            <p className="text-[11px] text-purple-600/80 dark:text-purple-400/80">
+            <p className="text-[11px] text-primary-foreground/80 dark:text-purple-400/80">
               Awaiting plate assignment
             </p>
           </CardContent>
@@ -202,7 +202,7 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <FileCheck2 className="h-4 w-4 text-purple-500" />
+                <FileCheck2 className="h-4 w-4 text-primary-foreground" />
                 Department of Motor Traffic (DMT) Registration Tracker
               </CardTitle>
               <CardDescription className="text-xs">
@@ -350,3 +350,4 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
     </div>
   )
 }
+

@@ -118,7 +118,7 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Truck className="size-4 text-purple-500" />
+              <Truck className="size-4 text-primary-foreground" />
               EV Vehicle Suppliers & Importers
               <Badge variant="outline" className="text-[11px] font-normal">
                 {suppliers.length} Suppliers
@@ -286,7 +286,7 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
                   <TableRow key={s.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="py-3 pl-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+                        <div className="size-8 rounded-lg bg-primary/10 text-primary-foreground dark:text-purple-400 border border-primary/20 flex items-center justify-center shrink-0">
                           <Truck className="size-4" />
                         </div>
                         <span className="text-xs font-semibold text-foreground">
@@ -322,3 +322,4 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
     </Card>
   )
 }
+

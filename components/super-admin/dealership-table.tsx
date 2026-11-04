@@ -136,7 +136,7 @@ export function DealershipTable({ initialOrganizations }: DealershipTableProps) 
     switch (plan) {
       case SubscriptionPlan.Enterprise:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary-foreground dark:text-purple-400 border border-primary/20">
             Enterprise
           </span>
         )
@@ -369,3 +369,4 @@ export function DealershipTable({ initialOrganizations }: DealershipTableProps) 
     </Card>
   )
 }
+

@@ -122,8 +122,8 @@ export default async function DashboardPage() {
       value: `${branchCount} Locations`,
       change: "Active physical showrooms",
       icon: Building2,
-      iconColor: "text-purple-500",
-      bgColor: "bg-purple-500/10 border-purple-500/20",
+      iconColor: "text-primary-foreground",
+      bgColor: "bg-primary/10 border-primary/20",
     },
     {
       title: "Pending Finance / Leases",
@@ -354,3 +354,4 @@ export default async function DashboardPage() {
     </div>
   )
 }
+

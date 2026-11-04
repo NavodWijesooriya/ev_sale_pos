@@ -16,3 +16,4 @@ export function formatLKR(amount: number | null | undefined): string {
 export function formatCurrency(amount: number | null | undefined): string {
   return formatLKR(amount)
 }
+

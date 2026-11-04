@@ -21,3 +21,4 @@ export default async function SuperAdminHelpRoute() {
 
   return <SuperAdminGuideView />
 }
+

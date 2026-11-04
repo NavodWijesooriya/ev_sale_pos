@@ -240,3 +240,4 @@ export function RevenueChart({ data }: RevenueChartProps) {
     </Card>
   )
 }
+

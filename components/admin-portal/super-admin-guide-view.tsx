@@ -34,7 +34,7 @@ export function SuperAdminGuideView() {
       {/* Top Header */}
       <header className="sticky top-0 z-40 border-b bg-card/85 backdrop-blur-md px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
             <ShieldCheck className="size-5" />
           </div>
           <div>
@@ -44,7 +44,7 @@ export function SuperAdminGuideView() {
               </span>
               <Badge
                 variant="outline"
-                className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold"
+                className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30 text-[10px] font-bold"
               >
                 Platform Guide
               </Badge>
@@ -76,7 +76,7 @@ export function SuperAdminGuideView() {
         <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card/90 to-purple-500/10 p-6 sm:p-8 shadow-xs">
           <div className="max-w-2xl space-y-2.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-muted/60 text-xs font-semibold text-foreground">
-              <Sparkles className="size-3.5 text-purple-500" />
+              <Sparkles className="size-3.5 text-primary-foreground" />
               <span>Super Admin Operations Manual</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
@@ -90,9 +90,9 @@ export function SuperAdminGuideView() {
 
         {/* 3 Core Workflow Pillars */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border border-purple-500/20 bg-card/60 shadow-xs flex flex-col justify-between">
+          <Card className="border border-primary/20 bg-card/60 shadow-xs flex flex-col justify-between">
             <CardHeader className="pb-3">
-              <div className="size-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2">
+              <div className="size-9 rounded-xl bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center mb-2">
                 <Building2 className="size-4.5" />
               </div>
               <CardTitle className="text-sm font-bold text-foreground">
@@ -144,7 +144,7 @@ export function SuperAdminGuideView() {
             <AccordionItem value="item-register" className="border border-border/80 rounded-xl px-4 bg-card/60 shadow-xs">
               <AccordionTrigger className="hover:no-underline font-bold text-sm text-foreground py-4">
                 <span className="flex items-center gap-2.5">
-                  <span className="flex size-6 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-primary-foreground dark:text-purple-400 text-xs font-bold">
                     1
                   </span>
                   How to Register a New Dealership Organization
@@ -282,7 +282,7 @@ export function SuperAdminGuideView() {
               </p>
             </div>
             <Link href="/admin-portal">
-              <Button size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">
+              <Button size="sm" className="h-8 text-xs bg-primary hover:bg-purple-700 text-white font-semibold">
                 Open Super Admin Console
               </Button>
             </Link>
@@ -292,3 +292,4 @@ export function SuperAdminGuideView() {
     </div>
   )
 }
+

@@ -86,7 +86,7 @@ export function AppearanceSettings({ initialData }: AppearanceSettingsProps) {
               <Palette className="size-6 text-primary" />
               Storefront Appearance & Branding
             </h1>
-            <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30">
+            <Badge variant="outline" className="text-xs bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30">
               OrgAdmin
             </Badge>
           </div>
@@ -363,3 +363,4 @@ export function AppearanceSettings({ initialData }: AppearanceSettingsProps) {
     </div>
   )
 }
+

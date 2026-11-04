@@ -121,3 +121,4 @@ export function ModelPieChart({ data }: ModelPieChartProps) {
     </Card>
   )
 }
+

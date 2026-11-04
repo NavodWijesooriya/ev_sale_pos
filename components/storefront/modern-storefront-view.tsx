@@ -348,7 +348,7 @@ export function ModernStorefrontView({
             </div>
 
             <div className="p-6 rounded-2xl bg-gradient-to-b from-white/5 to-white/0 border border-white/10 space-y-3">
-              <div className="size-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+              <div className="size-12 rounded-xl bg-primary/20 text-purple-400 flex items-center justify-center">
                 <ShieldCheck className="size-6" />
               </div>
               <h3 className="text-base font-bold text-white">Instant DMT Registration</h3>
@@ -468,3 +468,4 @@ export function ModernStorefrontView({
     </div>
   )
 }
+

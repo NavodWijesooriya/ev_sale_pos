@@ -39,3 +39,4 @@ export default async function AppearancePage() {
 
   return <AppearanceSettings initialData={organization} />
 }
+

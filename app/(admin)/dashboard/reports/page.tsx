@@ -17,3 +17,4 @@ export default async function ReportsPage() {
 
   return <AdvancedReportsDashboard initialData={data} />
 }
+

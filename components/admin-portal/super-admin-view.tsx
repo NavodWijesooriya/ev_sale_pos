@@ -167,7 +167,7 @@ export function SuperAdminView({
       {/* Platform Header */}
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-md px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
             <ShieldCheck className="size-5" />
           </div>
           <div>
@@ -177,7 +177,7 @@ export function SuperAdminView({
               </span>
               <Badge
                 variant="outline"
-                className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold"
+                className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30 text-[10px] font-bold"
               >
                 PlatformAdmin
               </Badge>
@@ -214,7 +214,7 @@ export function SuperAdminView({
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               Global Platform Overview
-              <Sparkles className="h-4 w-4 text-purple-500" />
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Live aggregate metrics and tenant dealership accounts across the EV SaaS network.
@@ -226,9 +226,9 @@ export function SuperAdminView({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+                className="h-8 text-xs gap-1.5 border-primary/30 text-primary-foreground dark:text-purple-400 hover:bg-primary/10"
               >
-                <HelpCircle className="h-3.5 w-3.5 text-purple-500" />
+                <HelpCircle className="h-3.5 w-3.5 text-primary-foreground" />
                 <span>Super Admin Guide</span>
               </Button>
             </Link>
@@ -254,7 +254,7 @@ export function SuperAdminView({
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Total Dealerships
               </span>
-              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary-foreground">
                 <Building2 className="h-4 w-4" />
               </div>
             </CardHeader>
@@ -339,7 +339,7 @@ export function SuperAdminView({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-purple-500" />
+                  <Building2 className="h-4 w-4 text-primary-foreground" />
                   Registered Dealership Organizations
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -371,7 +371,7 @@ export function SuperAdminView({
 
                 <Button
                   onClick={() => setIsCreateOpen(true)}
-                  className="h-7 px-3 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 shadow-xs rounded-md cursor-pointer"
+                  className="h-7 px-3 text-xs font-semibold bg-primary hover:bg-purple-700 text-white gap-1.5 shadow-xs rounded-md cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Add New Dealership
@@ -505,3 +505,4 @@ export function SuperAdminView({
     </div>
   )
 }
+

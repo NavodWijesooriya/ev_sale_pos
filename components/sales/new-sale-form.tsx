@@ -722,13 +722,13 @@ export function NewSaleForm({
 
               {/* Dynamic Finance / Lease Breakdown Fields */}
               {isFinanceSelected && (
-                <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-4 animate-in fade-in-50 duration-200">
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-4 animate-in fade-in-50 duration-200">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-purple-700 dark:text-purple-400 flex items-center gap-1.5 uppercase tracking-wide">
                       <Sparkles className="h-4 w-4" />
                       Leasing & Finance Parameters
                     </span>
-                    <Badge variant="outline" className="text-[11px] bg-purple-500/10 text-purple-600 border-purple-500/20">
+                    <Badge variant="outline" className="text-[11px] bg-primary/10 text-primary-foreground border-primary/20">
                       Pending Bank Approval
                     </Badge>
                   </div>
@@ -790,7 +790,7 @@ export function NewSaleForm({
                               e.target.value === "" ? "" : parseFloat(e.target.value)
                             )
                           }
-                          className="pl-9 h-10 bg-background font-semibold text-purple-600 dark:text-purple-400"
+                          className="pl-9 h-10 bg-background font-semibold text-primary-foreground dark:text-purple-400"
                           required={isFinanceSelected}
                         />
                       </div>
@@ -928,7 +928,7 @@ export function NewSaleForm({
                         ${typeof downPaymentPaid === "number" ? downPaymentPaid.toLocaleString() : "0.00"}
                       </span>
                     </div>
-                    <div className="flex justify-between text-xs text-purple-600 dark:text-purple-400">
+                    <div className="flex justify-between text-xs text-primary-foreground dark:text-purple-400">
                       <span>Lease / Financed:</span>
                       <span className="font-medium font-mono">
                         ${typeof totalFinanceAmount === "number" ? totalFinanceAmount.toLocaleString() : "0.00"}
@@ -1027,7 +1027,7 @@ export function NewSaleForm({
                       </Link>
                       <Link
                         href={`/dashboard/sales/${sale.id}`}
-                        className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold hover:underline flex items-center gap-0.5"
+                        className="text-[10px] text-primary-foreground dark:text-purple-400 font-semibold hover:underline flex items-center gap-0.5"
                       >
                         DMT
                         <ExternalLink className="size-2.5" />
@@ -1043,3 +1043,4 @@ export function NewSaleForm({
     </form>
   )
 }
+

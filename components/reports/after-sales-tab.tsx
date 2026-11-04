@@ -166,7 +166,7 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Total Work Orders
             </span>
-            <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary-foreground">
               <Wrench className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -188,7 +188,7 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-purple-500" />
+                <Wrench className="h-4 w-4 text-primary-foreground" />
                 Workshop Service Records & After-Sales Ledger
               </CardTitle>
               <CardDescription className="text-xs">
@@ -325,3 +325,4 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
     </div>
   )
 }
+

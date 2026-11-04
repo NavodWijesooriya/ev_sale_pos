@@ -487,3 +487,4 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
     }
   }
 }
+

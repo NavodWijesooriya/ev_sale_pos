@@ -444,3 +444,4 @@ export function StockTab({ vehicles }: StockTabProps) {
     </Card>
   )
 }
+

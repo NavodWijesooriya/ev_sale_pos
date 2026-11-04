@@ -85,7 +85,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Finance Commission
             </span>
-            <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary-foreground">
               <Landmark className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -292,7 +292,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
                   <TableCell className="text-xs text-right font-mono text-muted-foreground">
                     ${row.acquisitionCost.toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono text-purple-600 dark:text-purple-400">
+                  <TableCell className="text-xs text-right font-mono text-primary-foreground dark:text-purple-400">
                     {row.commission > 0 ? `+$${row.commission.toLocaleString()}` : "$0"}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono font-bold text-cyan-600 dark:text-cyan-400">
@@ -320,3 +320,4 @@ export function FinancialTab({ data }: FinancialTabProps) {
     </div>
   )
 }
+

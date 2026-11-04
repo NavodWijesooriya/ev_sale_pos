@@ -320,7 +320,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         <div className="py-6 border-b border-border print:border-zinc-300 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
-              <Wrench className="size-4 text-purple-600" />
+              <Wrench className="size-4 text-primary-foreground" />
               Work Carried Out & Technical Inspection Summary
             </h3>
             {renderServiceBadge(record.serviceType)}
@@ -437,3 +437,4 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
     </div>
   )
 }
+

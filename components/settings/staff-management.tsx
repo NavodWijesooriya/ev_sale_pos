@@ -234,7 +234,7 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
         return (
           <Badge
             variant="outline"
-            className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-xs font-semibold gap-1"
+            className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30 text-xs font-semibold gap-1"
           >
             <ShieldCheck className="h-3 w-3" />
             Dealership Admin
@@ -296,7 +296,7 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
             </h1>
             <Badge
               variant="outline"
-              className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-xs font-semibold"
+              className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30 text-xs font-semibold"
             >
               OrgAdmin Only
             </Badge>
@@ -819,3 +819,4 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
     </div>
   )
 }
+

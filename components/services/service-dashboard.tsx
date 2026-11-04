@@ -172,11 +172,11 @@ export function ServiceDashboard({
               <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
                 {warrantyClaimsCount}
               </h3>
-              <p className="text-[11px] text-purple-600 dark:text-purple-400 font-medium mt-0.5">
+              <p className="text-[11px] text-primary-foreground dark:text-purple-400 font-medium mt-0.5">
                 Battery & parts covered
               </p>
             </div>
-            <div className="size-10 sm:size-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
               <ShieldCheck className="size-5 sm:size-6" />
             </div>
           </CardContent>
@@ -240,3 +240,4 @@ export function ServiceDashboard({
     </div>
   )
 }
+

@@ -178,7 +178,7 @@ export function SalesDashboard({
                 Ready for checkout
               </p>
             </div>
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
               <Bike className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </CardContent>
@@ -242,3 +242,4 @@ export function SalesDashboard({
     </div>
   )
 }
+

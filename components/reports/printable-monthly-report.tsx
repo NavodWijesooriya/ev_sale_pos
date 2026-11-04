@@ -238,3 +238,4 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
     </div>
   )
 }
+

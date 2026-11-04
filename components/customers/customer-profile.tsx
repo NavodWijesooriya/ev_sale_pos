@@ -392,9 +392,9 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                                   <Button
                                     variant="secondary"
                                     size="sm"
-                                    className="h-8 gap-1 text-xs font-semibold hover:bg-purple-600 hover:text-white transition-all"
+                                    className="h-8 gap-1 text-xs font-semibold hover:bg-primary hover:text-white transition-all"
                                   >
-                                    <FileCheck2 className="size-3.5 text-purple-600 group-hover:text-white" />
+                                    <FileCheck2 className="size-3.5 text-primary-foreground group-hover:text-white" />
                                     DMT
                                   </Button>
                                 </Link>
@@ -547,3 +547,4 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
     </div>
   )
 }
+

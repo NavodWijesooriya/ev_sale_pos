@@ -46,8 +46,8 @@ export default async function SuperAdminPage() {
       value: totalTenants.toString(),
       description: "Provisioned SaaS tenants",
       icon: Building2,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10 border-purple-500/20",
+      color: "text-primary-foreground",
+      bg: "bg-primary/10 border-primary/20",
     },
     {
       title: "Active EV Bikes In Stock",
@@ -80,7 +80,7 @@ export default async function SuperAdminPage() {
       {/* Top Super Admin Navigation Header */}
       <header className="sticky top-0 z-30 border-b bg-card/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-9 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+          <div className="size-9 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-md shadow-primary/20">
             <ShieldAlert className="size-5" />
           </div>
           <div>
@@ -88,7 +88,7 @@ export default async function SuperAdminPage() {
               <span className="font-bold text-sm tracking-tight text-foreground">
                 Ev Sale Pos Platform Control Plane
               </span>
-              <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
+              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/20">
                 Super Admin
               </Badge>
             </div>
@@ -100,8 +100,8 @@ export default async function SuperAdminPage() {
 
         <div className="flex items-center gap-2">
           <Link href="/admin-portal/help">
-            <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10">
-              <HelpCircle className="size-3.5 text-purple-500" />
+            <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-primary/30 text-primary-foreground dark:text-purple-400 hover:bg-primary/10">
+              <HelpCircle className="size-3.5 text-primary-foreground" />
               <span>Super Admin Guide</span>
             </Button>
           </Link>
@@ -193,3 +193,4 @@ export default async function SuperAdminPage() {
     </div>
   )
 }
+

@@ -78,7 +78,7 @@ export default function SuperAdminLoginPage() {
   return (
     <div className="min-h-screen w-full flex flex-col justify-center items-center p-4 bg-gradient-to-tr from-slate-950 via-slate-900 to-purple-950 text-white relative overflow-hidden">
       {/* Background ambient glow orbs */}
-      <div className="absolute top-1/4 -left-20 size-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 size-96 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 size-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Left Navigation Link */}
@@ -102,7 +102,7 @@ export default function SuperAdminLoginPage() {
             <h1 className="text-2xl font-black tracking-tight text-white">Ev Sale Pos</h1>
             <Badge
               variant="outline"
-              className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px] font-bold uppercase tracking-wider"
+              className="bg-primary/20 text-purple-300 border-purple-500/40 text-[10px] font-bold uppercase tracking-wider"
             >
               Platform Control Plane
             </Badge>
@@ -113,14 +113,14 @@ export default function SuperAdminLoginPage() {
         </div>
 
         {/* Super Admin Login Card */}
-        <Card className="border border-purple-500/20 bg-slate-900/85 backdrop-blur-2xl shadow-2xl text-white rounded-2xl overflow-hidden">
+        <Card className="border border-primary/20 bg-slate-900/85 backdrop-blur-2xl shadow-2xl text-white rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500" />
           <CardHeader className="space-y-1 pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl font-bold tracking-tight text-white">
                 Super Admin Sign In
               </CardTitle>
-              <Badge className="bg-purple-600/30 text-purple-300 border border-purple-500/30 text-[10px] font-mono">
+              <Badge className="bg-primary/30 text-purple-300 border border-primary/30 text-[10px] font-mono">
                 PlatformAdmin
               </Badge>
             </div>
@@ -186,13 +186,13 @@ export default function SuperAdminLoginPage() {
                 <button
                   type="button"
                   onClick={handleFillDemo}
-                  className="w-full text-left p-2.5 rounded-xl border border-dashed border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 text-[11px] text-purple-300 transition-colors flex items-center justify-between cursor-pointer"
+                  className="w-full text-left p-2.5 rounded-xl border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 text-[11px] text-purple-300 transition-colors flex items-center justify-between cursor-pointer"
                 >
                   <span className="flex items-center gap-1.5">
                     <KeyRound className="size-3.5 text-purple-400" />
                     Fill Root SuperAdmin Demo Account
                   </span>
-                  <span className="text-[10px] font-mono text-purple-400 bg-purple-500/20 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-mono text-purple-400 bg-primary/20 px-1.5 py-0.5 rounded">
                     Auto-Fill
                   </span>
                 </button>
@@ -203,7 +203,7 @@ export default function SuperAdminLoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full text-xs h-10 font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-600/30 rounded-xl cursor-pointer"
+                className="w-full text-xs h-10 font-bold bg-primary hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-600/30 rounded-xl cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -239,3 +239,4 @@ export default function SuperAdminLoginPage() {
     </div>
   )
 }
+

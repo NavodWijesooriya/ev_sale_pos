@@ -429,3 +429,4 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
     </Card>
   )
 }
+

@@ -357,13 +357,13 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
           {/* Left Column: Finance details if applicable */}
           <div className="sm:col-span-7">
             {isFinance && sale.financeDetail ? (
-              <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 print:bg-zinc-50 print:border-zinc-300 space-y-2.5">
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 print:bg-zinc-50 print:border-zinc-300 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 print:text-black flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4" />
                     Automotive Financing / Lease Settlement
                   </span>
-                  <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 print:text-black print:border-zinc-400">
+                  <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary-foreground print:text-black print:border-zinc-400">
                     {sale.financeDetail.status}
                   </Badge>
                 </div>
@@ -504,3 +504,4 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
     </div>
   )
 }
+

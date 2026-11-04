@@ -325,3 +325,4 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
     </div>
   )
 }
+

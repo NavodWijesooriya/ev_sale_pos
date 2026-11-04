@@ -23,3 +23,4 @@ export default async function StaffManagementPage() {
 
   return <StaffManagement initialData={initialData} />
 }
+

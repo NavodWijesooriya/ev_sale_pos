@@ -278,7 +278,7 @@ export function BranchManagement({
                 Managers, sales & tech
               </p>
             </div>
-            <div className="size-10 sm:size-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
               <Users className="size-5 sm:size-6" />
             </div>
           </CardContent>
@@ -426,7 +426,7 @@ export function BranchManagement({
 
                       {/* 4. Assigned Staff Count */}
                       <TableCell className="text-xs py-3.5 text-center font-mono">
-                        <Badge variant="outline" className="text-[11px] font-semibold bg-purple-500/5 text-purple-600 dark:text-purple-400 border-purple-500/20">
+                        <Badge variant="outline" className="text-[11px] font-semibold bg-primary/5 text-primary-foreground dark:text-purple-400 border-primary/20">
                           {branch.usersCount} Staff
                         </Badge>
                       </TableCell>
@@ -752,3 +752,4 @@ export function BranchManagement({
     </div>
   )
 }
+

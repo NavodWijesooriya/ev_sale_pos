@@ -83,3 +83,4 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
     </div>
   )
 }
+

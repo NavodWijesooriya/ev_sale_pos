@@ -150,7 +150,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
         )
       case PaymentMethod.BankTransfer:
         return (
-          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
+          <Badge variant="outline" className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/20">
             Bank Transfer
           </Badge>
         )
@@ -439,10 +439,10 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                             <Button
                               variant="secondary"
                               size="sm"
-                              className="h-8 gap-1 text-xs font-semibold hover:bg-purple-600 hover:text-white transition-all"
+                              className="h-8 gap-1 text-xs font-semibold hover:bg-primary hover:text-white transition-all"
                               title="DMT Registration Tracker & Delivery Handover"
                             >
-                              <FileCheck2 className="size-3.5 text-purple-600 group-hover:text-white" />
+                              <FileCheck2 className="size-3.5 text-primary-foreground group-hover:text-white" />
                               DMT & Handover
                             </Button>
                           </Link>
@@ -469,3 +469,4 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
     </Card>
   )
 }
+

@@ -215,7 +215,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
         )
       case DMTStatus.Processing:
         return (
-          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/20 gap-1">
+          <Badge variant="outline" className="bg-primary/10 text-primary-foreground border-primary/20 gap-1">
             <RotateCw className="size-3 animate-spin" />
             Processing at DMT Werahera
           </Badge>
@@ -460,7 +460,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
             <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="size-9 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <div className="size-9 rounded-lg bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
                     <FileCheck2 className="size-5" />
                   </div>
                   <div>
@@ -622,7 +622,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
               <Button
                 onClick={handleSaveDMT}
                 disabled={isPending}
-                className="w-full h-11 text-xs font-bold gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-md"
+                className="w-full h-11 text-xs font-bold gap-2 bg-primary hover:bg-purple-700 text-white shadow-md"
               >
                 {isPending ? (
                   <>
@@ -643,3 +643,4 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
     </div>
   )
 }
+

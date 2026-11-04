@@ -64,8 +64,8 @@ export function InventoryDashboard({
       value: initialSuppliers.length.toString(),
       subtext: "Logistics & manufacturers",
       icon: Truck,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10 border-purple-500/20",
+      color: "text-primary-foreground",
+      bg: "bg-primary/10 border-primary/20",
     },
     {
       title: "GRN Shipments Received",
@@ -202,3 +202,4 @@ export function InventoryDashboard({
     </div>
   )
 }
+

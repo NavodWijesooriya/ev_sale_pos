@@ -139,3 +139,4 @@ export async function getCurrentUser() {
   const session = await getAuthSession()
   return session?.user
 }
+

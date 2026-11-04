@@ -234,14 +234,14 @@ export function SidebarContent({
                 className="group flex flex-col p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 hover:bg-purple-50/80 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all hover:border-purple-400/50 hover:shadow-xs"
               >
                 <div className="flex items-center justify-between w-full">
-                  <div className="size-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <div className="size-7 rounded-lg bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
                     <Boxes className="size-3.5" />
                   </div>
-                  <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1 rounded">
+                  <span className="text-[9px] font-bold text-primary-foreground dark:text-purple-400 bg-primary/10 px-1 rounded">
                     GRN
                   </span>
                 </div>
-                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-primary-foreground dark:group-hover:text-purple-400">
                   Inventory
                 </span>
                 <span className="text-[10px] text-muted-foreground truncate">
@@ -452,3 +452,4 @@ export function Sidebar({
     </aside>
   )
 }
+

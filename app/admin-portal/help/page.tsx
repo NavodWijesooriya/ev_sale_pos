@@ -24,3 +24,4 @@ export default async function SuperAdminHelpPage() {
 
   return <SuperAdminGuideView />
 }
+
