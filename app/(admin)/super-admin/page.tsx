@@ -1,4 +1,6 @@
 import { getRegisteredDealerships } from "@/app/actions/dealership"
+import { prisma } from "@/lib/prisma"
+import { formatLKR } from "@/lib/currency"
 import { DealershipForm } from "@/components/super-admin/dealership-form"
 import { DealershipTable } from "@/components/super-admin/dealership-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,8 +12,10 @@ import {
   CheckCircle2,
   Users,
   Zap,
+  Bike,
   ArrowLeft,
   Sparkles,
+  HelpCircle,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -23,15 +27,14 @@ export const metadata = {
 }
 
 export default async function SuperAdminPage() {
-  const organizations = await getRegisteredDealerships()
+  const [organizations, salesAgg, activeVehiclesCount] = await Promise.all([
+    getRegisteredDealerships(),
+    prisma.sale.aggregate({ _sum: { totalAmount: true } }),
+    prisma.vehicle.count({ where: { status: "InStock" } }),
+  ])
 
   const totalTenants = organizations.length
-  const activeTenants = organizations.filter(
-    (o) => o.subscriptionStatus === "Active"
-  ).length
-  const enterpriseOrPro = organizations.filter(
-    (o) => o.subscriptionPlan === "Enterprise" || o.subscriptionPlan === "Pro"
-  ).length
+  const totalSalesValue = salesAgg._sum.totalAmount || 0
   const totalBranches = organizations.reduce(
     (sum, o) => sum + (o._count?.branches || 0),
     0
@@ -43,24 +46,24 @@ export default async function SuperAdminPage() {
       value: totalTenants.toString(),
       description: "Provisioned SaaS tenants",
       icon: Building2,
+      color: "text-purple-500",
+      bg: "bg-purple-500/10 border-purple-500/20",
+    },
+    {
+      title: "Active EV Bikes In Stock",
+      value: `${activeVehiclesCount} units`,
+      description: "Across all tenant showrooms",
+      icon: Bike,
       color: "text-blue-500",
       bg: "bg-blue-500/10 border-blue-500/20",
     },
     {
-      title: "Active Dealerships",
-      value: activeTenants.toString(),
-      description: "In good standing",
-      icon: CheckCircle2,
+      title: "Total Platform Sales",
+      value: formatLKR(totalSalesValue),
+      description: "Gross volume processed in LKR",
+      icon: Zap,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10 border-emerald-500/20",
-    },
-    {
-      title: "Pro / Enterprise Tiers",
-      value: enterpriseOrPro.toString(),
-      description: "High-volume dealerships",
-      icon: Zap,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10 border-purple-500/20",
     },
     {
       title: "Active Showrooms",
@@ -96,6 +99,12 @@ export default async function SuperAdminPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href="/admin-portal/help">
+            <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10">
+              <HelpCircle className="size-3.5 text-purple-500" />
+              <span>Super Admin Guide</span>
+            </Button>
+          </Link>
           <Link href="/dashboard">
             <Button variant="outline" size="sm" className="text-xs h-8">
               <ArrowLeft className="mr-1.5 size-3.5" />

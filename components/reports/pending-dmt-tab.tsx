@@ -29,7 +29,7 @@ import {
   ShieldAlert,
   FileText,
   User,
-  CarFront,
+  Bike,
   CheckCircle2,
 } from "lucide-react"
 import { AdvancedReportsData, PendingDMTItem } from "@/app/actions/reports"
@@ -206,7 +206,7 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
                 Department of Motor Traffic (DMT) Registration Tracker
               </CardTitle>
               <CardDescription className="text-xs">
-                Sri Lanka DMT vehicle registration compliance, documentation audit, and status monitoring
+                Sri Lanka DMT electric bike registration compliance, documentation audit, and status monitoring
               </CardDescription>
             </div>
 
@@ -263,7 +263,7 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
                 <TableRow>
                   <TableHead className="text-xs font-semibold">Sale Date</TableHead>
                   <TableHead className="text-xs font-semibold">Customer</TableHead>
-                  <TableHead className="text-xs font-semibold">Vehicle & VIN</TableHead>
+                  <TableHead className="text-xs font-semibold">EV Bike & Chassis #</TableHead>
                   <TableHead className="text-xs font-semibold">Branch</TableHead>
                   <TableHead className="text-xs font-semibold">Missing Documents</TableHead>
                   <TableHead className="text-xs font-semibold text-center">Status</TableHead>

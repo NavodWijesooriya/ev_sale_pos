@@ -21,6 +21,8 @@ import {
   Boxes,
   PanelLeftClose,
   PanelLeft,
+  HelpCircle,
+  Palette,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -83,6 +85,19 @@ export const navigationItems: NavItem[] = [
     icon: Settings,
     badge: "Admin",
     roles: ["OrgAdmin", "SuperAdmin"],
+  },
+  {
+    title: "Appearance",
+    href: "/dashboard/settings/appearance",
+    icon: Palette,
+    badge: "Branding",
+    roles: ["OrgAdmin", "SuperAdmin"],
+  },
+  {
+    title: "Help Center",
+    href: "/dashboard/help",
+    icon: HelpCircle,
+    badge: "Guide",
   },
   {
     title: "Super Admin",

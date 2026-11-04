@@ -16,7 +16,7 @@ export default async function SuperAdminDashboardPage() {
     !session?.user ||
     (session.user.role !== "PlatformAdmin" && session.user.role !== "SuperAdmin")
   ) {
-    redirect("/login?callbackUrl=/admin-portal")
+    redirect("/admin-portal/login?callbackUrl=/admin-portal")
   }
 
   // 2. Fetch Global Platform KPIs

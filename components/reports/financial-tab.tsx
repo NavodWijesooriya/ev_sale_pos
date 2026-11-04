@@ -32,7 +32,7 @@ import {
   TrendingUp,
   Percent,
   Landmark,
-  CarFront,
+  Bike,
   ArrowUpRight,
   ShieldCheck,
   CheckCircle2,
@@ -70,7 +70,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
               ${data.totalRevenue.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <span>Vehicle Acquisition (COGS):</span>
+              <span>EV Bike Acquisition (COGS):</span>
               <strong className="text-foreground font-mono">
                 ${data.totalAcquisitionCost.toLocaleString()}
               </strong>
@@ -188,15 +188,15 @@ export function FinancialTab({ data }: FinancialTabProps) {
                           <div className="bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 text-xs space-y-1.5">
                             <p className="font-bold text-sm text-slate-100">{label}</p>
                             <div className="flex items-center justify-between gap-6 text-slate-300">
-                              <span>Vehicles Sold:</span>
-                              <strong className="text-white">{item.units} units</strong>
+                              <span>EV Bikes Sold:</span>
+                              <strong className="text-white">{item.units} bikes</strong>
                             </div>
                             <div className="flex items-center justify-between gap-6 text-emerald-400">
                               <span>Revenue:</span>
                               <strong>${item.revenue.toLocaleString()}</strong>
                             </div>
                             <div className="flex items-center justify-between gap-6 text-slate-400">
-                              <span>Vehicle Cost (COGS):</span>
+                              <span>EV Bike Cost (COGS):</span>
                               <strong>${item.acquisitionCost.toLocaleString()}</strong>
                             </div>
                             {item.commission > 0 && (
@@ -263,9 +263,9 @@ export function FinancialTab({ data }: FinancialTabProps) {
             <TableHeader className="bg-muted/30">
               <TableRow>
                 <TableHead className="text-xs font-semibold">Month</TableHead>
-                <TableHead className="text-xs font-semibold text-center">Units Sold</TableHead>
+                <TableHead className="text-xs font-semibold text-center">Bikes Sold</TableHead>
                 <TableHead className="text-xs font-semibold text-right">Gross Revenue</TableHead>
-                <TableHead className="text-xs font-semibold text-right">Vehicle Cost (COGS)</TableHead>
+                <TableHead className="text-xs font-semibold text-right">EV Bike Cost (COGS)</TableHead>
                 <TableHead className="text-xs font-semibold text-right">Finance Commission</TableHead>
                 <TableHead className="text-xs font-semibold text-right">Net Gross Profit</TableHead>
                 <TableHead className="text-xs font-semibold text-center">Margin</TableHead>

@@ -38,7 +38,7 @@ import {
   Edit,
   Trash2,
   Users,
-  CarFront,
+  Bike,
   BadgeDollarSign,
   Loader2,
   AlertCircle,
@@ -288,7 +288,7 @@ export function BranchManagement({
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Vehicles in Stock
+                EV Bikes in Stock
               </p>
               <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
                 {totalVehiclesInBranches}
@@ -298,7 +298,7 @@ export function BranchManagement({
               </p>
             </div>
             <div className="size-10 sm:size-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <CarFront className="size-5 sm:size-6" />
+              <Bike className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>
@@ -333,7 +333,7 @@ export function BranchManagement({
                 Showrooms & Service Centers Directory
               </CardTitle>
               <CardDescription className="text-xs">
-                Physical branch locations for inventory intake, vehicle displays, POS sales, and workshop maintenance.
+                Physical branch locations for inventory intake, EV bike displays, POS sales, and workshop maintenance.
               </CardDescription>
             </div>
 
@@ -431,10 +431,10 @@ export function BranchManagement({
                         </Badge>
                       </TableCell>
 
-                      {/* 5. Inventory Vehicles Count */}
+                      {/* 5. Inventory EV Bikes Count */}
                       <TableCell className="text-xs py-3.5 text-center font-mono">
                         <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-                          {branch.vehiclesCount} Units
+                          {branch.vehiclesCount} Bikes
                         </Badge>
                       </TableCell>
 
@@ -707,7 +707,7 @@ export function BranchManagement({
                   <span className="font-bold">{deletingBranch.usersCount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>In-Stock Vehicles:</span>
+                  <span>In-Stock EV Bikes:</span>
                   <span className="font-bold">{deletingBranch.vehiclesCount}</span>
                 </div>
                 <div className="flex justify-between">

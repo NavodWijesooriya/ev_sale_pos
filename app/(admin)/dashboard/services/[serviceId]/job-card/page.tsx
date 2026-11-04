@@ -6,8 +6,8 @@ import { PrintableJobCard } from "@/components/services/printable-job-card"
 export const instant = false
 
 export const metadata = {
-  title: "Service Job Card & Maintenance Record | Ev Sale Pos",
-  description: "Official printable EV service job card, maintenance receipt and battery inspection sheet",
+  title: "EV Bike Service Job Card | Ev Sale Pos",
+  description: "Official printable EV bike service job card, maintenance receipt and battery inspection sheet",
 }
 
 interface ServiceJobCardPageProps {

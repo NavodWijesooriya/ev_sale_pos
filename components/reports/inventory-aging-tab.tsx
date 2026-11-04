@@ -27,7 +27,7 @@ import {
   AlertOctagon,
   Search,
   DollarSign,
-  CarFront,
+  Bike,
   Filter,
 } from "lucide-react"
 import { AdvancedReportsData, InStockVehicleAgingItem } from "@/app/actions/reports"
@@ -210,10 +210,10 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Warehouse className="h-4 w-4 text-amber-500" />
-                Dead Stock & Vehicle Inventory Aging Analysis
+                Dead Stock & EV Bike Inventory Aging Analysis
               </CardTitle>
               <CardDescription className="text-xs">
-                Monitor unsold floor inventory to prevent capital stagnation and discount depreciation
+                Monitor unsold floor bike inventory to prevent capital stagnation and discount depreciation
               </CardDescription>
             </div>
 
@@ -245,7 +245,7 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
             <div className="relative max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search by VIN, Model, Brand, Branch, or Color..."
+                placeholder="Search by Chassis #, Model, Brand, Branch, or Color..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 h-8 text-xs"
@@ -257,15 +257,15 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
         <CardContent className="p-0">
           {filteredVehicles.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
-              No vehicles match the selected aging filter or search term.
+              No EV bikes match the selected aging filter or search term.
             </div>
           ) : (
             <div className="overflow-x-auto w-full">
               <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="text-xs font-semibold">Chassis / VIN</TableHead>
-                  <TableHead className="text-xs font-semibold">Vehicle Model</TableHead>
+                  <TableHead className="text-xs font-semibold">Chassis #</TableHead>
+                  <TableHead className="text-xs font-semibold">EV Bike Model</TableHead>
                   <TableHead className="text-xs font-semibold">Color</TableHead>
                   <TableHead className="text-xs font-semibold">Showroom Branch</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Acquisition Cost</TableHead>

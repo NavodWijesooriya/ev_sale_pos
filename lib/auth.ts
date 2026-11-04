@@ -19,6 +19,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email", placeholder: "admin@evdealership.com" },
         password: { label: "Password", type: "password" },
+        portal: { label: "Portal", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -26,6 +27,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const email = credentials.email.toLowerCase().trim()
+        const isPlatformPortal = credentials?.portal === "admin"
 
         // 1. Check Platform Users (PlatformAdmin / Support)
         const platformUser = await prisma.platformUser.findUnique({
@@ -50,6 +52,12 @@ export const authOptions: NextAuthOptions = {
             organizationId: "platform",
             organizationName: "Platform Control Center",
           }
+        }
+
+        // If this authentication attempt was submitted from the Super Admin portal,
+        // strictly block tenant users to enforce platform security boundary
+        if (isPlatformPortal) {
+          throw new Error("Access denied: No Platform Administrator account found with this email.")
         }
 
         // 2. Check Tenant Users (OrgAdmin, BranchManager, SalesRep, Cashier, Technician)

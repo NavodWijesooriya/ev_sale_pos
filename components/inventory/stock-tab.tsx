@@ -27,6 +27,7 @@ import {
   Download,
 } from "lucide-react"
 import { toast } from "sonner"
+import { formatLKR } from "@/lib/currency"
 
 export interface StockVehicleRecord {
   id: string
@@ -99,11 +100,7 @@ export function StockTab({ vehicles }: StockTabProps) {
   }, [filtered])
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(val)
+    return formatLKR(val)
   }
 
   // Calculate Days in Stock from GRN received date or vehicle creation date

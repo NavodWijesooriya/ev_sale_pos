@@ -12,8 +12,8 @@ import { InventoryDashboard } from "@/components/inventory/inventory-dashboard"
 export const instant = false
 
 export const metadata = {
-  title: "Inventory & GRN Management | Ev Sale Pos",
-  description: "Track physical EV chassis stock, models catalog, suppliers, and Goods Received Notes",
+  title: "EV Bike Inventory & GRN Management | Ev Sale Pos",
+  description: "Track physical EV bike chassis stock, bike models catalog, suppliers, and Goods Received Notes",
 }
 
 export default async function InventoryPage() {

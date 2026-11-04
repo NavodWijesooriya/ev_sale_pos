@@ -23,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import { CreateGRNDialog } from "@/components/inventory/create-grn-dialog"
+import { formatLKR } from "@/lib/currency"
 import { useRouter } from "next/navigation"
 
 export interface GRNRecord {
@@ -80,11 +81,7 @@ export function GRNTab({ grns, suppliers, branches, models }: GRNTabProps) {
   }, [grns, search])
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(val)
+    return formatLKR(val)
   }
 
   const formatDate = (date: Date | string) => {

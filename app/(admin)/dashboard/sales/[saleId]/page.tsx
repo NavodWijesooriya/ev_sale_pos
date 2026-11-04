@@ -6,8 +6,8 @@ import { SaleOverview } from "@/components/sales/sale-overview"
 export const instant = false
 
 export const metadata = {
-  title: "Sale Overview & DMT Registration | Ev Sale Pos",
-  description: "Vehicle handover, delivery note, warranty activation and DMT registration tracking",
+  title: "EV Bike Sale & DMT Registration | Ev Sale Pos",
+  description: "EV bike handover, delivery note, warranty activation and DMT registration tracking",
 }
 
 interface SalePageProps {

@@ -24,6 +24,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { createGRN, GRNVehicleItem } from "@/app/actions/inventory"
+import { formatLKR } from "@/lib/currency"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -190,11 +191,7 @@ export function CreateGRNDialog({
   }
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(val)
+    return formatLKR(val)
   }
 
   return (
@@ -388,11 +385,11 @@ export function CreateGRNDialog({
 
                         {/* Purchase Cost */}
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-medium">Cost ($) <span className="text-red-500">*</span></Label>
+                          <Label className="text-[11px] font-medium">Cost (LKR) <span className="text-red-500">*</span></Label>
                           <Input
                             type="number"
-                            min="1"
-                            step="100"
+                            min="1000"
+                            step="1000"
                             value={item.purchasePrice}
                             onChange={(e) =>
                               handleItemChange(idx, "purchasePrice", parseFloat(e.target.value) || 0)

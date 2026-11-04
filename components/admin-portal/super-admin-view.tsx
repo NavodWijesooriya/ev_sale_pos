@@ -24,7 +24,7 @@ import {
 import {
   ShieldCheck,
   Building2,
-  CarFront,
+  Bike,
   DollarSign,
   Users,
   Search,
@@ -36,7 +36,11 @@ import {
   AlertCircle,
   Globe,
   RefreshCw,
+  HelpCircle,
+  Plus,
 } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
+import { CreateDealershipDialog } from "./create-dealership-dialog"
 
 export interface OrganizationRow {
   id: string
@@ -76,9 +80,15 @@ export function SuperAdminView({
 }: SuperAdminViewProps) {
   const [searchTerm, setSearchTerm] = React.useState("")
   const [planFilter, setPlanFilter] = React.useState<string>("all")
+  const [orgList, setOrgList] = React.useState<OrganizationRow[]>(organizations)
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    setOrgList(organizations)
+  }, [organizations])
 
   const filteredOrgs = React.useMemo(() => {
-    return organizations.filter((org) => {
+    return orgList.filter((org) => {
       const matchesSearch =
         org.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (org.subdomain && org.subdomain.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -89,7 +99,7 @@ export function SuperAdminView({
       if (planFilter === "all") return true
       return org.subscriptionPlan.toLowerCase() === planFilter.toLowerCase()
     })
-  }, [organizations, searchTerm, planFilter])
+  }, [orgList, searchTerm, planFilter])
 
   const renderPlanBadge = (plan: string) => {
     switch (plan) {
@@ -97,7 +107,7 @@ export function SuperAdminView({
         return (
           <Badge
             variant="outline"
-            className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-xs font-semibold"
+            className="bg-muted text-foreground border-border text-xs font-semibold"
           >
             Enterprise
           </Badge>
@@ -212,6 +222,17 @@ export function SuperAdminView({
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/admin-portal/help">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+              >
+                <HelpCircle className="h-3.5 w-3.5 text-purple-500" />
+                <span>Super Admin Guide</span>
+              </Button>
+            </Link>
+
             <Button
               variant="outline"
               size="sm"
@@ -252,10 +273,10 @@ export function SuperAdminView({
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-blue-500" />
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Active Vehicles
+                Active EV Bikes
               </span>
               <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
-                <CarFront className="h-4 w-4" />
+                <Bike className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent className="space-y-0.5">
@@ -264,7 +285,7 @@ export function SuperAdminView({
                 <span className="text-sm font-normal text-muted-foreground">in stock</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {kpis.totalVehicles} total vehicles registered across all tenants
+                {kpis.totalVehicles} total EV bikes registered across all tenants
               </p>
             </CardContent>
           </Card>
@@ -282,7 +303,7 @@ export function SuperAdminView({
             </CardHeader>
             <CardContent className="space-y-0.5">
               <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
-                ${kpis.totalSalesValue.toLocaleString()}
+                {formatLKR(kpis.totalSalesValue)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Gross transaction volume processed
@@ -326,25 +347,35 @@ export function SuperAdminView({
                 </CardDescription>
               </div>
 
-              {/* Plan Filter */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[
-                  { id: "all", label: "All Plans" },
-                  { id: "enterprise", label: "Enterprise" },
-                  { id: "pro", label: "Pro" },
-                  { id: "basic", label: "Basic" },
-                  { id: "free", label: "Free" },
-                ].map((plan) => (
-                  <Button
-                    key={plan.id}
-                    size="sm"
-                    variant={planFilter === plan.id ? "default" : "outline"}
-                    className="h-7 px-2.5 text-xs font-medium"
-                    onClick={() => setPlanFilter(plan.id)}
-                  >
-                    {plan.label}
-                  </Button>
-                ))}
+              {/* Right actions: Plan Filter + Add Dealership Button */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: "all", label: "All Plans" },
+                    { id: "enterprise", label: "Enterprise" },
+                    { id: "pro", label: "Pro" },
+                    { id: "basic", label: "Basic" },
+                    { id: "free", label: "Free" },
+                  ].map((plan) => (
+                    <Button
+                      key={plan.id}
+                      size="sm"
+                      variant={planFilter === plan.id ? "default" : "outline"}
+                      className="h-7 px-2.5 text-xs font-medium"
+                      onClick={() => setPlanFilter(plan.id)}
+                    >
+                      {plan.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-7 px-3 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 shadow-xs rounded-md cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add New Dealership
+                </Button>
               </div>
             </div>
 
@@ -377,7 +408,7 @@ export function SuperAdminView({
                     <TableHead className="text-xs font-semibold">Subscription Plan</TableHead>
                     <TableHead className="text-xs font-semibold text-center">Status</TableHead>
                     <TableHead className="text-xs font-semibold text-center">Branches</TableHead>
-                    <TableHead className="text-xs font-semibold text-center">Vehicles</TableHead>
+                    <TableHead className="text-xs font-semibold text-center">EV Bikes</TableHead>
                     <TableHead className="text-xs font-semibold text-center">Staff</TableHead>
                     <TableHead className="text-xs font-semibold">Created Date</TableHead>
                   </TableRow>
@@ -457,6 +488,15 @@ export function SuperAdminView({
         </CardContent>
         </Card>
       </main>
+
+      {/* Create Dealership Dialog */}
+      <CreateDealershipDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        onSuccess={(newOrg) => {
+          setOrgList((prev) => [newOrg, ...prev])
+        }}
+      />
 
       {/* Footer */}
       <footer className="border-t py-4 px-6 text-center text-[11px] text-muted-foreground">

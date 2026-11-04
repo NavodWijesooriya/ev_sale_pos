@@ -36,6 +36,8 @@ import {
   Clock,
 } from "lucide-react"
 import { createVehicleModel, CreateVehicleModelInput } from "@/app/actions/inventory"
+import { ImageUploader } from "@/components/ui/image-uploader"
+import { formatLKR } from "@/lib/currency"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -81,9 +83,6 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
     chargingTime: "4-6 Hours",
     imageUrl: "",
   })
-    range: "500 km",
-    imageUrl: "",
-  })
 
   React.useEffect(() => {
     setModels(initialModels)
@@ -127,10 +126,14 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
         setForm({
           brand: "",
           modelName: "",
-          defaultPrice: 45000,
-          minDownPayment: 4500,
-          batteryCapacity: "75 kWh",
-          range: "500 km",
+          defaultPrice: 2450,
+          minDownPayment: 250,
+          motorPower: "2000W",
+          batteryCapacity: "60V 32Ah",
+          rangePerCharge: "120km",
+          range: "120km",
+          topSpeed: "55 km/h",
+          chargingTime: "4-6 Hours",
           imageUrl: "",
         })
         router.refresh()
@@ -147,11 +150,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
   }
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(val)
+    return formatLKR(val)
   }
 
   return (
@@ -233,20 +232,12 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor="imageUrl" className="text-xs font-medium flex items-center gap-1">
-                      <ImageIcon className="size-3 text-muted-foreground" />
-                      EV Bike Image URL (Optional)
-                    </Label>
-                    <Input
-                      id="imageUrl"
-                      type="url"
-                      placeholder="https://images.unsplash.com/... or /bikes/model.png"
-                      value={form.imageUrl || ""}
-                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                      className="text-xs h-8"
-                    />
-                  </div>
+                  <ImageUploader
+                    value={form.imageUrl}
+                    onChange={(url) => setForm({ ...form, imageUrl: url })}
+                    label="EV Bike Model Photo"
+                    helperText="Upload bike picture from your device (Gallery/Camera). Stored in /public/uploads."
+                  />
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -319,13 +310,13 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="price" className="text-xs font-medium">
-                        Default Retail Price ($) <span className="text-red-500">*</span>
+                        Default Retail Price (LKR) <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="price"
                         type="number"
-                        min="100"
-                        step="10"
+                        min="1000"
+                        step="1000"
                         value={form.defaultPrice}
                         onChange={(e) =>
                           setForm({
@@ -340,7 +331,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="downPayment" className="text-xs font-medium">
-                        Min Down Payment ($)
+                        Min Down Payment (LKR)
                       </Label>
                       <Input
                         id="downPayment"
@@ -419,9 +410,18 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                     <TableRow key={m.id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="py-3 pl-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="size-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
-                            <Bike className="size-4" />
-                          </div>
+                          {m.imageUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={m.imageUrl}
+                              alt={m.modelName}
+                              className="size-9 rounded-lg object-cover border border-border shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="size-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                              <Bike className="size-4" />
+                            </div>
+                          )}
                           <div className="flex flex-col">
                             <span className="text-xs font-semibold text-foreground">
                               {m.modelName}
