@@ -87,13 +87,25 @@ export function ModernStorefrontView({
 
   return (
     <div className="dark min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-primary selection:text-white">
-      {/* 1. Top Announcement Banner */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white py-1.5 px-4 text-center text-[11px] sm:text-xs font-medium flex items-center justify-center gap-2">
-        <Sparkles className="size-3.5 shrink-0" />
-        <span>
-          Save up to <strong>Rs. 30,000/month</strong> on fuel bills. 100% Sri Lankan DMT Registered Electric Bikes with 3-Year Battery Warranty!
-        </span>
-      </div>
+      <section
+        aria-label="Electric bike benefits"
+        className="border-b border-emerald-400/15 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-emerald-50"
+      >
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-200">
+            <span className="flex size-6 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300">
+              <Sparkles className="size-3.5" aria-hidden="true" />
+            </span>
+            <span>Ride electric. Save more.</span>
+          </div>
+          <span className="hidden h-4 w-px bg-emerald-100/20 sm:block" aria-hidden="true" />
+          <p className="text-center text-[11px] leading-relaxed text-emerald-50/85 sm:text-xs">
+            Save up to <strong className="font-semibold text-white">Rs. 30,000/month</strong> on fuel
+            <span className="hidden sm:inline"> · </span>
+            <span className="sm:ml-1">Sri Lankan DMT-registered bikes · 3-year battery warranty</span>
+          </p>
+        </div>
+      </section>
 
       {/* 2. Sticky Glassmorphism Header */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
@@ -468,4 +480,3 @@ export function ModernStorefrontView({
     </div>
   )
 }
-
