@@ -363,7 +363,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     <ShieldCheck className="h-4 w-4" />
                     Automotive Financing / Lease Settlement
                   </span>
-                  <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary-foreground print:text-black print:border-zinc-400">
+                  <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary print:text-black print:border-zinc-400">
                     {sale.financeDetail.status}
                   </Badge>
                 </div>
@@ -504,4 +504,3 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
     </div>
   )
 }
-

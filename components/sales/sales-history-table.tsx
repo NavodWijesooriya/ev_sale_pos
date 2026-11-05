@@ -150,7 +150,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
         )
       case PaymentMethod.BankTransfer:
         return (
-          <Badge variant="outline" className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/20">
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
             Bank Transfer
           </Badge>
         )
@@ -469,4 +469,3 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
     </Card>
   )
 }
-

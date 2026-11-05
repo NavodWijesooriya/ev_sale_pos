@@ -28,10 +28,8 @@ import {
   DollarSign,
   Users,
   Search,
-  ExternalLink,
   LogOut,
   Sparkles,
-  Layers,
   CheckCircle2,
   AlertCircle,
   Globe,
@@ -81,11 +79,13 @@ export function SuperAdminView({
   const [searchTerm, setSearchTerm] = React.useState("")
   const [planFilter, setPlanFilter] = React.useState<string>("all")
   const [orgList, setOrgList] = React.useState<OrganizationRow[]>(organizations)
+  const [previousOrganizations, setPreviousOrganizations] = React.useState(organizations)
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
 
-  React.useEffect(() => {
+  if (previousOrganizations !== organizations) {
+    setPreviousOrganizations(organizations)
     setOrgList(organizations)
-  }, [organizations])
+  }
 
   const filteredOrgs = React.useMemo(() => {
     return orgList.filter((org) => {
@@ -177,7 +177,7 @@ export function SuperAdminView({
               </span>
               <Badge
                 variant="outline"
-                className="bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/30 text-[10px] font-bold"
+                className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold"
               >
                 PlatformAdmin
               </Badge>
@@ -214,7 +214,7 @@ export function SuperAdminView({
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               Global Platform Overview
-              <Sparkles className="h-4 w-4 text-primary-foreground" />
+              <Sparkles className="h-4 w-4 text-primary" />
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Live aggregate metrics and tenant dealership accounts across the EV SaaS network.
@@ -226,9 +226,9 @@ export function SuperAdminView({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5 border-primary/30 text-primary-foreground dark:text-purple-400 hover:bg-primary/10"
+                className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
               >
-                <HelpCircle className="h-3.5 w-3.5 text-primary-foreground" />
+                <HelpCircle className="h-3.5 w-3.5 text-primary" />
                 <span>Super Admin Guide</span>
               </Button>
             </Link>
@@ -248,13 +248,12 @@ export function SuperAdminView({
         {/* 3 Core KPI Cards (Requested) + 1 Platform Health Card */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* KPI 1: Total Registered Organizations */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs hover:border-purple-500/40 transition-colors">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-purple-500" />
+          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Total Dealerships
               </span>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary-foreground">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <Building2 className="h-4 w-4" />
               </div>
             </CardHeader>
@@ -269,8 +268,7 @@ export function SuperAdminView({
           </Card>
 
           {/* KPI 2: Total Active Vehicles (across all tenants) */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs hover:border-blue-500/40 transition-colors">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-blue-500" />
+          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Active EV Bikes
@@ -291,8 +289,7 @@ export function SuperAdminView({
           </Card>
 
           {/* KPI 3: Total Sales Value (across all tenants) */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs hover:border-emerald-500/40 transition-colors">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-emerald-500" />
+          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Total Sales Value
@@ -312,8 +309,7 @@ export function SuperAdminView({
           </Card>
 
           {/* KPI 4: Total Platform Users */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs hover:border-cyan-500/40 transition-colors">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-cyan-500" />
+          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Tenant Workforce
@@ -339,7 +335,7 @@ export function SuperAdminView({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-primary-foreground" />
+                  <Building2 className="h-4 w-4 text-primary" />
                   Registered Dealership Organizations
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -505,4 +501,3 @@ export function SuperAdminView({
     </div>
   )
 }
-

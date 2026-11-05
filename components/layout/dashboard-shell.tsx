@@ -32,7 +32,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
   const orgRole = user.role || "OrgAdmin"
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 print:bg-white print:block">
+    <div className="min-h-screen bg-background text-foreground print:bg-white print:block">
       {/* Desktop Fixed Collapsible Sidebar */}
       <Sidebar
         organizationName={orgName}
@@ -43,7 +43,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
       {/* Mobile Sidebar Drawer (Sheet) */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800" showCloseButton={true}>
+        <SheetContent side="left" className="w-[17rem] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground" showCloseButton={true}>
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Access dealership modules and settings</SheetDescription>
@@ -61,7 +61,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
       <div
         className={cn(
           "flex flex-col min-h-screen transition-all duration-300 ease-in-out print:pl-0 print:block",
-          isCollapsed ? "lg:pl-20" : "lg:pl-64"
+          isCollapsed ? "lg:pl-20" : "lg:pl-[17rem]"
         )}
       >
         {/* Header - Hidden completely during print */}
@@ -76,11 +76,10 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
           />
         </div>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 print:p-0 print:m-0 print:w-full">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-9 lg:py-8 print:p-0 print:m-0 print:w-full">
           {children}
         </main>
       </div>
     </div>
   )
 }
-

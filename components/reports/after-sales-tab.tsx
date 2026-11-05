@@ -166,7 +166,7 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Total Work Orders
             </span>
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary-foreground">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
               <Wrench className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -325,4 +325,3 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
     </div>
   )
 }
-

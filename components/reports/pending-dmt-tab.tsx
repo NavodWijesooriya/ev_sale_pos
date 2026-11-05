@@ -70,7 +70,7 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
         return (
           <Badge
             variant="outline"
-            className="bg-primary/15 text-primary-foreground dark:text-purple-400 border-primary/30 text-xs font-semibold gap-1"
+            className="bg-primary/15 text-primary border-primary/30 text-xs font-semibold gap-1"
           >
             <Clock className="h-3 w-3 shrink-0" />
             At DMT Office
@@ -180,12 +180,12 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
         <Card className="border-primary/30 bg-primary/5 shadow-xs">
           <CardContent className="p-4 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-primary-foreground dark:text-purple-400 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
                 Processing
               </span>
               <Clock className="h-4 w-4 text-primary-foreground" />
             </div>
-            <div className="text-2xl font-black text-primary-foreground dark:text-purple-400 font-mono">
+            <div className="text-2xl font-black text-primary font-mono">
               {data.summary.processingCount}{" "}
               <span className="text-xs font-normal text-muted-foreground">submitted</span>
             </div>
@@ -350,4 +350,3 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
     </div>
   )
 }
-

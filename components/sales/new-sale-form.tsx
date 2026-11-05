@@ -728,7 +728,7 @@ export function NewSaleForm({
                       <Sparkles className="h-4 w-4" />
                       Leasing & Finance Parameters
                     </span>
-                    <Badge variant="outline" className="text-[11px] bg-primary/10 text-primary-foreground border-primary/20">
+                    <Badge variant="outline" className="text-[11px] bg-primary/10 text-primary border-primary/20">
                       Pending Bank Approval
                     </Badge>
                   </div>
@@ -1043,4 +1043,3 @@ export function NewSaleForm({
     </form>
   )
 }
-

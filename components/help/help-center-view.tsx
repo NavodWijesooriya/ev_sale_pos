@@ -62,7 +62,7 @@ export function HelpCenterView({
       title: "Getting Started: Storefront Appearance & Branding",
       icon: Palette,
       badge: "Onboarding",
-      badgeColor: "bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/20",
+      badgeColor: "bg-primary/10 text-primary border-primary/20",
       description: "Customize your customer-facing digital showroom, header branding, tagline, and theme accents.",
       actionLink: "/dashboard/settings/appearance",
       actionText: "Configure Storefront",
@@ -564,4 +564,3 @@ export function HelpCenterView({
     </div>
   )
 }
-

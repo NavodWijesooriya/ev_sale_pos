@@ -122,7 +122,7 @@ export default async function DashboardPage() {
       value: `${branchCount} Locations`,
       change: "Active physical showrooms",
       icon: Building2,
-      iconColor: "text-primary-foreground",
+      iconColor: "text-primary",
       bgColor: "bg-primary/10 border-primary/20",
     },
     {
@@ -138,17 +138,17 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
               Welcome back, {user?.name?.split(" ")[0] || "Admin"}
             </h1>
             <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
               {user?.role || "OrgAdmin"}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1.5">
             Logged into dealership: <strong className="text-foreground">{organizationName || "Ev Sale Pos Dealership"}</strong>
           </p>
         </div>
@@ -170,23 +170,23 @@ export default async function DashboardPage() {
       </div>
 
       {/* Real Overview Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat, idx) => {
           const Icon = stat.icon
           return (
-            <Card key={idx} className="border border-border/80 rounded-xl sm:rounded-2xl shadow-xs bg-card relative overflow-hidden">
+            <Card key={idx} className="rounded-2xl bg-card shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
                 <div className={`p-2 rounded-lg border ${stat.bgColor}`}>
-                  <Icon className={`size-4 ${stat.iconColor}`} />
+                  <Icon className={`size-[18px] ${stat.iconColor}`} />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight text-foreground font-mono">{stat.value}</div>
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
-                  <ArrowUpRight className="size-3 text-emerald-500" />
+                <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{stat.value}</div>
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ArrowUpRight className="size-3.5 text-emerald-600" />
                   <span>{stat.change}</span>
                 </div>
               </CardContent>
@@ -354,4 +354,3 @@ export default async function DashboardPage() {
     </div>
   )
 }
-

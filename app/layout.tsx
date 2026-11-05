@@ -11,7 +11,7 @@ const roboto = Roboto({
 })
 
 export const viewport: Viewport = {
-  themeColor: "#0284c7",
+  themeColor: "#0f766e",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -48,7 +48,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Ev Sale Pos" />
-        <meta name="theme-color" content="#0284c7" />
+        <meta name="theme-color" content="#0f766e" />
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={roboto.className}>
@@ -61,4 +61,3 @@ export default function RootLayout({
     </html>
   )
 }
-

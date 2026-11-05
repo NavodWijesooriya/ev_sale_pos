@@ -58,16 +58,15 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col justify-center items-center p-4 bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-white relative overflow-hidden">
-      {/* Background glowing ambient orbs */}
-      <div className="absolute top-1/4 -left-20 size-80 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 size-80 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-50 via-background to-slate-50 p-4 text-foreground">
+      <div className="pointer-events-none absolute -right-24 -top-28 size-96 rounded-full border border-teal-900/5" />
+      <div className="pointer-events-none absolute -right-12 -top-16 size-72 rounded-full border border-teal-900/5" />
 
       {/* Back to public showroom button */}
       <div className="absolute top-6 left-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
           Back to Showroom
@@ -76,19 +75,19 @@ function LoginForm() {
 
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-6">
-          <div className="inline-flex size-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-cyan-400 items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-3">
+          <div className="mb-3 inline-flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
             <Zap className="size-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Ev Sale Pos</h1>
-          <p className="text-xs text-slate-400 mt-1">Multi-Tenant EV Dealership Management System</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Ev Sale Pos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Multi-tenant EV dealership management</p>
         </div>
 
-        <Card className="border-white/10 bg-slate-900/80 backdrop-blur-xl shadow-2xl text-white">
+        <Card className="rounded-2xl border-border/80 bg-card shadow-xl shadow-slate-900/5 text-card-foreground">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl font-semibold tracking-tight text-white">
+            <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
               Dealership Staff Sign In
             </CardTitle>
-            <CardDescription className="text-slate-400 text-xs">
+            <CardDescription className="text-sm text-muted-foreground">
               Enter your corporate email and password to access your branch dashboard
             </CardDescription>
           </CardHeader>
@@ -103,11 +102,11 @@ function LoginForm() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-medium text-slate-200">
+              <Label htmlFor="email" className="text-sm font-medium text-foreground">
                   Work Email Address
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 size-4 text-slate-400 pointer-events-none" />
+                  <Mail className="absolute left-3 top-3 size-4 text-muted-foreground pointer-events-none" />
                   <Input
                     id="email"
                     type="email"
@@ -115,22 +114,22 @@ function LoginForm() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:border-blue-500 focus-visible:ring-blue-500/30 text-sm"
+                    className="pl-10"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs font-medium text-slate-200">
+                  <Label htmlFor="password" className="text-sm font-medium text-foreground">
                     Password
                   </Label>
-                  <span className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer">
+                  <span className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
                     Forgot password?
                   </span>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 size-4 text-slate-400 pointer-events-none" />
+                  <Lock className="absolute left-3 top-3 size-4 text-muted-foreground pointer-events-none" />
                   <Input
                     id="password"
                     type="password"
@@ -138,15 +137,15 @@ function LoginForm() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:border-blue-500 focus-visible:ring-blue-500/30 text-sm"
+                    className="pl-10"
                   />
                 </div>
               </div>
 
               {/* Demo hint for instant testing */}
-              <div className="rounded-lg bg-blue-950/40 border border-blue-800/30 p-2.5 text-[11px] text-blue-200/90 leading-relaxed flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs leading-relaxed text-foreground/80">
                 <div>
-                  <span className="font-semibold text-blue-400">Demo Admin:</span>{" "}
+                  <span className="font-semibold text-primary">Demo Admin:</span>{" "}
                   <code>admin@voltpos.com</code> / <code>password123</code>
                 </div>
                 <button
@@ -155,7 +154,7 @@ function LoginForm() {
                     setEmail("admin@voltpos.com")
                     setPassword("password123")
                   }}
-                  className="text-[10px] px-2 py-0.5 rounded bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 font-medium border border-blue-500/30 transition-colors"
+                  className="rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
                 >
                   Auto-fill
                 </button>
@@ -166,7 +165,7 @@ function LoginForm() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium shadow-md shadow-blue-600/30 text-sm"
+                className="h-11 w-full rounded-xl text-sm font-semibold shadow-sm"
               >
                 {isLoading ? (
                   <>
@@ -178,7 +177,7 @@ function LoginForm() {
                 )}
               </Button>
 
-              <div className="text-center text-[11px] text-slate-400">
+              <div className="text-center text-xs text-muted-foreground">
                 Protected by tenant isolation & enterprise RBAC encryption.
               </div>
             </CardFooter>
@@ -193,8 +192,8 @@ export default function LoginPage() {
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-          <Loader2 className="size-6 animate-spin text-blue-500" />
+        <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+          <Loader2 className="size-6 animate-spin text-primary" />
         </div>
       }
     >
@@ -202,4 +201,3 @@ export default function LoginPage() {
     </React.Suspense>
   )
 }
-

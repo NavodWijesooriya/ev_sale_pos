@@ -209,7 +209,7 @@ export function CustomerDirectory({
                 Total lifetime revenue
               </p>
             </div>
-            <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
+            <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <DollarSign className="size-5 sm:size-6" />
             </div>
           </CardContent>
@@ -369,4 +369,3 @@ export function CustomerDirectory({
     </div>
   )
 }
-

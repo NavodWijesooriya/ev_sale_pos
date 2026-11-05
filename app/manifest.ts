@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Multi-Tenant EV Bike Dealership SaaS ERP and Live Showroom",
     start_url: "/",
     display: "standalone",
-    background_color: "#090d16",
-    theme_color: "#0284c7",
+    background_color: "#f4f8fa",
+    theme_color: "#0f766e",
     orientation: "portrait-primary",
     icons: [
       {
@@ -38,4 +38,3 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
   }
 }
-

@@ -48,14 +48,14 @@ export const navigationItems: NavItem[] = [
     roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
   },
   {
-    title: "EV Bikes (GRN & Stock)",
+    title: "EV Inventory",
     href: "/dashboard/inventory",
     icon: Bike,
     badge: "Chassis/Bike",
     roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"],
   },
   {
-    title: "Sales (Cash & Lease)",
+    title: "Sales & POS",
     href: "/dashboard/sales",
     icon: BadgeDollarSign,
     badge: "POS",
@@ -80,14 +80,14 @@ export const navigationItems: NavItem[] = [
     roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
   },
   {
-    title: "Settings (Staff)",
+    title: "Team & Access",
     href: "/dashboard/settings/users",
     icon: Settings,
     badge: "Admin",
     roles: ["OrgAdmin", "SuperAdmin"],
   },
   {
-    title: "Appearance",
+    title: "Storefront Branding",
     href: "/dashboard/settings/appearance",
     icon: Palette,
     badge: "Branding",
@@ -100,7 +100,7 @@ export const navigationItems: NavItem[] = [
     badge: "Guide",
   },
   {
-    title: "Super Admin",
+    title: "Platform Admin",
     href: "/super-admin",
     icon: ShieldAlert,
     badge: "Platform",
@@ -126,11 +126,11 @@ export function SidebarContent({
   const pathname = usePathname()
 
   return (
-    <div className="flex h-full flex-col bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-r border-slate-200 dark:border-slate-800 select-none">
+    <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground select-none">
       {/* Dealership / Brand Header */}
       <div
         className={cn(
-          "flex h-16 shrink-0 items-center border-b border-slate-200/80 dark:border-slate-800 px-4 transition-all duration-300",
+          "flex h-[4.5rem] shrink-0 items-center border-b border-sidebar-border px-4 transition-all duration-300",
           isCollapsed ? "justify-center px-2" : "justify-between"
         )}
       >
@@ -140,15 +140,15 @@ export function SidebarContent({
           className="flex items-center gap-3 group overflow-hidden"
           title="Ev Sale Pos"
         >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
             <Zap className="size-5" />
           </div>
           {!isCollapsed && (
             <div className="flex flex-col truncate">
-              <span className="text-sm font-extrabold tracking-tight text-foreground">
+              <span className="text-[15px] font-bold tracking-tight text-foreground">
                 Ev Sale Pos
               </span>
-              <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[130px]">
+              <span className="text-xs text-muted-foreground font-medium truncate max-w-[150px]">
                 {organizationName}
               </span>
             </div>
@@ -169,7 +169,7 @@ export function SidebarContent({
       </div>
 
       {/* Main Sidebar Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+      <div className="flex-1 overflow-y-auto px-3 py-5 space-y-6 [&>div:first-child]:hidden">
         {/* 1. Quick Access Section (2x2 Grid of Small Cards) */}
         {!isCollapsed ? (
           <div>
@@ -234,14 +234,14 @@ export function SidebarContent({
                 className="group flex flex-col p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 hover:bg-purple-50/80 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all hover:border-purple-400/50 hover:shadow-xs"
               >
                 <div className="flex items-center justify-between w-full">
-                  <div className="size-7 rounded-lg bg-primary/10 text-primary-foreground dark:text-purple-400 flex items-center justify-center">
+                  <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                     <Boxes className="size-3.5" />
                   </div>
-                  <span className="text-[9px] font-bold text-primary-foreground dark:text-purple-400 bg-primary/10 px-1 rounded">
+                  <span className="text-[9px] font-bold text-primary bg-primary/10 px-1 rounded">
                     GRN
                   </span>
                 </div>
-                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-primary-foreground dark:group-hover:text-purple-400">
+                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-primary">
                   Inventory
                 </span>
                 <span className="text-[10px] text-muted-foreground truncate">
@@ -297,7 +297,7 @@ export function SidebarContent({
         <div>
           {!isCollapsed && (
             <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Main Menu
+              Workspace
             </div>
           )}
 
@@ -318,19 +318,19 @@ export function SidebarContent({
                     onClick={onNavigate}
                     title={isCollapsed ? item.title : undefined}
                     className={cn(
-                      "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all duration-150",
+                      "group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all duration-200",
                       isCollapsed && "justify-center px-0 size-10 mx-auto",
                       isActive
-                        ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                        : "text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800/60"
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs"
+                        : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                     )}
                   >
                     <Icon
                       className={cn(
-                        "size-4 shrink-0 transition-colors",
+                        "size-5 shrink-0 transition-colors",
                         isActive
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground group-hover:text-foreground"
+                          ? "text-sidebar-accent-foreground"
+                          : "text-muted-foreground group-hover:text-sidebar-foreground"
                       )}
                     />
 
@@ -341,10 +341,10 @@ export function SidebarContent({
                         {item.badge && (
                           <span
                             className={cn(
-                              "rounded px-1.5 py-0.5 text-[10px] font-medium tracking-tight",
+                              "rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-tight",
                               isActive
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-100 text-muted-foreground group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700"
+                                ? "bg-primary/10 text-primary"
+                                : "bg-muted text-muted-foreground group-hover:bg-background"
                             )}
                           >
                             {item.badge}
@@ -352,7 +352,7 @@ export function SidebarContent({
                         )}
 
                         {isActive && (
-                          <ChevronRight className="size-3.5 text-primary-foreground/70" />
+                          <ChevronRight className="size-4 text-sidebar-accent-foreground/70" />
                         )}
                       </>
                     )}
@@ -439,8 +439,8 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-30 hidden flex-col transition-all duration-300 ease-in-out lg:flex print:hidden",
-        isCollapsed ? "w-20" : "w-64"
+        "fixed inset-y-0 left-0 z-30 hidden flex-col transition-[width] duration-300 ease-in-out lg:flex print:hidden",
+        isCollapsed ? "w-20" : "w-[17rem]"
       )}
     >
       <SidebarContent
@@ -452,4 +452,3 @@ export function Sidebar({
     </aside>
   )
 }
-

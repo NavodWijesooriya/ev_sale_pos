@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import {
   ShieldAlert,
   Building2,
-  CheckCircle2,
   Users,
   Zap,
   Bike,
@@ -46,7 +45,7 @@ export default async function SuperAdminPage() {
       value: totalTenants.toString(),
       description: "Provisioned SaaS tenants",
       icon: Building2,
-      color: "text-primary-foreground",
+      color: "text-primary",
       bg: "bg-primary/10 border-primary/20",
     },
     {
@@ -88,7 +87,7 @@ export default async function SuperAdminPage() {
               <span className="font-bold text-sm tracking-tight text-foreground">
                 Ev Sale Pos Platform Control Plane
               </span>
-              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary-foreground dark:text-purple-400 border-primary/20">
+              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
                 Super Admin
               </Badge>
             </div>
@@ -100,8 +99,8 @@ export default async function SuperAdminPage() {
 
         <div className="flex items-center gap-2">
           <Link href="/admin-portal/help">
-            <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-primary/30 text-primary-foreground dark:text-purple-400 hover:bg-primary/10">
-              <HelpCircle className="size-3.5 text-primary-foreground" />
+            <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+                <HelpCircle className="size-3.5 text-primary" />
               <span>Super Admin Guide</span>
             </Button>
           </Link>
@@ -193,4 +192,3 @@ export default async function SuperAdminPage() {
     </div>
   )
 }
-
