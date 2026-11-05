@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
@@ -16,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { platformLoginAction } from "@/app/actions/auth"
 import {
   ShieldCheck,
   Lock,
@@ -42,27 +42,19 @@ export default function SuperAdminLoginPage() {
     setErrorMessage(null)
 
     try {
-      // Authenticate explicitly with portal: "admin" so only PlatformUser is checked
-      const res = await signIn("credentials", {
-        redirect: false,
-        email,
-        password,
-        portal: "admin",
-        callbackUrl,
-      })
+      const formData = new FormData()
+      formData.set("email", email)
+      formData.set("password", password)
+      const res = await platformLoginAction(formData)
 
-      if (res?.error) {
-        if (res.error === "CredentialsSignin") {
-          setErrorMessage("Invalid Platform Administrator credentials. Please verify your email and password.")
-        } else {
-          setErrorMessage(res.error)
-        }
-      } else if (res?.ok) {
+      if (!res.success) {
+        setErrorMessage(res.error)
+      } else {
         router.push(callbackUrl)
         router.refresh()
       }
-    } catch {
-      setErrorMessage("An unexpected authentication error occurred. Please try again.")
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : "Login failed")
     } finally {
       setIsLoading(false)
     }

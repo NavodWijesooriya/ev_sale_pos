@@ -2,7 +2,9 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "sonner"
 import {
   Card,
   CardContent,
@@ -76,6 +78,8 @@ export function SuperAdminView({
   kpis,
   organizations,
 }: SuperAdminViewProps) {
+  const router = useRouter()
+  const supabase = createClient()
   const [searchTerm, setSearchTerm] = React.useState("")
   const [planFilter, setPlanFilter] = React.useState<string>("all")
   const [orgList, setOrgList] = React.useState<OrganizationRow[]>(organizations)
@@ -162,6 +166,18 @@ export function SuperAdminView({
     )
   }
 
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error("Failed to sign out:", error)
+      toast.error("Unable to sign out. Please try again.")
+      return
+    }
+
+    router.replace("/admin-portal/login")
+    router.refresh()
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Platform Header */}
@@ -198,7 +214,7 @@ export function SuperAdminView({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={handleSignOut}
             className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <LogOut className="h-3.5 w-3.5" />

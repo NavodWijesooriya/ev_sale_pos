@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getAuthSession } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
 import { SuperAdminView, OrganizationRow } from "@/components/admin-portal/super-admin-view"
 
 export const instant = false
@@ -9,13 +9,22 @@ export const instant = false
 export default async function SuperAdminDashboardPage() {
   await connection()
 
-  // 1. Route Security: Verify the user is logged in as a PlatformAdmin
-  const session = await getAuthSession()
+  // 1. Verify the signed-in Supabase user is a platform administrator.
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (
-    !session?.user ||
-    (session.user.role !== "PlatformAdmin" && session.user.role !== "SuperAdmin")
-  ) {
+  if (!user?.email) {
+    redirect("/admin-portal/login?callbackUrl=/admin-portal")
+  }
+
+  const platformUser = await prisma.platformUser.findUnique({
+    where: { email: user.email.toLowerCase().trim() },
+    select: { name: true, role: true },
+  })
+
+  if (platformUser?.role !== "PlatformAdmin") {
     redirect("/admin-portal/login?callbackUrl=/admin-portal")
   }
 
@@ -68,9 +77,9 @@ export default async function SuperAdminDashboardPage() {
   return (
     <SuperAdminView
       user={{
-        name: session.user.name,
-        email: session.user.email,
-        role: session.user.role,
+        name: platformUser.name,
+        email: user.email,
+        role: platformUser.role,
       }}
       kpis={{
         totalOrganizations,
@@ -83,4 +92,3 @@ export default async function SuperAdminDashboardPage() {
     />
   )
 }
-

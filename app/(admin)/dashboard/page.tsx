@@ -1,5 +1,6 @@
-import { getAuthSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { createClient } from "@/lib/supabase/server"
 import { formatLKR } from "@/lib/currency"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,23 +23,32 @@ import Link from "next/link"
 export const instant = false
 
 export default async function DashboardPage() {
-  const session = await getAuthSession()
-  const user = session?.user
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // 1. Resolve Organization Scope
-  let organizationId = user?.organizationId
-  let organizationName = user?.organizationName
-
-  if (!organizationId) {
-    const defaultOrg = await prisma.organization.findFirst({
-      where: { subscriptionStatus: "Active" },
-      select: { id: true, businessName: true },
-    })
-    if (defaultOrg) {
-      organizationId = defaultOrg.id
-      organizationName = defaultOrg.businessName
-    }
+  if (!user?.email) {
+    redirect("/login")
   }
+
+  const dealershipUser = await prisma.user.findUnique({
+    where: { email: user.email.toLowerCase().trim() },
+    select: {
+      name: true,
+      role: true,
+      organizationId: true,
+      organization: { select: { businessName: true } },
+      isActive: true,
+    },
+  })
+
+  if (!dealershipUser?.isActive) {
+    redirect("/login")
+  }
+
+  const organizationId = dealershipUser.organizationId
+  const organizationName = dealershipUser.organization.businessName
 
   // 2. Fetch Real Database Metrics & Aggregations
   const [
@@ -142,10 +152,10 @@ export default async function DashboardPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              Welcome back, {user?.name?.split(" ")[0] || "Admin"}
+              Welcome back, {dealershipUser.name.split(" ")[0] || "Admin"}
             </h1>
             <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-              {user?.role || "OrgAdmin"}
+              {dealershipUser.role}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1.5">

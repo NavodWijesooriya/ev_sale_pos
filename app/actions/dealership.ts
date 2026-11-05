@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { getAuthSession } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js"
 import bcrypt from "bcrypt"
-import { SubscriptionPlan, SubscriptionStatus, UserRole } from "@prisma/client"
+import { PlatformRole, SubscriptionPlan, SubscriptionStatus, UserRole } from "@prisma/client"
 
 export interface RegisterDealershipInput {
   businessName: string
@@ -233,8 +234,21 @@ export async function updateDealershipAppearance(input: {
   logoUrl?: string
 }) {
   try {
-    const session = await getAuthSession()
-    if (!session?.user?.organizationId) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user?.email) {
+      return { success: false, message: "Unauthorized. Please log in as Dealership Owner." }
+    }
+
+    const dealershipUser = await prisma.user.findUnique({
+      where: { email: user.email.toLowerCase().trim() },
+      select: { organizationId: true, isActive: true },
+    })
+
+    if (!dealershipUser?.isActive) {
       return { success: false, message: "Unauthorized. Please log in as Dealership Owner." }
     }
 
@@ -243,7 +257,7 @@ export async function updateDealershipAppearance(input: {
     }
 
     await prisma.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: dealershipUser.organizationId },
       data: {
         businessName: input.businessName.trim(),
         phone: input.phone?.trim() || null,
@@ -289,8 +303,19 @@ export async function createTenant(input: CreateTenantInput): Promise<{
   }
 }> {
   try {
-    const session = await getAuthSession()
-    if (!session?.user || (session.user.role !== "PlatformAdmin" && session.user.role !== "SuperAdmin")) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    const platformUser = user?.email
+      ? await prisma.platformUser.findUnique({
+          where: { email: user.email.toLowerCase().trim() },
+          select: { role: true },
+        })
+      : null
+
+    if (platformUser?.role !== PlatformRole.PlatformAdmin) {
       return { success: false, message: "Unauthorized: Only Platform Administrators can provision new dealerships." }
     }
 
@@ -347,6 +372,36 @@ export async function createTenant(input: CreateTenantInput): Promise<{
     // 5. Hash password
     const passwordHash = await bcrypt.hash(adminPassword, 10)
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      throw new Error("Supabase admin credentials are not configured.")
+    }
+
+    const supabaseAdmin = createSupabaseAdminClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    })
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: cleanEmail,
+        password: adminPassword,
+        email_confirm: true,
+        user_metadata: {
+          name: adminName?.trim() || `${businessName.trim()} Admin`,
+        },
+      })
+
+    if (authError) {
+      throw new Error(`Failed to create Supabase Auth user: ${authError.message}`)
+    }
+    if (!authData.user) {
+      throw new Error("Supabase Auth did not return the created user.")
+    }
+
     // 6. Prisma Transaction
     const result = await prisma.$transaction(async (tx) => {
       // a) Create Organization
@@ -384,6 +439,18 @@ export async function createTenant(input: CreateTenantInput): Promise<{
       })
 
       return { org, branch, user }
+    }).catch(async (error: unknown) => {
+      const { error: cleanupError } = await supabaseAdmin.auth.admin.deleteUser(
+        authData.user.id,
+      )
+      if (cleanupError) {
+        console.error("createTenant Supabase Auth cleanup error:", cleanupError)
+        throw new Error(
+          `Tenant database creation failed, and the Supabase Auth user could not be removed: ${cleanupError.message}`,
+        )
+      }
+
+      throw error
     })
 
     // Revalidate paths
@@ -409,12 +476,11 @@ export async function createTenant(input: CreateTenantInput): Promise<{
         salesCount: 0,
       },
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("createTenant error:", error)
     return {
       success: false,
-      message: error?.message || "Failed to create tenant dealership.",
+      message: error instanceof Error ? error.message : "Failed to create tenant dealership.",
     }
   }
 }
-

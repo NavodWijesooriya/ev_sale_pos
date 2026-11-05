@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
-import { getAuthSession } from "@/lib/auth"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
+import { prisma } from "@/lib/prisma"
+import { createClient } from "@/lib/supabase/server"
 
 export const instant = false
 
@@ -14,16 +15,43 @@ export default async function AdminDashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getAuthSession()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user) {
-    redirect("/login?callbackUrl=/dashboard")
+  if (!user?.email) {
+    redirect("/login")
+  }
+
+  const dealershipUser = await prisma.user.findUnique({
+    where: { email: user.email.toLowerCase().trim() },
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      organizationId: true,
+      organization: { select: { businessName: true } },
+      isActive: true,
+    },
+  })
+
+  if (!dealershipUser?.isActive) {
+    redirect("/login")
+  }
+
+  const shellUser = {
+    id: dealershipUser.id,
+    name: dealershipUser.name,
+    email: user.email,
+    role: dealershipUser.role,
+    organizationId: dealershipUser.organizationId,
+    organizationName: dealershipUser.organization.businessName,
   }
 
   return (
-    <DashboardShell user={session.user}>
+    <DashboardShell user={shellUser}>
       {children}
     </DashboardShell>
   )
 }
-
