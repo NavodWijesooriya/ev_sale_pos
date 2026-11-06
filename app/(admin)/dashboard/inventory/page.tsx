@@ -6,6 +6,7 @@ import {
   getStockVehicles,
   getGRNs,
   getDealershipBranches,
+  getCatalogManagementAccess,
 } from "@/app/actions/inventory"
 import { InventoryDashboard } from "@/components/inventory/inventory-dashboard"
 
@@ -24,23 +25,24 @@ export default async function InventoryPage() {
   }
 
   // Fetch all inventory datasets strictly scoped to current tenant
-  const [modelsRes, suppliersRes, stockRes, grnsRes, branchesRes] = await Promise.all([
+  const [modelsRes, suppliersRes, stockRes, grnsRes, branchesRes, canManageCatalog] = await Promise.all([
     getVehicleModels(),
     getSuppliers(),
     getStockVehicles(),
     getGRNs(),
     getDealershipBranches(),
+    getCatalogManagementAccess(),
   ])
 
   return (
     <InventoryDashboard
-      initialModels={modelsRes.data as any}
-      initialSuppliers={suppliersRes.data as any}
-      initialVehicles={stockRes.data as any}
-      initialGRNs={grnsRes.data as any}
-      branches={branchesRes.data as any}
+      initialModels={modelsRes.data}
+      initialSuppliers={suppliersRes.data}
+      initialVehicles={stockRes.data}
+      initialGRNs={grnsRes.data}
+      branches={branchesRes.data}
       dealershipName={session.user.organizationName || "Dealership"}
+      canManageCatalog={canManageCatalog}
     />
   )
 }
-

@@ -186,6 +186,19 @@ export function HelpCenterView({
             </div>
           ),
         },
+        {
+          question: "How do I control staff access to EV models and suppliers?",
+          answer: (
+            <div className="space-y-3 text-xs leading-relaxed">
+              <p>
+                Dealership Owners (<code>OrgAdmin</code>) can enable or restrict catalog management from <strong>Team &amp; Access</strong> in the dashboard settings.
+              </p>
+              <p className="text-muted-foreground">
+                When enabled, Branch Managers can add, edit, and delete EV models and suppliers in the dealership&apos;s shared catalog. Other staff can still view catalog records but cannot change them. Disabling the permission immediately restores owner-only management.
+              </p>
+            </div>
+          ),
+        },
       ],
     },
     {
@@ -203,7 +216,7 @@ export function HelpCenterView({
           answer: (
             <div className="space-y-3 text-xs leading-relaxed">
               <p>
-                Before intaking physical bikes into stock, you define the <strong>EV Bike Model</strong> in your catalog. This ensures consistent specifications across all physical units:
+                The Dealership Owner manages the dealership&apos;s shared <strong>EV Bike Model</strong> catalog. Branch Managers can also manage models and suppliers when the owner enables that permission in <strong>Team &amp; Access</strong>. This ensures consistent specifications across all physical units:
               </p>
               <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
                 <p className="font-semibold text-foreground">Catalog Setup Steps:</p>

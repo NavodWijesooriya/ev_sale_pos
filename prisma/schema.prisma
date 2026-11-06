@@ -48,6 +48,7 @@ model Organization {
   subscriptionPlan   SubscriptionPlan   @default(Free)
   subscriptionStatus SubscriptionStatus @default(Active)
   expiryDate         DateTime?
+  staffCanManageCatalog Boolean            @default(false)
   createdAt          DateTime           @default(now())
 
   users          User[]

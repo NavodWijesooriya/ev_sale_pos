@@ -16,7 +16,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -32,8 +31,15 @@ import {
   Search,
   Loader2,
   CheckCircle2,
+  Pencil,
+  Trash2,
 } from "lucide-react"
-import { createSupplier, CreateSupplierInput } from "@/app/actions/inventory"
+import {
+  createSupplier,
+  CreateSupplierInput,
+  deleteSupplier,
+  updateSupplier,
+} from "@/app/actions/inventory"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -50,14 +56,18 @@ export interface SupplierRecord {
 
 interface SuppliersTabProps {
   initialSuppliers: SupplierRecord[]
+  canManageCatalog: boolean
 }
 
-export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
+export function SuppliersTab({ initialSuppliers, canManageCatalog }: SuppliersTabProps) {
   const router = useRouter()
   const [suppliers, setSuppliers] = React.useState<SupplierRecord[]>(initialSuppliers)
   const [search, setSearch] = React.useState("")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [editingSupplierId, setEditingSupplierId] = React.useState<string | null>(null)
+  const [supplierToDelete, setSupplierToDelete] = React.useState<SupplierRecord | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const [form, setForm] = React.useState<CreateSupplierInput>({
     name: "",
@@ -65,10 +75,6 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
     phone: "",
     email: "",
   })
-
-  React.useEffect(() => {
-    setSuppliers(initialSuppliers)
-  }, [initialSuppliers])
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return suppliers
@@ -92,16 +98,29 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
     setIsSubmitting(true)
 
     try {
-      const res = await createSupplier(form)
+      const res = editingSupplierId
+        ? await updateSupplier({ ...form, id: editingSupplierId })
+        : await createSupplier(form)
 
       if (res.success && res.data) {
         toast.success(res.message)
-        setSuppliers((prev) => [...prev, { ...res.data!, _count: { grns: 0 } }])
+        setSuppliers((prev) =>
+          editingSupplierId
+            ? prev.map((supplier) =>
+                supplier.id === editingSupplierId
+                  ? { ...res.data!, _count: supplier._count }
+                  : supplier
+              )
+            : [...prev, { ...res.data!, _count: { grns: 0 } }]
+        )
         setIsDialogOpen(false)
+        setEditingSupplierId(null)
         setForm({ name: "", contactPerson: "", phone: "", email: "" })
         router.refresh()
       } else {
-        toast.error("Failed to create supplier", { description: res.message })
+        toast.error(editingSupplierId ? "Failed to update supplier" : "Failed to create supplier", {
+          description: res.message,
+        })
       }
     } catch (err) {
       toast.error("Error", {
@@ -109,6 +128,47 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const openNewSupplierDialog = () => {
+    setEditingSupplierId(null)
+    setForm({ name: "", contactPerson: "", phone: "", email: "" })
+    setIsDialogOpen(true)
+  }
+
+  const openEditSupplierDialog = (supplier: SupplierRecord) => {
+    setEditingSupplierId(supplier.id)
+    setForm({
+      name: supplier.name,
+      contactPerson: supplier.contactPerson || "",
+      phone: supplier.phone || "",
+      email: supplier.email || "",
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDeleteSupplier = async () => {
+    if (!supplierToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const result = await deleteSupplier(supplierToDelete.id)
+      if (!result.success) {
+        toast.error("Failed to delete supplier", { description: result.message })
+        return
+      }
+
+      toast.success(result.message)
+      setSuppliers((prev) => prev.filter((supplier) => supplier.id !== supplierToDelete.id))
+      setSupplierToDelete(null)
+      router.refresh()
+    } catch (error) {
+      toast.error("Failed to delete supplier", {
+        description: error instanceof Error ? error.message : "Unexpected error",
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -142,19 +202,27 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
             </div>
 
             {/* Add Supplier Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger
-                render={
-                  <Button size="sm" className="h-8 text-xs bg-primary text-primary-foreground">
-                    <Plus className="mr-1.5 size-3.5" />
-                    Add Supplier
-                  </Button>
-                }
-              />
+            {canManageCatalog && (
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-primary text-primary-foreground"
+                onClick={openNewSupplierDialog}
+              >
+                <Plus className="mr-1.5 size-3.5" />
+                Add Supplier
+              </Button>
+            )}
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open)
+                if (!open) setEditingSupplierId(null)
+              }}
+            >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-base font-semibold">
-                    Register EV Supplier / Importer
+                    {editingSupplierId ? "Update EV Supplier / Importer" : "Register EV Supplier / Importer"}
                   </DialogTitle>
                   <DialogDescription className="text-xs">
                     Suppliers are linked to Goods Received Notes (GRN) for inventory stock intake.
@@ -250,7 +318,7 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
                       ) : (
                         <>
                           <CheckCircle2 className="mr-1.5 size-3" />
-                          Register Supplier
+                          {editingSupplierId ? "Save Changes" : "Register Supplier"}
                         </>
                       )}
                     </Button>
@@ -272,13 +340,14 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
                 <TableHead className="py-2.5">Phone</TableHead>
                 <TableHead className="py-2.5">Email</TableHead>
                 <TableHead className="py-2.5 pr-4 text-right">Total GRNs</TableHead>
+                {canManageCatalog && <TableHead className="py-2.5 pr-4 text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-28 text-center text-xs text-muted-foreground">
-                    No suppliers registered yet. Click "Add Supplier" to register one.
+                  <TableCell colSpan={canManageCatalog ? 6 : 5} className="h-28 text-center text-xs text-muted-foreground">
+                    No suppliers registered yet. Click &quot;Add Supplier&quot; to register one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -312,6 +381,28 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
                         {s._count?.grns ?? 0} GRN Deliveries
                       </Badge>
                     </TableCell>
+                    {canManageCatalog && (
+                      <TableCell className="py-3 pr-4 text-right whitespace-nowrap">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          aria-label={`Edit ${s.name}`}
+                          onClick={() => openEditSupplierDialog(s)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-destructive hover:text-destructive"
+                          aria-label={`Delete ${s.name}`}
+                          onClick={() => setSupplierToDelete(s)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -319,6 +410,40 @@ export function SuppliersTab({ initialSuppliers }: SuppliersTabProps) {
           </Table>
         </div>
       </CardContent>
+      <Dialog
+        open={supplierToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setSupplierToDelete(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Supplier?</DialogTitle>
+            <DialogDescription>
+              Delete {supplierToDelete?.name}? Suppliers linked to GRNs cannot be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDeleting}
+              onClick={() => setSupplierToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isDeleting}
+              onClick={handleDeleteSupplier}
+            >
+              {isDeleting ? <Loader2 className="mr-1.5 size-3 animate-spin" /> : null}
+              Delete Supplier
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

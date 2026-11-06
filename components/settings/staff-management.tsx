@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -54,6 +55,7 @@ import {
   createStaffUser,
   updateStaffUser,
   toggleStaffStatus,
+  updateStaffCatalogPermission,
 } from "@/app/actions/staff"
 import { UserRole } from "@prisma/client"
 
@@ -65,6 +67,10 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
   const [users, setUsers] = React.useState<StaffUserItem[]>(initialData.users)
   const [branches] = React.useState(initialData.branches)
   const currentUserId = initialData.currentUserId
+  const [staffCanManageCatalog, setStaffCanManageCatalog] = React.useState(
+    initialData.staffCanManageCatalog
+  )
+  const [isUpdatingCatalogPermission, setIsUpdatingCatalogPermission] = React.useState(false)
 
   const [searchTerm, setSearchTerm] = React.useState("")
   const [roleFilter, setRoleFilter] = React.useState<string>("all")
@@ -228,6 +234,24 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
     }
   }
 
+  const handleCatalogPermissionChange = async (enabled: boolean) => {
+    setIsUpdatingCatalogPermission(true)
+    try {
+      const result = await updateStaffCatalogPermission(enabled)
+      if (!result.success) {
+        toast.error(result.error || "Failed to update catalog access.")
+        return
+      }
+
+      setStaffCanManageCatalog(enabled)
+      toast.success(result.message)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update catalog access.")
+    } finally {
+      setIsUpdatingCatalogPermission(false)
+    }
+  }
+
   const renderRoleBadge = (role: UserRole) => {
     switch (role) {
       case UserRole.OrgAdmin:
@@ -315,6 +339,45 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
           <span>Add New Staff</span>
         </Button>
       </div>
+
+      <Card className="border-border/80 shadow-xs">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-bold flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            Staff Catalog Permissions
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Control whether Branch Managers at your dealership can add, edit, or delete EV models and suppliers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <label
+            htmlFor="staff-catalog-permission"
+            className="flex items-start gap-3 cursor-pointer"
+          >
+            <Checkbox
+              id="staff-catalog-permission"
+              checked={staffCanManageCatalog}
+              disabled={isUpdatingCatalogPermission}
+              onCheckedChange={handleCatalogPermissionChange}
+              aria-describedby="staff-catalog-permission-description"
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium">
+                Allow staff to manage EV models and suppliers
+              </span>
+              <span
+                id="staff-catalog-permission-description"
+                className="block text-xs text-muted-foreground"
+              >
+                {staffCanManageCatalog
+                  ? "Branch Managers can manage the shared dealership catalog."
+                  : "Only you can manage the dealership catalog."}
+              </span>
+            </span>
+          </label>
+        </CardContent>
+      </Card>
 
       {/* KPI Cards: Staff Distribution */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

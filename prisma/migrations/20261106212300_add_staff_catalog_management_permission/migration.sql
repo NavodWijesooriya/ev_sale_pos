@@ -1,0 +1,2 @@
+ALTER TABLE "Organization"
+ADD COLUMN IF NOT EXISTS "staffCanManageCatalog" BOOLEAN NOT NULL DEFAULT false;

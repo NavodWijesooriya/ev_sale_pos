@@ -15,9 +15,6 @@ import {
   Truck,
   FileText,
   Plus,
-  ArrowUpRight,
-  ShieldCheck,
-  Building2,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -28,6 +25,7 @@ interface InventoryDashboardProps {
   initialGRNs: GRNRecord[]
   branches: { id: string; name: string }[]
   dealershipName: string
+  canManageCatalog: boolean
 }
 
 export function InventoryDashboard({
@@ -37,6 +35,7 @@ export function InventoryDashboard({
   initialGRNs,
   branches,
   dealershipName,
+  canManageCatalog,
 }: InventoryDashboardProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = React.useState("stock")
@@ -170,11 +169,11 @@ export function InventoryDashboard({
         </TabsContent>
 
         <TabsContent value="models" className="outline-none">
-          <ModelsTab initialModels={initialModels} />
+          <ModelsTab initialModels={initialModels} canManageCatalog={canManageCatalog} />
         </TabsContent>
 
         <TabsContent value="suppliers" className="outline-none">
-          <SuppliersTab initialSuppliers={initialSuppliers} />
+          <SuppliersTab initialSuppliers={initialSuppliers} canManageCatalog={canManageCatalog} />
         </TabsContent>
 
         <TabsContent value="grns" className="outline-none">
@@ -202,4 +201,3 @@ export function InventoryDashboard({
     </div>
   )
 }
-

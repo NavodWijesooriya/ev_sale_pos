@@ -19,6 +19,41 @@ async function requireAuthOrg() {
   }
 }
 
+async function requireCatalogManagement() {
+  const { organizationId, user } = await requireAuthOrg()
+
+  if (user.role === "OrgAdmin") {
+    return { organizationId }
+  }
+
+  if (user.role !== "BranchManager") {
+    throw new Error("Forbidden. Only the dealership owner or permitted staff can manage the catalog.")
+  }
+
+  const organization = await prisma.organization.findFirst({
+    where: { id: organizationId },
+    select: { staffCanManageCatalog: true },
+  })
+
+  if (!organization?.staffCanManageCatalog) {
+    throw new Error("Forbidden. Your dealership owner has not granted catalog management access.")
+  }
+
+  return { organizationId }
+}
+
+export async function getCatalogManagementAccess() {
+  const { organizationId, user } = await requireAuthOrg()
+  if (user.role === "OrgAdmin") return true
+  if (user.role !== "BranchManager") return false
+
+  const organization = await prisma.organization.findFirst({
+    where: { id: organizationId },
+    select: { staffCanManageCatalog: true },
+  })
+  return organization?.staffCanManageCatalog ?? false
+}
+
 // ==========================================
 // 1. Vehicle Models
 // ==========================================
@@ -35,6 +70,36 @@ export interface CreateVehicleModelInput {
   topSpeed?: string
   chargingTime?: string
   imageUrl?: string
+}
+
+export interface UpdateVehicleModelInput extends CreateVehicleModelInput {
+  id: string
+}
+
+function getVehicleModelData(input: CreateVehicleModelInput) {
+  if (!input.brand?.trim()) throw new Error("Brand is required.")
+  if (!input.modelName?.trim()) throw new Error("Model name is required.")
+  if (typeof input.defaultPrice !== "number" || !Number.isFinite(input.defaultPrice) || input.defaultPrice <= 0) {
+    throw new Error("Default price must be greater than 0.")
+  }
+  if (input.minDownPayment !== undefined && (!Number.isFinite(input.minDownPayment) || input.minDownPayment < 0)) {
+    throw new Error("Minimum down payment must be zero or greater.")
+  }
+
+  const range = input.rangePerCharge?.trim() || input.range?.trim() || null
+  return {
+    brand: input.brand.trim(),
+    modelName: input.modelName.trim(),
+    defaultPrice: input.defaultPrice,
+    minDownPayment: input.minDownPayment ?? Math.round(input.defaultPrice * 0.1),
+    motorPower: input.motorPower?.trim() || null,
+    batteryCapacity: input.batteryCapacity?.trim() || null,
+    rangePerCharge: range,
+    range,
+    topSpeed: input.topSpeed?.trim() || null,
+    chargingTime: input.chargingTime?.trim() || null,
+    imageUrl: input.imageUrl?.trim() || null,
+  }
 }
 
 export async function getVehicleModels() {
@@ -63,28 +128,12 @@ export async function getVehicleModels() {
 
 export async function createVehicleModel(input: CreateVehicleModelInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
-
-    if (!input.brand?.trim()) throw new Error("Brand is required.")
-    if (!input.modelName?.trim()) throw new Error("Model name is required.")
-    if (typeof input.defaultPrice !== "number" || input.defaultPrice <= 0) {
-      throw new Error("Default price must be greater than 0.")
-    }
+    const { organizationId } = await requireCatalogManagement()
 
     const model = await prisma.vehicleModel.create({
       data: {
         organizationId,
-        brand: input.brand.trim(),
-        modelName: input.modelName.trim(),
-        defaultPrice: input.defaultPrice,
-        minDownPayment: input.minDownPayment ?? Math.round(input.defaultPrice * 0.1),
-        motorPower: input.motorPower?.trim() || null,
-        batteryCapacity: input.batteryCapacity?.trim() || null,
-        rangePerCharge: input.rangePerCharge?.trim() || input.range?.trim() || null,
-        range: input.rangePerCharge?.trim() || input.range?.trim() || null,
-        topSpeed: input.topSpeed?.trim() || null,
-        chargingTime: input.chargingTime?.trim() || null,
-        imageUrl: input.imageUrl?.trim() || null,
+        ...getVehicleModelData(input),
       },
     })
 
@@ -92,6 +141,57 @@ export async function createVehicleModel(input: CreateVehicleModelInput) {
     return { success: true, message: `EV Bike Model "${model.modelName}" added successfully!`, data: model }
   } catch (error) {
     console.error("createVehicleModel error:", error)
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+export async function updateVehicleModel(input: UpdateVehicleModelInput) {
+  try {
+    const { organizationId } = await requireCatalogManagement()
+    if (!input.id?.trim()) throw new Error("Model ID is required.")
+
+    const model = await prisma.vehicleModel.updateMany({
+      where: { id: input.id, organizationId },
+      data: getVehicleModelData(input),
+    })
+
+    if (model.count === 0) throw new Error("EV model not found in your dealership.")
+    const updatedModel = await prisma.vehicleModel.findFirstOrThrow({
+      where: { id: input.id, organizationId },
+    })
+
+    revalidatePath("/dashboard/inventory")
+    return { success: true, message: `EV Bike Model "${updatedModel.modelName}" updated successfully!`, data: updatedModel }
+  } catch (error) {
+    console.error("updateVehicleModel error:", error)
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+export async function deleteVehicleModel(id: string) {
+  try {
+    const { organizationId } = await requireCatalogManagement()
+    if (!id?.trim()) throw new Error("Model ID is required.")
+
+    const model = await prisma.vehicleModel.findFirst({
+      where: { id, organizationId },
+      select: {
+        modelName: true,
+        _count: { select: { vehicles: true, testRides: true } },
+      },
+    })
+
+    if (!model) throw new Error("EV model not found in your dealership.")
+    if (model._count.vehicles > 0 || model._count.testRides > 0) {
+      throw new Error("This model is linked to vehicles or test rides and cannot be deleted.")
+    }
+
+    const deleted = await prisma.vehicleModel.deleteMany({ where: { id, organizationId } })
+    if (deleted.count !== 1) throw new Error("EV model could not be deleted because it no longer exists.")
+    revalidatePath("/dashboard/inventory")
+    return { success: true, message: `EV Bike Model "${model.modelName}" deleted successfully!` }
+  } catch (error) {
+    console.error("deleteVehicleModel error:", error)
     return { success: false, message: (error as Error).message }
   }
 }
@@ -105,6 +205,26 @@ export interface CreateSupplierInput {
   contactPerson?: string
   phone?: string
   email?: string
+}
+
+export interface UpdateSupplierInput extends CreateSupplierInput {
+  id: string
+}
+
+function getSupplierData(input: CreateSupplierInput) {
+  if (!input.name?.trim()) throw new Error("Supplier company name is required.")
+
+  const email = input.email?.trim() || null
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Please provide a valid supplier email address.")
+  }
+
+  return {
+    name: input.name.trim(),
+    contactPerson: input.contactPerson?.trim() || null,
+    phone: input.phone?.trim() || null,
+    email,
+  }
 }
 
 export async function getSuppliers() {
@@ -129,17 +249,12 @@ export async function getSuppliers() {
 
 export async function createSupplier(input: CreateSupplierInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
-
-    if (!input.name?.trim()) throw new Error("Supplier company name is required.")
+    const { organizationId } = await requireCatalogManagement()
 
     const supplier = await prisma.supplier.create({
       data: {
         organizationId,
-        name: input.name.trim(),
-        contactPerson: input.contactPerson?.trim() || null,
-        phone: input.phone?.trim() || null,
-        email: input.email?.trim() || null,
+        ...getSupplierData(input),
       },
     })
 
@@ -151,6 +266,54 @@ export async function createSupplier(input: CreateSupplierInput) {
     }
   } catch (error) {
     console.error("createSupplier error:", error)
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+export async function updateSupplier(input: UpdateSupplierInput) {
+  try {
+    const { organizationId } = await requireCatalogManagement()
+    if (!input.id?.trim()) throw new Error("Supplier ID is required.")
+
+    const result = await prisma.supplier.updateMany({
+      where: { id: input.id, organizationId },
+      data: getSupplierData(input),
+    })
+
+    if (result.count === 0) throw new Error("Supplier not found in your dealership.")
+    const supplier = await prisma.supplier.findFirstOrThrow({
+      where: { id: input.id, organizationId },
+    })
+
+    revalidatePath("/dashboard/inventory")
+    return { success: true, message: `Supplier "${supplier.name}" updated successfully!`, data: supplier }
+  } catch (error) {
+    console.error("updateSupplier error:", error)
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+export async function deleteSupplier(id: string) {
+  try {
+    const { organizationId } = await requireCatalogManagement()
+    if (!id?.trim()) throw new Error("Supplier ID is required.")
+
+    const supplier = await prisma.supplier.findFirst({
+      where: { id, organizationId },
+      select: { name: true, _count: { select: { grns: true } } },
+    })
+
+    if (!supplier) throw new Error("Supplier not found in your dealership.")
+    if (supplier._count.grns > 0) {
+      throw new Error("This supplier is linked to GRNs and cannot be deleted.")
+    }
+
+    const deleted = await prisma.supplier.deleteMany({ where: { id, organizationId } })
+    if (deleted.count !== 1) throw new Error("Supplier could not be deleted because it no longer exists.")
+    revalidatePath("/dashboard/inventory")
+    return { success: true, message: `Supplier "${supplier.name}" deleted successfully!` }
+  } catch (error) {
+    console.error("deleteSupplier error:", error)
     return { success: false, message: (error as Error).message }
   }
 }
@@ -381,4 +544,3 @@ export async function createGRN(input: CreateGRNInput) {
     return { success: false, message: (error as Error).message }
   }
 }
-

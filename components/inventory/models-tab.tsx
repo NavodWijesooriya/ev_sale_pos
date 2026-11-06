@@ -16,7 +16,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -30,12 +29,17 @@ import {
   Gauge,
   Loader2,
   Search,
-  ImageIcon,
   CheckCircle2,
   Zap,
-  Clock,
+  Pencil,
+  Trash2,
 } from "lucide-react"
-import { createVehicleModel, CreateVehicleModelInput } from "@/app/actions/inventory"
+import {
+  createVehicleModel,
+  CreateVehicleModelInput,
+  deleteVehicleModel,
+  updateVehicleModel,
+} from "@/app/actions/inventory"
 import { ImageUploader } from "@/components/ui/image-uploader"
 import { formatLKR } from "@/lib/currency"
 import { toast } from "sonner"
@@ -61,14 +65,18 @@ export interface VehicleModelRecord {
 
 interface ModelsTabProps {
   initialModels: VehicleModelRecord[]
+  canManageCatalog: boolean
 }
 
-export function ModelsTab({ initialModels }: ModelsTabProps) {
+export function ModelsTab({ initialModels, canManageCatalog }: ModelsTabProps) {
   const router = useRouter()
   const [models, setModels] = React.useState<VehicleModelRecord[]>(initialModels)
   const [search, setSearch] = React.useState("")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [editingModelId, setEditingModelId] = React.useState<string | null>(null)
+  const [modelToDelete, setModelToDelete] = React.useState<VehicleModelRecord | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const [form, setForm] = React.useState<CreateVehicleModelInput>({
     brand: "",
@@ -83,10 +91,6 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
     chargingTime: "4-6 Hours",
     imageUrl: "",
   })
-
-  React.useEffect(() => {
-    setModels(initialModels)
-  }, [initialModels])
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return models
@@ -114,15 +118,27 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
     setIsSubmitting(true)
 
     try {
-      const res = await createVehicleModel({
+      const input = {
         ...form,
-        minDownPayment: form.minDownPayment || Math.round(form.defaultPrice * 0.1),
-      })
+        minDownPayment: form.minDownPayment ?? Math.round(form.defaultPrice * 0.1),
+      }
+      const res = editingModelId
+        ? await updateVehicleModel({ ...input, id: editingModelId })
+        : await createVehicleModel(input)
 
       if (res.success && res.data) {
         toast.success(res.message)
-        setModels((prev) => [...prev, { ...res.data!, _count: { vehicles: 0 } }])
+        setModels((prev) =>
+          editingModelId
+            ? prev.map((model) =>
+                model.id === editingModelId
+                  ? { ...res.data!, _count: model._count }
+                  : model
+              )
+            : [...prev, { ...res.data!, _count: { vehicles: 0 } }]
+        )
         setIsDialogOpen(false)
+        setEditingModelId(null)
         setForm({
           brand: "",
           modelName: "",
@@ -138,7 +154,9 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
         })
         router.refresh()
       } else {
-        toast.error("Failed to add model", { description: res.message })
+        toast.error(editingModelId ? "Failed to update model" : "Failed to add model", {
+          description: res.message,
+        })
       }
     } catch (err) {
       toast.error("Error", {
@@ -146,6 +164,66 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const openNewModelDialog = () => {
+    setEditingModelId(null)
+    setForm({
+      brand: "",
+      modelName: "",
+      defaultPrice: 2450,
+      minDownPayment: 250,
+      motorPower: "2000W",
+      batteryCapacity: "60V 32Ah",
+      rangePerCharge: "120km",
+      range: "120km",
+      topSpeed: "55 km/h",
+      chargingTime: "4-6 Hours",
+      imageUrl: "",
+    })
+    setIsDialogOpen(true)
+  }
+
+  const openEditModelDialog = (model: VehicleModelRecord) => {
+    setEditingModelId(model.id)
+    setForm({
+      brand: model.brand,
+      modelName: model.modelName,
+      defaultPrice: model.defaultPrice,
+      minDownPayment: model.minDownPayment ?? undefined,
+      motorPower: model.motorPower || "",
+      batteryCapacity: model.batteryCapacity || "",
+      rangePerCharge: model.rangePerCharge || model.range || "",
+      range: model.rangePerCharge || model.range || "",
+      topSpeed: model.topSpeed || "",
+      chargingTime: model.chargingTime || "",
+      imageUrl: model.imageUrl || "",
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDeleteModel = async () => {
+    if (!modelToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const result = await deleteVehicleModel(modelToDelete.id)
+      if (!result.success) {
+        toast.error("Failed to delete model", { description: result.message })
+        return
+      }
+
+      toast.success(result.message)
+      setModels((prev) => prev.filter((model) => model.id !== modelToDelete.id))
+      setModelToDelete(null)
+      router.refresh()
+    } catch (error) {
+      toast.error("Failed to delete model", {
+        description: error instanceof Error ? error.message : "Unexpected error",
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -183,19 +261,27 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
             </div>
 
             {/* Add Model Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger
-                render={
-                  <Button size="sm" className="h-8 text-xs bg-primary text-primary-foreground">
-                    <Plus className="mr-1.5 size-3.5" />
-                    Add EV Bike Model
-                  </Button>
-                }
-              />
+            {canManageCatalog && (
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-primary text-primary-foreground"
+                onClick={openNewModelDialog}
+              >
+                <Plus className="mr-1.5 size-3.5" />
+                Add EV Bike Model
+              </Button>
+            )}
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open)
+                if (!open) setEditingModelId(null)
+              }}
+            >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-base font-semibold">
-                    Add New EV Bike Model
+                    {editingModelId ? "Update EV Bike Model" : "Add New EV Bike Model"}
                   </DialogTitle>
                   <DialogDescription className="text-xs">
                     Define motor, battery, speed, and default retail pricing for your bike catalog.
@@ -371,7 +457,7 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                       ) : (
                         <>
                           <CheckCircle2 className="mr-1.5 size-3" />
-                          Save Model
+                          {editingModelId ? "Save Changes" : "Save Model"}
                         </>
                       )}
                     </Button>
@@ -394,13 +480,14 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                 <TableHead className="py-2.5">Retail Price</TableHead>
                 <TableHead className="py-2.5">Min Down Payment</TableHead>
                 <TableHead className="py-2.5 pr-4 text-right">In-Stock Bikes</TableHead>
+                {canManageCatalog && <TableHead className="py-2.5 pr-4 text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-28 text-center text-xs text-muted-foreground">
-                    No EV bike models found. Click "Add EV Bike Model" to register your first model.
+                  <TableCell colSpan={canManageCatalog ? 7 : 6} className="h-28 text-center text-xs text-muted-foreground">
+                    No EV bike models found. Click &quot;Add EV Bike Model&quot; to register your first model.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -480,6 +567,26 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
                           {stock} Bikes In Stock
                         </Badge>
                       </TableCell>
+                      {canManageCatalog && <TableCell className="py-3 pr-4 text-right whitespace-nowrap">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          aria-label={`Edit ${m.brand} ${m.modelName}`}
+                          onClick={() => openEditModelDialog(m)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-destructive hover:text-destructive"
+                          aria-label={`Delete ${m.brand} ${m.modelName}`}
+                          onClick={() => setModelToDelete(m)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </TableCell>}
                     </TableRow>
                   )
                 })
@@ -488,7 +595,40 @@ export function ModelsTab({ initialModels }: ModelsTabProps) {
           </Table>
         </div>
       </CardContent>
+      <Dialog
+        open={modelToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setModelToDelete(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete EV Bike Model?</DialogTitle>
+            <DialogDescription>
+              Delete {modelToDelete?.brand} {modelToDelete?.modelName}? Models linked to vehicles or test rides cannot be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDeleting}
+              onClick={() => setModelToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isDeleting}
+              onClick={handleDeleteModel}
+            >
+              {isDeleting ? <Loader2 className="mr-1.5 size-3 animate-spin" /> : null}
+              Delete Model
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
-

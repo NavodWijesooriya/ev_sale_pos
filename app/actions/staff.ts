@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import bcrypt from "bcrypt"
@@ -48,6 +49,7 @@ export interface StaffInitialData {
   users: StaffUserItem[]
   branches: BranchOption[]
   currentUserId: string
+  staffCanManageCatalog: boolean
 }
 
 /**
@@ -56,7 +58,7 @@ export interface StaffInitialData {
 export async function getStaffInitialData(): Promise<StaffInitialData> {
   const { organizationId, currentUserId } = await requireOrgAdmin()
 
-  const [usersRaw, branches] = await Promise.all([
+  const [usersRaw, branches, organization] = await Promise.all([
     prisma.user.findMany({
       where: { organizationId },
       include: {
@@ -82,6 +84,10 @@ export async function getStaffInitialData(): Promise<StaffInitialData> {
       },
       orderBy: { name: "asc" },
     }),
+    prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { staffCanManageCatalog: true },
+    }),
   ])
 
   const users: StaffUserItem[] = usersRaw.map((u) => ({
@@ -100,6 +106,36 @@ export async function getStaffInitialData(): Promise<StaffInitialData> {
     users,
     branches,
     currentUserId,
+    staffCanManageCatalog: organization.staffCanManageCatalog,
+  }
+}
+
+export async function updateStaffCatalogPermission(enabled: boolean) {
+  try {
+    const { organizationId, user } = await requireOrgAdmin()
+    if (user.role !== "OrgAdmin") {
+      throw new Error("Forbidden. Only the dealership owner can change catalog permissions.")
+    }
+    if (typeof enabled !== "boolean") {
+      throw new Error("Catalog permission must be enabled or disabled.")
+    }
+
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { staffCanManageCatalog: enabled },
+    })
+
+    revalidatePath("/dashboard/settings/users")
+    revalidatePath("/dashboard/inventory")
+    return {
+      success: true,
+      message: enabled
+        ? "Staff catalog management access enabled."
+        : "Staff catalog management access restricted.",
+    }
+  } catch (error) {
+    console.error("updateStaffCatalogPermission error:", error)
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -301,4 +337,3 @@ export async function toggleStaffStatus(userId: string, isActive: boolean) {
     return { success: false, error: err.message || "Failed to toggle staff status." }
   }
 }
-
