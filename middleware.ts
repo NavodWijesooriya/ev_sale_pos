@@ -7,6 +7,7 @@ export async function middleware(req: NextRequest) {
   const pathname = url.pathname;
   const rawHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const host = rawHost.split(':')[0].toLowerCase();
+  const isAdminHost = host.includes('admin-') || host.startsWith('admin.');
 
   // 1. Bypass all Next.js internals, API routes, and static assets
   if (
@@ -46,22 +47,21 @@ export async function middleware(req: NextRequest) {
     return response;
   };
 
-  // 4. Super Admin Subdomain
-  if (subdomain === 'admin') {
-    if (pathname === '/login') {
-      url.pathname = '/admin-portal/login';
-      return withSupabaseCookies(NextResponse.rewrite(url));
+  // 4. Super Admin domains
+  if (isAdminHost || subdomain === 'admin') {
+    if (pathname === '/admin-portal' || pathname.startsWith('/admin-portal/')) {
+      return withSupabaseCookies(NextResponse.next());
     }
-    if (pathname === '/') {
-      url.pathname = '/admin-portal';
-      return withSupabaseCookies(NextResponse.rewrite(url));
-    }
-    if (pathname === '/help') {
-      url.pathname = '/admin-portal/help';
-      return withSupabaseCookies(NextResponse.rewrite(url));
-    }
-    // Admin routes are allowed; additional role checks can be added downstream
-    return withSupabaseCookies(NextResponse.next());
+
+    url.pathname =
+      pathname === '/'
+        ? '/admin-portal'
+        : pathname === '/login' || pathname.startsWith('/login/')
+          ? `/admin-portal${pathname}`
+          : pathname === '/help'
+            ? '/admin-portal/help'
+            : `/admin-portal${pathname}`;
+    return withSupabaseCookies(NextResponse.rewrite(url));
   }
 
   // 5. Bypass tenant login routes
