@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { VehicleStatus, PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
+import { generateNextCustomerCrn } from "@/lib/customer-crn"
 
 /**
  * Enforces session authentication and extracts the user's organizationId and userId
@@ -241,6 +242,7 @@ export async function processSale(input: ProcessSaleInput) {
           customerId = updatedCust.id
         } else {
           // Create new customer
+          const crn = await generateNextCustomerCrn(tx)
           const newCust = await tx.customer.create({
             data: {
               organizationId,
@@ -249,6 +251,7 @@ export async function processSale(input: ProcessSaleInput) {
               email: input.customerEmail?.trim() || null,
               nic: input.customerNic?.trim() || null,
               address: input.customerAddress?.trim() || null,
+              crn,
             },
           })
           customerId = newCust.id
@@ -487,4 +490,3 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
     }
   }
 }
-

@@ -1,7 +1,6 @@
 "use server"
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getAuthSession } from "@/lib/auth"
 import path from "path"
 import fs from "fs/promises"
 
@@ -9,7 +8,7 @@ export async function uploadImageAction(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getAuthSession()
     if (!session?.user) {
       return { success: false, error: "Unauthorized. Please login." }
     }
@@ -45,12 +44,11 @@ export async function uploadImageAction(
       success: true,
       url: `/uploads/${fileName}`,
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("uploadImageAction error:", error)
     return {
       success: false,
-      error: error?.message || "Failed to save uploaded image",
+      error: error instanceof Error ? error.message : "Failed to save uploaded image",
     }
   }
 }
-

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getAuthSession } from "@/lib/auth"
 import path from "path"
 import fs from "fs/promises"
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getAuthSession()
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -51,12 +50,11 @@ export async function POST(req: NextRequest) {
       url: publicUrl,
       fileName,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Upload error:", error)
     return NextResponse.json(
-      { error: error?.message || "Failed to process image upload" },
+      { error: error instanceof Error ? error.message : "Failed to process image upload" },
       { status: 500 }
     )
   }
 }
-

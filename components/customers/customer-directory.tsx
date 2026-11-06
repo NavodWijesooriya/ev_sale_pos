@@ -38,6 +38,7 @@ import {
   Calendar,
 } from "lucide-react"
 import { CustomerSummaryItem } from "@/app/actions/customers"
+import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
 
 interface CustomerDirectoryProps {
   customers: CustomerSummaryItem[]
@@ -142,6 +143,7 @@ export function CustomerDirectory({
         </div>
 
         <div className="flex items-center gap-2">
+          <AddCustomerDialog />
           <Button
             variant="outline"
             size="sm"

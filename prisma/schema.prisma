@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -50,15 +50,17 @@ model Organization {
   expiryDate         DateTime?
   createdAt          DateTime           @default(now())
 
-  users              User[]
-  branches           Branch[]
-  suppliers          Supplier[]
-  vehicleModels      VehicleModel[]
-  vehicles           Vehicle[]
-  grns               GRN[]
-  customers          Customer[]
-  sales              Sale[]
-  serviceRecords     ServiceRecord[]
+  users          User[]
+  branches       Branch[]
+  suppliers      Supplier[]
+  vehicleModels  VehicleModel[]
+  vehicles       Vehicle[]
+  grns           GRN[]
+  customers      Customer[]
+  sales          Sale[]
+  serviceRecords ServiceRecord[]
+  testRides      TestRide[]
+  customDomain   String?         @unique
 }
 
 enum UserRole {
@@ -82,7 +84,8 @@ model User {
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
 
-  sales          Sale[]       @relation("SoldBy")
+  sales            Sale[]          @relation("SoldBy")
+  assignedServices ServiceRecord[] @relation("AssignedTechnician")
 }
 
 model Branch {
@@ -99,6 +102,7 @@ model Branch {
   grns           GRN[]
   sales          Sale[]
   serviceRecords ServiceRecord[]
+  testRides      TestRide[]
 }
 
 // ==========================================
@@ -114,7 +118,7 @@ model Supplier {
   phone          String?
   email          String?
 
-  grns           GRN[]
+  grns GRN[]
 }
 
 model VehicleModel {
@@ -124,16 +128,17 @@ model VehicleModel {
   brand           String
   modelName       String
   imageUrl        String?
-  motorPower      String?      // e.g., "2000W"
-  batteryCapacity String?      // e.g., "60V 32Ah"
-  rangePerCharge  String?      // e.g., "120km"
-  range           String?      // backward compatibility alias
-  topSpeed        String?      // e.g., "55 km/h"
-  chargingTime    String?      // e.g., "4-6 Hours"
+  motorPower      String? // e.g., "2000W"
+  batteryCapacity String? // e.g., "60V 32Ah"
+  rangePerCharge  String? // e.g., "120km"
+  range           String? // backward compatibility alias
+  topSpeed        String? // e.g., "55 km/h"
+  chargingTime    String? // e.g., "4-6 Hours"
   defaultPrice    Float
   minDownPayment  Float?
 
-  vehicles       Vehicle[]
+  vehicles  Vehicle[]
+  testRides TestRide[]
 }
 
 enum VehicleStatus {
@@ -144,31 +149,31 @@ enum VehicleStatus {
 }
 
 model Vehicle {
-  id                  String        @id @default(uuid())
-  organizationId      String
-  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branchId            String
-  branch              Branch        @relation(fields: [branchId], references: [id])
-  vehicleModelId      String
-  vehicleModel        VehicleModel  @relation(fields: [vehicleModelId], references: [id])
-  
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  vehicleModelId String
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+
   chassisNumber       String        @unique
   motorNumber         String?
   batterySerialNumber String?       @unique // අලුතින් එකතු කළ කොටස
-  warrantyPeriod      String?       // අලුතින් එකතු කළ කොටස (උදා: 3 Years)
+  warrantyPeriod      String? // අලුතින් එකතු කළ කොටස (උදා: 3 Years)
   color               String?
   status              VehicleStatus @default(InStock)
   purchasePrice       Float
-  motorPower          String?       // e.g., "2000W"
-  batteryCapacity     String?       // e.g., "60V 32Ah"
-  rangePerCharge      String?       // e.g., "120km"
-  topSpeed            String?       // e.g., "55 km/h"
-  chargingTime        String?       // e.g., "4-6 Hours"
+  motorPower          String? // e.g., "2000W"
+  batteryCapacity     String? // e.g., "60V 32Ah"
+  rangePerCharge      String? // e.g., "120km"
+  topSpeed            String? // e.g., "55 km/h"
+  chargingTime        String? // e.g., "4-6 Hours"
   createdAt           DateTime      @default(now())
 
-  grnItems            GRNItem[]
-  saleItems           SaleItem[]
-  serviceRecords      ServiceRecord[]
+  grnItems       GRNItem[]
+  saleItems      SaleItem[]
+  serviceRecords ServiceRecord[]
 }
 
 model GRN {
@@ -179,21 +184,21 @@ model GRN {
   branch         Branch       @relation(fields: [branchId], references: [id])
   supplierId     String
   supplier       Supplier     @relation(fields: [supplierId], references: [id])
-  
-  grnNumber      String
-  totalAmount    Float
-  receivedDate   DateTime     @default(now())
 
-  items          GRNItem[]
+  grnNumber    String
+  totalAmount  Float
+  receivedDate DateTime @default(now())
+
+  items GRNItem[]
 }
 
 model GRNItem {
-  id             String       @id @default(uuid())
-  grnId          String
-  grn            GRN          @relation(fields: [grnId], references: [id], onDelete: Cascade)
-  vehicleId      String
-  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id])
-  unitPrice      Float
+  id        String  @id @default(uuid())
+  grnId     String
+  grn       GRN     @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  unitPrice Float
 }
 
 // ==========================================
@@ -209,9 +214,11 @@ model Customer {
   email          String?
   nic            String?
   address        String?
+  crn            String?      @unique
 
   sales          Sale[]
   serviceRecords ServiceRecord[]
+  testRides      TestRide[]
 }
 
 enum PaymentMethod {
@@ -220,39 +227,59 @@ enum PaymentMethod {
   BankTransfer
   Finance
   SplitPayment
+  CHEQUE
+}
+
+enum ChequeStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+}
+
+enum TestRideStatus {
+  BOOKED
+  COMPLETED
+  CANCELLED
+}
+
+enum NumberPlateStatus {
+  PENDING
+  PROCESSING
+  ISSUED
 }
 
 model Sale {
-  id                String           @id @default(uuid())
-  organizationId    String
-  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branchId          String
-  branch            Branch           @relation(fields: [branchId], references: [id])
-  customerId        String
-  customer          Customer         @relation(fields: [customerId], references: [id])
-  userId            String
-  soldBy            User             @relation("SoldBy", fields: [userId], references: [id])
-  
-  saleDate          DateTime         @default(now())
-  totalAmount       Float
-  discount          Float            @default(0) // අලුතින් එකතු කළ කොටස
-  additionalCharges Float            @default(0) // අලුතින් එකතු කළ කොටස
-  deliveryDate      DateTime?        // අලුතින් එකතු කළ කොටස
-  paymentMethod     PaymentMethod
-  status            String           @default("Completed")
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id])
+  userId         String
+  soldBy         User         @relation("SoldBy", fields: [userId], references: [id])
 
-  items             SaleItem[]
-  financeDetail     FinanceDetail?
-  dmtRegistration   DMTRegistration? // අලුතින් එකතු කළ කොටස
+  saleDate          DateTime      @default(now())
+  totalAmount       Float
+  discount          Float         @default(0) // අලුතින් එකතු කළ කොටස
+  additionalCharges Float         @default(0) // අලුතින් එකතු කළ කොටස
+  deliveryDate      DateTime? // අලුතින් එකතු කළ කොටස
+  paymentMethod     PaymentMethod
+  status            String        @default("Completed")
+
+  items           SaleItem[]
+  financeDetail   FinanceDetail?
+  dmtRegistration DMTRegistration? // අලුතින් එකතු කළ කොටස
+  payments        Payment[]
 }
 
 model SaleItem {
-  id             String       @id @default(uuid())
-  saleId         String
-  sale           Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  vehicleId      String
-  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id])
-  price          Float
+  id        String  @id @default(uuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  price     Float
 }
 
 enum FinanceStatus {
@@ -261,9 +288,9 @@ enum FinanceStatus {
 }
 
 model FinanceDetail {
-  id                 String       @id @default(uuid())
-  saleId             String       @unique
-  sale               Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  id                 String        @id @default(uuid())
+  saleId             String        @unique
+  sale               Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
   financeCompany     String
   totalFinanceAmount Float
   downPaymentPaid    Float
@@ -280,15 +307,16 @@ enum DMTStatus {
 
 // අලුතින් එකතු කළ DMT Tracking Model එක
 model DMTRegistration {
-  id               String    @id @default(uuid())
-  saleId           String    @unique
-  sale             Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  status           DMTStatus @default(Pending)
-  hasMTA2          Boolean   @default(false)
-  hasNIC           Boolean   @default(false)
-  hasPhotos        Boolean   @default(false)
-  hasTIN           Boolean   @default(false)
-  registeredNumber String?   
+  id                String            @id @default(uuid())
+  saleId            String            @unique
+  sale              Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  status            DMTStatus         @default(Pending)
+  hasMTA2           Boolean           @default(false)
+  hasNIC            Boolean           @default(false)
+  hasPhotos         Boolean           @default(false)
+  hasTIN            Boolean           @default(false)
+  registeredNumber  String?
+  numberPlateStatus NumberPlateStatus @default(PENDING)
 }
 
 // ==========================================
@@ -302,19 +330,55 @@ enum ServiceType {
 }
 
 model ServiceRecord {
-  id                 String       @id @default(uuid())
-  organizationId     String
-  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branchId           String
-  branch             Branch       @relation(fields: [branchId], references: [id])
-  vehicleId          String
-  vehicle            Vehicle      @relation(fields: [vehicleId], references: [id])
-  customerId         String
-  customer           Customer     @relation(fields: [customerId], references: [id])
-  
-  serviceDate        DateTime     @default(now())
+  id                   String       @id @default(uuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId             String
+  branch               Branch       @relation(fields: [branchId], references: [id])
+  vehicleId            String
+  vehicle              Vehicle      @relation(fields: [vehicleId], references: [id])
+  customerId           String
+  customer             Customer     @relation(fields: [customerId], references: [id])
+  assignedTechnicianId String?
+  assignedTechnician   User?        @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id], onDelete: SetNull)
+
+  serviceDate        DateTime    @default(now())
   nextServiceDueDate DateTime?
   serviceType        ServiceType
   description        String?
-  totalCost          Float        @default(0)
+  totalCost          Float       @default(0)
+  status             String      @default("PENDING")
+  createdAt          DateTime    @default(now())
+}
+
+model Payment {
+  id            String         @id @default(uuid())
+  saleId        String
+  sale          Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentMethod PaymentMethod?
+  chequeNumber  String?
+  bankName      String?
+  chequeDate    DateTime?
+  chequeStatus  ChequeStatus?
+  createdAt     DateTime       @default(now())
+}
+
+model TestRide {
+  id             String         @id @default(uuid())
+  customerId     String
+  customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleModelId String
+  vehicleModel   VehicleModel   @relation(fields: [vehicleModelId], references: [id])
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  scheduledDate  DateTime
+  timeSlot       String
+  status         TestRideStatus @default(BOOKED)
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId, scheduledDate])
+  @@index([branchId, scheduledDate])
 }
