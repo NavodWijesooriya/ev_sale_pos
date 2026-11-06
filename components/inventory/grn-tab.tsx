@@ -20,7 +20,6 @@ import {
   Calendar,
   Search,
   Bike,
-  ArrowRight,
 } from "lucide-react"
 import { CreateGRNDialog } from "@/components/inventory/create-grn-dialog"
 import { formatLKR } from "@/lib/currency"
@@ -31,6 +30,16 @@ export interface GRNRecord {
   grnNumber: string
   totalAmount: number
   receivedDate: Date | string
+  payments: {
+    id: string
+    amount: number
+    paymentMethod: string | null
+    chequeNumber: string | null
+    bankName: string | null
+    dueDate: Date | string | null
+    chequeStatus: string | null
+    status: string
+  }[]
   supplier: {
     id: string
     name: string
@@ -94,6 +103,14 @@ export function GRNTab({ grns, suppliers, branches, models }: GRNTabProps) {
     })
   }
 
+  const formatPaymentDate = (date: Date | string) =>
+    new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    })
+
   return (
     <>
       <Card className="border-border shadow-xs">
@@ -148,14 +165,15 @@ export function GRNTab({ grns, suppliers, branches, models }: GRNTabProps) {
                   <TableHead className="py-2.5">Supplier / Logistics</TableHead>
                   <TableHead className="py-2.5">Showroom Branch</TableHead>
                   <TableHead className="py-2.5">Vehicles Received</TableHead>
+                  <TableHead className="py-2.5">Payment Details</TableHead>
                   <TableHead className="py-2.5 pr-4 text-right">Total Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-28 text-center text-xs text-muted-foreground">
-                      No Goods Received Notes found. Click "Create GRN" to register incoming vehicle shipments.
+                    <TableCell colSpan={7} className="h-28 text-center text-xs text-muted-foreground">
+                      No Goods Received Notes found. Click &quot;Create GRN&quot; to register incoming vehicle shipments.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -210,6 +228,52 @@ export function GRNTab({ grns, suppliers, branches, models }: GRNTabProps) {
                         </div>
                       </TableCell>
 
+                      {/* Payment */}
+                      <TableCell className="py-3">
+                        {g.payments.length === 0 ? (
+                          <Badge variant="outline" className="text-[10px]">Not recorded</Badge>
+                        ) : (
+                          g.payments.map((payment) => {
+                            const isCheque = payment.paymentMethod === "CHEQUE"
+                            const status =
+                              payment.status === "Paid"
+                                ? "Paid"
+                                : isCheque
+                                  ? payment.chequeStatus === "CLEARED"
+                                    ? "Cleared"
+                                    : payment.chequeStatus === "BOUNCED"
+                                      ? "Bounced"
+                                      : "Cheque Pending"
+                                  : "Partially Paid"
+
+                            return (
+                              <div key={payment.id} className="space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium">
+                                    {isCheque ? "Cheque" : "Cash"}
+                                  </span>
+                                  <Badge
+                                    variant={status === "Paid" || status === "Cleared" ? "default" : "outline"}
+                                    className="text-[10px]"
+                                  >
+                                    {status}
+                                  </Badge>
+                                </div>
+                                <p className="text-[11px] font-mono text-muted-foreground">
+                                  {formatCurrency(payment.amount)}
+                                </p>
+                                {isCheque && (
+                                  <div className="text-[10px] leading-relaxed text-muted-foreground">
+                                    <p>Cheque #{payment.chequeNumber || "—"} · {payment.bankName || "—"}</p>
+                                    <p>Due {payment.dueDate ? formatPaymentDate(payment.dueDate) : "—"}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                      </TableCell>
+
                       {/* Total Amount */}
                       <TableCell className="py-3 pr-4 text-right text-xs font-bold text-foreground font-mono">
                         {formatCurrency(g.totalAmount)}
@@ -235,4 +299,3 @@ export function GRNTab({ grns, suppliers, branches, models }: GRNTabProps) {
     </>
   )
 }
-

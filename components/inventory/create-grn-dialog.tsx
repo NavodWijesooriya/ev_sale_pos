@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -23,7 +22,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react"
-import { createGRN, GRNVehicleItem } from "@/app/actions/inventory"
+import { createGRN, CreateGRNInput, GRNVehicleItem } from "@/app/actions/inventory"
 import { formatLKR } from "@/lib/currency"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -50,11 +49,11 @@ export function CreateGRNDialog({
 
   const [supplierId, setSupplierId] = React.useState(suppliers[0]?.id || "")
   const [branchId, setBranchId] = React.useState(branches[0]?.id || "")
-
-  React.useEffect(() => {
-    if (!supplierId && suppliers.length > 0) setSupplierId(suppliers[0].id)
-    if (!branchId && branches.length > 0) setBranchId(branches[0].id)
-  }, [suppliers, branches, supplierId, branchId])
+  const [paymentMethod, setPaymentMethod] = React.useState<CreateGRNInput["paymentMethod"]>("Cash")
+  const [paymentAmount, setPaymentAmount] = React.useState<string | null>(null)
+  const [chequeNumber, setChequeNumber] = React.useState("")
+  const [bankName, setBankName] = React.useState("")
+  const [dueDate, setDueDate] = React.useState("")
 
   const [items, setItems] = React.useState<GRNVehicleItem[]>([
     {
@@ -92,16 +91,21 @@ export function CreateGRNDialog({
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleItemChange = (index: number, field: keyof GRNVehicleItem, val: any) => {
+  const handleItemChange = <K extends keyof GRNVehicleItem>(
+    index: number,
+    field: K,
+    val: GRNVehicleItem[K]
+  ) => {
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item
 
         if (field === "vehicleModelId") {
-          const selected = models.find((m) => m.id === val)
+          const modelId = String(val)
+          const selected = models.find((m) => m.id === modelId)
           return {
             ...item,
-            vehicleModelId: val,
+            vehicleModelId: modelId,
             purchasePrice: selected ? Math.round(selected.defaultPrice * 0.85) : item.purchasePrice,
           }
         }
@@ -124,6 +128,10 @@ export function CreateGRNDialog({
     }
     if (!branchId) {
       toast.error("Please select a target showroom branch")
+      return
+    }
+    if (paymentMethod === "CHEQUE" && (!chequeNumber.trim() || !bankName.trim() || !dueDate)) {
+      toast.error("Enter the cheque number, bank, and due date.")
       return
     }
 
@@ -158,6 +166,11 @@ export function CreateGRNDialog({
         supplierId,
         branchId,
         totalAmount,
+        paymentMethod,
+        paymentAmount: paymentAmount?.trim() ? Number(paymentAmount) : totalAmount,
+        chequeNumber,
+        bankName,
+        dueDate,
         items,
       })
 
@@ -176,6 +189,11 @@ export function CreateGRNDialog({
             purchasePrice: models[0] ? Math.round(models[0].defaultPrice * 0.85) : 35000,
           },
         ])
+        setPaymentMethod("Cash")
+        setPaymentAmount(null)
+        setChequeNumber("")
+        setBankName("")
+        setDueDate("")
         if (onSuccess) onSuccess()
         router.refresh()
       } else {
@@ -449,6 +467,92 @@ export function CreateGRNDialog({
               </div>
             </div>
 
+            {/* Step 3: Supplier payment details */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center gap-2">
+                <div className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-[11px] shrink-0 shadow-xs">
+                  3
+                </div>
+                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Supplier Payment
+                </h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <div className="space-y-1">
+                  <Label htmlFor="grnPaymentMethod" className="text-[11px] font-medium">
+                    Payment Method <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    id="grnPaymentMethod"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as CreateGRNInput["paymentMethod"])}
+                    className="w-full h-8 rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none focus:ring-1 focus:ring-ring dark:bg-input/30"
+                    required
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="CHEQUE">Cheque</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="grnPaymentAmount" className="text-[11px] font-medium">
+                    Amount (LKR) <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="grnPaymentAmount"
+                    type="number"
+                    min="0.01"
+                    max={totalAmount}
+                    step="0.01"
+                    value={paymentAmount ?? totalAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    className="text-xs font-mono h-8"
+                    required
+                  />
+                </div>
+                {paymentMethod === "CHEQUE" && (
+                  <>
+                    <div className="space-y-1">
+                      <Label htmlFor="grnChequeNumber" className="text-[11px] font-medium">
+                        Cheque Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="grnChequeNumber"
+                        value={chequeNumber}
+                        onChange={(e) => setChequeNumber(e.target.value)}
+                        className="text-xs font-mono h-8"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="grnChequeBank" className="text-[11px] font-medium">
+                        Bank <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="grnChequeBank"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        className="text-xs h-8"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="grnChequeDueDate" className="text-[11px] font-medium">
+                        Due Date <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="grnChequeDueDate"
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="text-xs h-8"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
             {/* Total Summary Footer */}
             <div className="p-3.5 rounded-xl bg-muted/60 border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-4">
@@ -499,4 +603,3 @@ export function CreateGRNDialog({
     </Dialog>
   )
 }
-

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
-import { VehicleStatus } from "@prisma/client"
+import { ChequeStatus, PaymentMethod, PaymentStatus, VehicleStatus } from "@prisma/client"
 
 /**
  * Enforces session authentication and extracts the user's organizationId
@@ -393,6 +393,11 @@ export interface CreateGRNInput {
   supplierId: string
   branchId: string
   totalAmount?: number
+  paymentMethod: "Cash" | "CHEQUE"
+  paymentAmount: number
+  chequeNumber?: string
+  bankName?: string
+  dueDate?: string
   items: GRNVehicleItem[]
 }
 
@@ -405,6 +410,18 @@ export async function getGRNs() {
       include: {
         supplier: { select: { id: true, name: true, phone: true } },
         branch: { select: { id: true, name: true } },
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            paymentMethod: true,
+            chequeNumber: true,
+            bankName: true,
+            dueDate: true,
+            chequeStatus: true,
+            status: true,
+          },
+        },
         items: {
           include: {
             vehicle: {
@@ -434,6 +451,9 @@ export async function createGRN(input: CreateGRNInput) {
     if (!input.items || input.items.length === 0) {
       throw new Error("At least one vehicle must be included in the GRN.")
     }
+    if (input.paymentMethod !== PaymentMethod.Cash && input.paymentMethod !== PaymentMethod.CHEQUE) {
+      throw new Error("Select Cash or Cheque as the payment method.")
+    }
 
     // Validate supplier ownership
     const supplier = await prisma.supplier.findFirst({
@@ -457,7 +477,7 @@ export async function createGRN(input: CreateGRNInput) {
       }
       chassisSet.add(chassis)
 
-      if (typeof item.purchasePrice !== "number" || item.purchasePrice <= 0) {
+      if (typeof item.purchasePrice !== "number" || !Number.isFinite(item.purchasePrice) || item.purchasePrice <= 0) {
         throw new Error(`Purchase price for chassis "${chassis}" must be greater than 0.`)
       }
     }
@@ -476,10 +496,41 @@ export async function createGRN(input: CreateGRNInput) {
     }
 
     // Calculate total amount
+    const itemTotal = input.items.reduce((sum, item) => sum + item.purchasePrice, 0)
     const totalAmount =
-      input.totalAmount && input.totalAmount > 0
+      typeof input.totalAmount === "number" && Number.isFinite(input.totalAmount) && input.totalAmount > 0
         ? input.totalAmount
-        : input.items.reduce((sum, item) => sum + item.purchasePrice, 0)
+        : itemTotal
+    if (!Number.isFinite(input.paymentAmount) || input.paymentAmount <= 0) {
+      throw new Error("Payment amount must be greater than zero.")
+    }
+    if (input.paymentAmount > totalAmount) {
+      throw new Error("Payment amount cannot exceed the GRN total.")
+    }
+
+    let dueDate: Date | null = null
+    let chequeNumber: string | null = null
+    let bankName: string | null = null
+    if (input.paymentMethod === PaymentMethod.CHEQUE) {
+      chequeNumber = input.chequeNumber?.trim() || null
+      bankName = input.bankName?.trim() || null
+      if (!chequeNumber) throw new Error("Cheque number is required for cheque payments.")
+      if (!bankName) throw new Error("Bank name is required for cheque payments.")
+      if (!input.dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate)) {
+        throw new Error("A valid cheque due date is required.")
+      }
+      dueDate = new Date(`${input.dueDate}T00:00:00.000Z`)
+      if (Number.isNaN(dueDate.getTime()) || dueDate.toISOString().slice(0, 10) !== input.dueDate) {
+        throw new Error("A valid cheque due date is required.")
+      }
+    }
+
+    const paymentStatus =
+      input.paymentMethod === PaymentMethod.CHEQUE
+        ? PaymentStatus.Pending
+        : input.paymentAmount >= totalAmount
+          ? PaymentStatus.Paid
+          : PaymentStatus.PartiallyPaid
 
     // Generate readable GRN sequence number
     const count = await prisma.gRN.count({ where: { organizationId } })
@@ -497,6 +548,19 @@ export async function createGRN(input: CreateGRNInput) {
           grnNumber,
           totalAmount,
           receivedDate: new Date(),
+        },
+      })
+
+      await tx.payment.create({
+        data: {
+          grnId: grn.id,
+          amount: input.paymentAmount,
+          paymentMethod: input.paymentMethod,
+          chequeNumber,
+          bankName,
+          dueDate,
+          chequeStatus: input.paymentMethod === PaymentMethod.CHEQUE ? ChequeStatus.PENDING : null,
+          status: paymentStatus,
         },
       })
 

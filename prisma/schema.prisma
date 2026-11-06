@@ -39,17 +39,17 @@ enum SubscriptionStatus {
 }
 
 model Organization {
-  id                 String             @id @default(uuid())
-  businessName       String
-  domain             String?            @unique
-  subdomain          String?            @unique
-  phone              String?
-  logoUrl            String?
-  subscriptionPlan   SubscriptionPlan   @default(Free)
-  subscriptionStatus SubscriptionStatus @default(Active)
-  expiryDate         DateTime?
+  id                    String             @id @default(uuid())
+  businessName          String
+  domain                String?            @unique
+  subdomain             String?            @unique
+  phone                 String?
+  logoUrl               String?
+  subscriptionPlan      SubscriptionPlan   @default(Free)
+  subscriptionStatus    SubscriptionStatus @default(Active)
+  expiryDate            DateTime?
   staffCanManageCatalog Boolean            @default(false)
-  createdAt          DateTime           @default(now())
+  createdAt             DateTime           @default(now())
 
   users          User[]
   branches       Branch[]
@@ -190,7 +190,8 @@ model GRN {
   totalAmount  Float
   receivedDate DateTime @default(now())
 
-  items GRNItem[]
+  items    GRNItem[]
+  payments Payment[]
 }
 
 model GRNItem {
@@ -235,6 +236,12 @@ enum ChequeStatus {
   PENDING
   CLEARED
   BOUNCED
+}
+
+enum PaymentStatus {
+  Pending
+  Paid
+  PartiallyPaid
 }
 
 enum TestRideStatus {
@@ -354,14 +361,18 @@ model ServiceRecord {
 
 model Payment {
   id            String         @id @default(uuid())
-  saleId        String
-  sale          Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId        String?
+  sale          Sale?          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  grnId         String?
+  grn           GRN?           @relation(fields: [grnId], references: [id], onDelete: Cascade)
   amount        Float
   paymentMethod PaymentMethod?
   chequeNumber  String?
   bankName      String?
   chequeDate    DateTime?
+  dueDate       DateTime?
   chequeStatus  ChequeStatus?
+  status        PaymentStatus  @default(Pending)
   createdAt     DateTime       @default(now())
 }
 
