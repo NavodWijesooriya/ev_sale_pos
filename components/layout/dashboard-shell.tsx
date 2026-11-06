@@ -32,7 +32,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
   const orgRole = user.role || "OrgAdmin"
 
   return (
-    <div className="min-h-screen bg-background text-foreground print:bg-white print:block">
+    <div className="min-h-screen min-w-0 bg-background text-foreground print:bg-white print:block">
       {/* Desktop Fixed Collapsible Sidebar */}
       <Sidebar
         organizationName={orgName}
@@ -43,7 +43,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
       {/* Mobile Sidebar Drawer (Sheet) */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-[17rem] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground" showCloseButton={true}>
+        <SheetContent side="left" className="w-[min(17rem,calc(100vw-2rem))] border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground" showCloseButton={true}>
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Access dealership modules and settings</SheetDescription>
@@ -60,7 +60,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
       {/* Main Content Area offset dynamically for desktop sidebar */}
       <div
         className={cn(
-          "flex flex-col min-h-screen transition-all duration-300 ease-in-out print:pl-0 print:block",
+          "flex min-w-0 flex-col min-h-screen transition-all duration-300 ease-in-out print:pl-0 print:block",
           isCollapsed ? "lg:pl-20" : "lg:pl-[17rem]"
         )}
       >
@@ -76,7 +76,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
           />
         </div>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-9 lg:py-8 print:p-0 print:m-0 print:w-full">
+        <main className="mx-auto w-full max-w-[1680px] min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 xl:px-10 lg:py-8 print:p-0 print:m-0 print:w-full">
           {children}
         </main>
       </div>

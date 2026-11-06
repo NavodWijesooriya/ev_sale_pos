@@ -53,7 +53,7 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 flex h-[4.5rem] w-full items-center justify-between border-b border-border/80 bg-background/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8 print:hidden">
       {/* Left side: Hamburger toggle + Dealership info */}
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {onToggleSidebar && (
           <Button
             variant="ghost"
@@ -67,19 +67,19 @@ export function Header({
         )}
 
         {/* Current Dealership Organization Display */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-border/80 bg-card px-3.5 py-2 shadow-xs">
+        <div className="flex min-w-0 max-w-[min(58vw,24rem)] items-center gap-2.5 rounded-xl border border-border/80 bg-card px-2.5 py-2 sm:px-3.5">
           <Building2 className="size-[18px] text-primary shrink-0" />
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-semibold tracking-tight text-foreground">
+          <div className="flex min-w-0 flex-col">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-semibold tracking-tight text-foreground">
                 {organizationName}
               </span>
-              <span className="hidden sm:inline-flex rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="hidden shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 sm:inline-flex">
                 Active Tenant
               </span>
             </div>
             {organizationId && (
-              <span className="hidden sm:block text-[10px] text-muted-foreground font-mono truncate max-w-[140px]">
+              <span className="hidden max-w-[140px] truncate font-mono text-[10px] text-muted-foreground sm:block">
                 ID: {organizationId.slice(0, 8)}...
               </span>
             )}
@@ -100,7 +100,7 @@ export function Header({
       </div>
 
       {/* Right side: Action items + User Profile Dropdown */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-3">
         {/* Link to public showroom */}
         <Link href="/" target="_blank">
           <Button

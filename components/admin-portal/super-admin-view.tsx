@@ -181,14 +181,14 @@ export function SuperAdminView({
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Platform Header */}
-      <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-md px-6 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b bg-card/90 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5 lg:px-8">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
             <ShieldCheck className="size-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-base font-extrabold tracking-tight text-foreground">
+              <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">
                 Ev Sale Pos • Super Admin Control Center
               </span>
               <Badge
@@ -224,7 +224,7 @@ export function SuperAdminView({
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b">
           <div>

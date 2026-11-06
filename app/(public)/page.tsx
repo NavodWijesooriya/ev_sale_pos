@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma"
 import { StockModelItem } from "@/components/storefront/stock-grid"
 import { ModernStorefrontView } from "@/components/storefront/modern-storefront-view"
+import { getPublicAtherModelName } from "@/lib/public-storefront"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Zap, ArrowRight, Bike } from "lucide-react"
+import { Zap, ArrowRight } from "lucide-react"
 
 export const instant = false
 
@@ -43,27 +44,36 @@ export default async function PublicLandingPage() {
   // Fallback if no active organization is in database yet
   if (!organization) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="size-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
-          <Zap className="size-8" />
-        </div>
-        <h1 className="text-2xl font-bold">Ev Sale Pos</h1>
-        <p className="text-sm text-slate-400 mt-2 max-w-md">
-          Welcome to Ev Sale Pos. No active dealership showroom is registered yet. Please log in to create your first dealership tenant.
-        </p>
-        <Link href="/login" className="mt-6">
-          <Button className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold">
-            Dealer Login
-            <ArrowRight className="ml-1.5 size-4" />
-          </Button>
-        </Link>
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8f6] p-5 text-[#17221f]">
+        <main className="w-full max-w-lg rounded-3xl border border-black/[0.07] bg-white p-7 text-center shadow-sm sm:p-10">
+          <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-[#e8f0ea] text-[#31584d]">
+            <Zap className="size-6" />
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#628070]">EV Sale POS</p>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight">Your showroom is getting ready.</h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#69756e]">
+            No active dealership showroom is available yet. Sign in to set up your dealership.
+          </p>
+          <Link href="/login" className="mt-7 inline-block">
+            <Button className="h-11 rounded-full bg-[#183a34] px-5 text-white hover:bg-[#24544a]">
+              Dealer login
+              <ArrowRight className="ml-1.5 size-4" />
+            </Button>
+          </Link>
+        </main>
       </div>
     )
   }
 
   // Process Real EV Stock
-  const stockModels: StockModelItem[] = organization.vehicleModels.map((model) => {
+  const stockModels: StockModelItem[] = organization.vehicleModels.flatMap((model) => {
     const inStockVehicles = model.vehicles
+    const publicModelName = getPublicAtherModelName(model.brand, model.modelName)
+
+    if (!publicModelName || inStockVehicles.length === 0) {
+      return []
+    }
+
     const availableColors = Array.from(
       new Set(
         inStockVehicles
@@ -72,11 +82,15 @@ export default async function PublicLandingPage() {
       )
     )
 
+    const branchCounts = new Map<string, number>()
+    for (const vehicle of inStockVehicles) {
+      const branchName = vehicle.branch?.name || "Main showroom"
+      branchCounts.set(branchName, (branchCounts.get(branchName) ?? 0) + 1)
+    }
+
     return {
-      id: model.id,
-      brand: model.brand,
-      modelName: model.modelName,
-      imageUrl: model.imageUrl,
+      brand: "Ather",
+      modelName: publicModelName,
       batteryCapacity: model.batteryCapacity,
       range: model.range,
       motorPower: model.motorPower,
@@ -87,11 +101,9 @@ export default async function PublicLandingPage() {
       minDownPayment: model.minDownPayment,
       inStockCount: inStockVehicles.length,
       availableColors,
-      vehicles: inStockVehicles.map((v) => ({
-        id: v.id,
-        chassisNumber: v.chassisNumber,
-        color: v.color,
-        branchName: v.branch?.name,
+      stockByBranch: Array.from(branchCounts, ([branchName, count]) => ({
+        branchName,
+        count,
       })),
     }
   })
@@ -103,9 +115,12 @@ export default async function PublicLandingPage() {
       subdomain={organization.subdomain}
       logoUrl={organization.logoUrl}
       phone={organization.phone}
-      branches={organization.branches}
+      branches={organization.branches.map(({ name, location, contactNumber }) => ({
+        name,
+        location,
+        contactNumber,
+      }))}
       stockModels={stockModels}
     />
   )
 }
-

@@ -1,25 +1,30 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Zap, Lock, Mail, ArrowLeft, Loader2, AlertCircle } from "lucide-react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertCircle, ArrowRight, KeyRound, Loader2, Mail } from "lucide-react"
+import { loginAction } from "@/app/actions/auth"
+import { LoginExperience } from "@/components/auth/login-experience"
+import { PasswordField } from "@/components/auth/password-field"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { loginAction } from "@/app/actions/auth"
 
 function LoginForm() {
   const router = useRouter()
+  const [email, setEmail] = React.useState("")
+  const [password, setPassword] = React.useState("")
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setIsLoading(true)
     setErrorMessage(null)
-    const formData = new FormData(e.target as HTMLFormElement)
+    const formData = new FormData()
+    formData.set("email", email)
+    formData.set("password", password)
+
     try {
       const result = await loginAction(formData)
       if (!result.success) {
@@ -29,108 +34,108 @@ function LoginForm() {
 
       router.replace("/dashboard")
       router.refresh()
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Authentication error")
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : "Authentication error")
     } finally {
       setIsLoading(false)
     }
   }
 
+  const fillDemoCredentials = () => {
+    setEmail("admin@voltpos.com")
+    setPassword("password123")
+    setErrorMessage(null)
+  }
+
   return (
-    <div className="min-h-screen w-full flex flex-col justify-center items-center p-4 bg-slate-950 text-white relative overflow-hidden">
-      {/* Background glowing ambient orbs */}
-      <div className="absolute top-1/4 -left-20 size-80 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 size-80 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Back to public showroom button */}
-      <div className="absolute top-6 left-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-          <ArrowLeft className="size-3.5" />
-          Back to Showroom
-        </Link>
-      </div>
-
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-6">
-          <div className="inline-flex size-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-cyan-400 items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-3">
-            <Zap className="size-6" />
+    <LoginExperience portal="dealership">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {errorMessage && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700"
+          >
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <span className="leading-5">{errorMessage}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Ev Sale Pos</h1>
-          <p className="text-xs text-slate-400 mt-1">Multi-Tenant EV Dealership Management System</p>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-sm font-medium text-[#34443a]">Work email</Label>
+          <div className="relative">
+            <Mail aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#89968e]" />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="username"
+              placeholder="you@dealership.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              disabled={isLoading}
+              className="h-12 rounded-xl border-[#dfe6e0] bg-white pl-11 text-[15px] shadow-none transition-colors placeholder:text-[#a0aaa3] focus-visible:border-[#57806a] focus-visible:ring-[#57806a]/15"
+            />
+          </div>
         </div>
 
-        <Card className="border-white/10 bg-slate-900/80 backdrop-blur-xl shadow-2xl text-white">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl font-semibold tracking-tight text-white">Dealership Staff Sign In</CardTitle>
-            <CardDescription className="text-slate-400 text-xs">
-              Enter your corporate email and password to access your branch dashboard
-            </CardDescription>
-          </CardHeader>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="password" className="text-sm font-medium text-[#34443a]">Password</Label>
+            <span className="text-xs text-[#869188]">Contact your administrator if you need help</span>
+          </div>
+          <PasswordField
+            id="password"
+            name="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            disabled={isLoading}
+          />
+        </div>
 
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              {errorMessage && (
-                <div className="flex items-center gap-2 p-3 text-xs rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
-                  <AlertCircle className="size-4 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
+        <div className="flex flex-col gap-3 rounded-xl border border-[#e6ebe6] bg-[#f7f9f7] p-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#547c63] shadow-sm">
+              <KeyRound className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-[#34443a]">Demo access</p>
+              <p className="mt-0.5 break-all text-xs text-[#77827b]">admin@voltpos.com</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={fillDemoCredentials}
+            disabled={isLoading}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#dce5dd] bg-white px-3 text-xs font-medium text-[#42664f] transition-colors hover:bg-[#edf3ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#57806a]/30 disabled:opacity-50"
+          >
+            Fill demo account
+            <ArrowRight className="size-3.5" />
+          </button>
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-medium text-slate-200">Work Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 size-4 text-slate-400 pointer-events-none" />
-                  <Input id="email" name="email" type="email" placeholder="manager@evdealership.com" required className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:border-blue-500 focus-visible:ring-blue-500/30 text-sm" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs font-medium text-slate-200">Password</Label>
-                  <span className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer">Forgot password?</span>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 size-4 text-slate-400 pointer-events-none" />
-                  <Input id="password" name="password" type="password" placeholder="••••••••" required className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:border-blue-500 focus-visible:ring-blue-500/30 text-sm" />
-                </div>
-              </div>
-
-              {/* Demo hint for instant testing */}
-              <div className="rounded-lg bg-blue-950/40 border border-blue-800/30 p-2.5 text-[11px] text-blue-200/90 leading-relaxed flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-blue-400">Demo Admin:</span>{" admin@voltpos.com"} / <code>password123</code>
-                </div>
-                <button type="button" onClick={() => { const e=document.getElementById('email') as HTMLInputElement; const p=document.getElementById('password') as HTMLInputElement; e.value='admin@voltpos.com'; p.value='password123'; }} className="text-[10px] px-2 py-0.5 rounded bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 font-medium border border-blue-500/30 transition-colors">
-                  Auto-fill
-                </button>
-              </div>
-            </CardContent>
-
-            <CardFooter className="pt-2 pb-6 flex flex-col gap-3">
-              <Button type="submit" disabled={isLoading} className="w-full h-10 bg-black hover:bg-gray-800 text-white font-medium shadow-md text-sm">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Authenticating...
-                  </>
-                ) : (
-                  "Sign In to Dashboard"
-                )}
-              </Button>
-
-              <div className="text-center text-[11px] text-slate-400">Protected by tenant isolation & enterprise RBAC encryption.</div>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
-    </div>
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="h-12 w-full rounded-xl bg-[#183a34] text-sm font-semibold text-white shadow-none transition-colors hover:bg-[#24544a]"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            <>
+              Sign in to your workspace
+              <ArrowRight className="ml-2 size-4" />
+            </>
+          )}
+        </Button>
+      </form>
+    </LoginExperience>
   )
 }
 
 export default function LoginPage() {
-  return (
-    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-white"><Loader2 className="size-6 animate-spin text-blue-500" /></div>}>
-      <LoginForm />
-    </React.Suspense>
-  )
+  return <LoginForm />
 }

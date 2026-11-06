@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { DealershipNotFoundView } from "@/components/storefront/not-found-view"
 import { StockModelItem } from "@/components/storefront/stock-grid"
 import { ModernStorefrontView } from "@/components/storefront/modern-storefront-view"
+import { getPublicAtherModelName } from "@/lib/public-storefront"
 
 export const instant = false
 
@@ -86,8 +87,14 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
   }
 
   // 3. Process Available EV Stock
-  const stockModels: StockModelItem[] = organization.vehicleModels.map((model) => {
+  const stockModels: StockModelItem[] = organization.vehicleModels.flatMap((model) => {
     const inStockVehicles = model.vehicles
+    const publicModelName = getPublicAtherModelName(model.brand, model.modelName)
+
+    if (!publicModelName || inStockVehicles.length === 0) {
+      return []
+    }
+
     const availableColors = Array.from(
       new Set(
         inStockVehicles
@@ -96,11 +103,15 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
       )
     )
 
+    const branchCounts = new Map<string, number>()
+    for (const vehicle of inStockVehicles) {
+      const branchName = vehicle.branch?.name || "Main showroom"
+      branchCounts.set(branchName, (branchCounts.get(branchName) ?? 0) + 1)
+    }
+
     return {
-      id: model.id,
-      brand: model.brand,
-      modelName: model.modelName,
-      imageUrl: model.imageUrl,
+      brand: "Ather",
+      modelName: publicModelName,
       batteryCapacity: model.batteryCapacity,
       range: model.range,
       motorPower: model.motorPower,
@@ -111,11 +122,9 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
       minDownPayment: model.minDownPayment,
       inStockCount: inStockVehicles.length,
       availableColors,
-      vehicles: inStockVehicles.map((v) => ({
-        id: v.id,
-        chassisNumber: v.chassisNumber,
-        color: v.color,
-        branchName: v.branch?.name,
+      stockByBranch: Array.from(branchCounts, ([branchName, count]) => ({
+        branchName,
+        count,
       })),
     }
   })
@@ -127,7 +136,11 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
       subdomain={organization.subdomain}
       logoUrl={organization.logoUrl}
       phone={organization.phone}
-      branches={organization.branches}
+      branches={organization.branches.map(({ name, location, contactNumber }) => ({
+        name,
+        location,
+        contactNumber,
+      }))}
       stockModels={stockModels}
     />
   )

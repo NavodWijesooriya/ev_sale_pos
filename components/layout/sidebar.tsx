@@ -5,24 +5,23 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard,
-  Building2,
-  Bike,
   BadgeDollarSign,
+  BarChart3,
+  Bike,
+  Boxes,
+  Building2,
+  ChevronRight,
+  HelpCircle,
+  LayoutDashboard,
+  Palette,
+  PanelLeft,
+  PanelLeftClose,
+  ShieldAlert,
+  ShoppingCart,
+  Settings,
   Users2,
   Wrench,
-  BarChart3,
   Zap,
-  ChevronRight,
-  ShieldAlert,
-  Sparkles,
-  Settings,
-  ShoppingCart,
-  Boxes,
-  PanelLeftClose,
-  PanelLeft,
-  HelpCircle,
-  Palette,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -36,76 +35,17 @@ export interface NavItem {
 }
 
 export const navigationItems: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Branches",
-    href: "/dashboard/settings/branches",
-    icon: Building2,
-    roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
-  },
-  {
-    title: "EV Inventory",
-    href: "/dashboard/inventory",
-    icon: Bike,
-    badge: "Chassis/Bike",
-    roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"],
-  },
-  {
-    title: "Sales & POS",
-    href: "/dashboard/sales",
-    icon: BadgeDollarSign,
-    badge: "POS",
-    roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"],
-  },
-  {
-    title: "Customers",
-    href: "/dashboard/customers",
-    icon: Users2,
-    roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"],
-  },
-  {
-    title: "Services",
-    href: "/dashboard/services",
-    icon: Wrench,
-    roles: ["OrgAdmin", "BranchManager", "Technician", "SalesRep", "SuperAdmin"],
-  },
-  {
-    title: "Reports",
-    href: "/dashboard/reports",
-    icon: BarChart3,
-    roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
-  },
-  {
-    title: "Team & Access",
-    href: "/dashboard/settings/users",
-    icon: Settings,
-    badge: "Admin",
-    roles: ["OrgAdmin", "SuperAdmin"],
-  },
-  {
-    title: "Storefront Branding",
-    href: "/dashboard/settings/appearance",
-    icon: Palette,
-    badge: "Branding",
-    roles: ["OrgAdmin", "SuperAdmin"],
-  },
-  {
-    title: "Help Center",
-    href: "/dashboard/help",
-    icon: HelpCircle,
-    badge: "Guide",
-  },
-  {
-    title: "Platform Admin",
-    href: "/super-admin",
-    icon: ShieldAlert,
-    badge: "Platform",
-    roles: ["SuperAdmin"],
-  },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Branches", href: "/dashboard/settings/branches", icon: Building2, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
+  { title: "EV Inventory", href: "/dashboard/inventory", icon: Bike, badge: "Stock", roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"] },
+  { title: "Sales & POS", href: "/dashboard/sales", icon: BadgeDollarSign, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
+  { title: "Customers", href: "/dashboard/customers", icon: Users2, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
+  { title: "Services", href: "/dashboard/services", icon: Wrench, roles: ["OrgAdmin", "BranchManager", "Technician", "SalesRep", "SuperAdmin"] },
+  { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
+  { title: "Team & Access", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
+  { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
+  { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },
+  { title: "Platform Admin", href: "/super-admin", icon: ShieldAlert, roles: ["SuperAdmin"] },
 ]
 
 interface SidebarContentProps {
@@ -124,299 +64,168 @@ export function SidebarContent({
   onNavigate,
 }: SidebarContentProps) {
   const pathname = usePathname()
+  const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
 
   return (
-    <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground select-none">
-      {/* Dealership / Brand Header */}
-      <div
-        className={cn(
-          "flex h-[4.5rem] shrink-0 items-center border-b border-sidebar-border px-4 transition-all duration-300",
-          isCollapsed ? "justify-center px-2" : "justify-between"
-        )}
-      >
-        <Link
-          href="/dashboard"
-          onClick={onNavigate}
-          className="flex items-center gap-3 group overflow-hidden"
-          title="Ev Sale Pos"
-        >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
+    <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <div className={cn(
+        "flex h-[4.5rem] shrink-0 items-center border-b border-sidebar-border px-4",
+        isCollapsed ? "justify-center px-2" : "justify-between"
+      )}>
+        <Link href="/dashboard" onClick={onNavigate} className="group flex min-w-0 items-center gap-3" title="EV Sale POS">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground transition-transform group-hover:scale-[1.03]">
             <Zap className="size-5" />
-          </div>
+          </span>
           {!isCollapsed && (
-            <div className="flex flex-col truncate">
-              <span className="text-[15px] font-bold tracking-tight text-foreground">
-                Ev Sale Pos
-              </span>
-              <span className="text-xs text-muted-foreground font-medium truncate max-w-[150px]">
-                {organizationName}
-              </span>
-            </div>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-sm font-semibold tracking-tight text-foreground">EV Sale POS</span>
+              <span className="max-w-[170px] truncate text-xs text-muted-foreground">{organizationName}</span>
+            </span>
           )}
         </Link>
-
         {onToggleCollapse && !isCollapsed && (
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             onClick={onToggleCollapse}
-            className="size-8 text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
-            title="Collapse Sidebar"
+            className="size-8 shrink-0 text-muted-foreground"
+            aria-label="Collapse sidebar"
           >
             <PanelLeftClose className="size-4" />
           </Button>
         )}
       </div>
 
-      {/* Main Sidebar Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-3 py-5 space-y-6 [&>div:first-child]:hidden">
-        {/* 1. Quick Access Section (2x2 Grid of Small Cards) */}
+      <div className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         {!isCollapsed ? (
-          <div>
-            <div className="px-1 mb-2.5 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Quick Access
-              </span>
-              <span className="text-[10px] text-muted-foreground/70 font-semibold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                Live
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {/* Card 1: Orders / POS */}
+          <section aria-label="Quick actions">
+            <h2 className="mb-2.5 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Quick actions
+            </h2>
+            <div className="space-y-1.5">
               <Link
                 href="/dashboard/sales"
                 onClick={onNavigate}
-                className="group flex flex-col p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 hover:bg-blue-50/80 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all hover:border-blue-400/50 hover:shadow-xs"
+                className="group flex min-h-11 items-center gap-3 rounded-xl border border-border/70 bg-card px-3 text-sm font-medium transition-colors hover:border-primary/25 hover:bg-primary/5"
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className="size-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                    <ShoppingCart className="size-3.5" />
-                  </div>
-                  <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1 rounded">
-                    POS
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                  Orders
+                <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ShoppingCart className="size-3.5" />
                 </span>
-                <span className="text-[10px] text-muted-foreground truncate">
-                  POS Checkout
-                </span>
+                <span className="flex-1">New sale</span>
+                <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
-
-              {/* Card 2: EV Bikes / Catalog */}
               <Link
                 href="/dashboard/inventory"
                 onClick={onNavigate}
-                className="group flex flex-col p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 hover:bg-emerald-50/80 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all hover:border-emerald-400/50 hover:shadow-xs"
+                className="group flex min-h-11 items-center gap-3 rounded-xl border border-border/70 bg-card px-3 text-sm font-medium transition-colors hover:border-primary/25 hover:bg-primary/5"
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className="size-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                    <Bike className="size-3.5" />
-                  </div>
-                  <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1 rounded">
-                    Bikes
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                  EV Bikes
+                <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Boxes className="size-3.5" />
                 </span>
-                <span className="text-[10px] text-muted-foreground truncate">
-                  Bike Catalog
-                </span>
-              </Link>
-
-              {/* Card 3: Inventory / Stock */}
-              <Link
-                href="/dashboard/inventory"
-                onClick={onNavigate}
-                className="group flex flex-col p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 hover:bg-purple-50/80 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all hover:border-purple-400/50 hover:shadow-xs"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <Boxes className="size-3.5" />
-                  </div>
-                  <span className="text-[9px] font-bold text-primary bg-primary/10 px-1 rounded">
-                    GRN
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-primary">
-                  Inventory
-                </span>
-                <span className="text-[10px] text-muted-foreground truncate">
-                  Live Stock
-                </span>
-              </Link>
-
-              {/* Card 4: Dashboard / KPIs */}
-              <Link
-                href="/dashboard"
-                onClick={onNavigate}
-                className="group flex flex-col p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 hover:bg-amber-50/80 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all hover:border-amber-400/50 hover:shadow-xs"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="size-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <LayoutDashboard className="size-3.5" />
-                  </div>
-                  <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded">
-                    KPI
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-foreground mt-2 group-hover:text-amber-600 dark:group-hover:text-amber-400">
-                  Dashboard
-                </span>
-                <span className="text-[10px] text-muted-foreground truncate">
-                  Performance
-                </span>
+                <span className="flex-1">Manage inventory</span>
+                <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-          </div>
+          </section>
         ) : (
-          <div className="flex flex-col items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-            <Link
-              href="/dashboard/sales"
-              onClick={onNavigate}
-              className="size-9 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
-              title="Orders & POS"
-            >
+          <div className="flex flex-col items-center gap-2 border-b border-sidebar-border pb-3">
+            <Link href="/dashboard/sales" onClick={onNavigate} title="New sale" className="flex size-10 items-center justify-center rounded-xl text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <ShoppingCart className="size-4" />
             </Link>
-            <Link
-              href="/dashboard/inventory"
-              onClick={onNavigate}
-              className="size-9 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-              title="Products & Inventory"
-            >
+            <Link href="/dashboard/inventory" onClick={onNavigate} title="Manage inventory" className="flex size-10 items-center justify-center rounded-xl text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <Boxes className="size-4" />
             </Link>
           </div>
         )}
 
-        {/* 2. Standard Vertical Menu with Icons */}
-        <div>
+        <section aria-label="Workspace navigation">
           {!isCollapsed && (
-            <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Workspace
-            </div>
+            </h2>
           )}
-
           <nav className="space-y-1">
-            {navigationItems
-              .filter((item) => !item.roles || item.roles.includes(userRole))
-              .map((item) => {
-                const Icon = item.icon
-                const isActive =
-                  item.href === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname?.startsWith(item.href)
+            {visibleItems.map((item) => {
+              const Icon = item.icon
+              const isActive = item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : Boolean(pathname?.startsWith(item.href))
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onNavigate}
-                    title={isCollapsed ? item.title : undefined}
-                    className={cn(
-                      "group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all duration-200",
-                      isCollapsed && "justify-center px-0 size-10 mx-auto",
-                      isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs"
-                        : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "size-5 shrink-0 transition-colors",
-                        isActive
-                          ? "text-sidebar-accent-foreground"
-                          : "text-muted-foreground group-hover:text-sidebar-foreground"
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  title={isCollapsed ? item.title : undefined}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-200",
+                    isCollapsed && "mx-auto size-10 justify-center px-0",
+                    isActive
+                      ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-sidebar-primary"
+                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                  )}
+                >
+                  <Icon className={cn(
+                    "size-[18px] shrink-0 transition-colors",
+                    isActive ? "text-sidebar-accent-foreground" : "text-muted-foreground group-hover:text-sidebar-foreground"
+                  )} />
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 truncate">{item.title}</span>
+                      {item.badge && (
+                        <span className={cn(
+                          "rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-tight",
+                          isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-background"
+                        )}>
+                          {item.badge}
+                        </span>
                       )}
-                    />
-
-                    {!isCollapsed && (
-                      <>
-                        <span className="flex-1 truncate">{item.title}</span>
-
-                        {item.badge && (
-                          <span
-                            className={cn(
-                              "rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-tight",
-                              isActive
-                                ? "bg-primary/10 text-primary"
-                                : "bg-muted text-muted-foreground group-hover:bg-background"
-                            )}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-
-                        {isActive && (
-                          <ChevronRight className="size-4 text-sidebar-accent-foreground/70" />
-                        )}
-                      </>
-                    )}
-                  </Link>
-                )
-              })}
+                      {isActive && <ChevronRight className="size-4 text-sidebar-accent-foreground/70" />}
+                    </>
+                  )}
+                </Link>
+              )
+            })}
           </nav>
-        </div>
+        </section>
 
-        {/* Multi-Tenant System Badge */}
         {!isCollapsed && (
-          <div className="mt-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 p-3.5 text-xs">
+          <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/35 p-3.5 text-xs">
             <div className="flex items-center gap-2 font-semibold text-foreground">
-              <Sparkles className="size-3.5 text-blue-500" />
-              <span>Multi-Tenant ERP</span>
+              <Building2 className="size-3.5 text-primary" />
+              <span>Workspace status</span>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground leading-normal">
-              Isolated cloud schema active for {organizationName}.
-            </p>
-            <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t border-slate-200/80 dark:border-slate-700">
-              <span>
-                Role: <strong className="text-foreground">{userRole}</strong>
-              </span>
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+            <p className="mt-1 truncate text-[11px] leading-normal text-muted-foreground">{organizationName}</p>
+            <div className="mt-2.5 flex items-center justify-between border-t border-sidebar-border pt-2 text-[10px] text-muted-foreground">
+              <span>Role: <strong className="text-foreground">{userRole}</strong></span>
+              <span className="flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                Live Cloud
+                Connected
               </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer / Expand-Collapse Toggle */}
-      <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 p-3 flex items-center justify-between">
-        {!isCollapsed ? (
-          <>
-            <span className="text-[11px] text-muted-foreground">
-              Ev Sale Pos • v1.0
-            </span>
-            {onToggleCollapse && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleCollapse}
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                title="Collapse Sidebar"
-              >
-                <PanelLeftClose className="size-3.5" />
-                <span className="text-[10px]">Collapse</span>
-              </Button>
-            )}
-          </>
-        ) : (
-          onToggleCollapse && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="size-8 mx-auto text-muted-foreground hover:text-foreground"
-              title="Expand Sidebar"
-            >
-              <PanelLeft className="size-4" />
-            </Button>
-          )
+      <div className={cn(
+        "flex h-14 shrink-0 items-center border-t border-sidebar-border px-3",
+        isCollapsed ? "justify-center" : "justify-between"
+      )}>
+        {!isCollapsed && <span className="text-[11px] text-muted-foreground">EV Sale POS · v1.0</span>}
+        {onToggleCollapse && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="size-8 text-muted-foreground"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <PanelLeft className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </Button>
         )}
       </div>
     </div>
@@ -439,7 +248,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-30 hidden flex-col transition-[width] duration-300 ease-in-out lg:flex print:hidden",
+        "fixed inset-y-0 left-0 z-30 hidden flex-col transition-[width] duration-300 ease-in-out print:hidden lg:flex",
         isCollapsed ? "w-20" : "w-[17rem]"
       )}
     >

@@ -1,32 +1,26 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
-import { StockGrid, StockModelItem } from "@/components/storefront/stock-grid"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
-  Zap,
-  Phone,
+  ArrowDown,
+  ArrowRight,
+  BatteryCharging,
+  Download,
   MapPin,
-  Building2,
+  Menu,
+  MessageCircle,
+  Phone,
   ShieldCheck,
   Sparkles,
-  ArrowRight,
-  Bike,
-  CheckCircle2,
-  TrendingDown,
-  BatteryCharging,
-  Gauge,
-  Calendar,
-  CreditCard,
-  Download,
-  Share2,
+  X,
+  Zap,
 } from "lucide-react"
-import { formatLKR } from "@/lib/currency"
+import { Button } from "@/components/ui/button"
+import { StockGrid, StockModelItem, officialAtherImages } from "@/components/storefront/stock-grid"
 
 interface BranchItem {
-  id: string
   name: string
   location?: string | null
   contactNumber?: string | null
@@ -42,6 +36,11 @@ interface ModernStorefrontViewProps {
   stockModels: StockModelItem[]
 }
 
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
+}
+
 export function ModernStorefrontView({
   dealershipName,
   domain,
@@ -51,429 +50,344 @@ export function ModernStorefrontView({
   branches,
   stockModels,
 }: ModernStorefrontViewProps) {
-  const [installPrompt, setInstallPrompt] = React.useState<any>(null)
-  const [isInstalled, setIsInstalled] = React.useState(false)
+  const [installPrompt, setInstallPrompt] = React.useState<InstallPromptEvent | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const primaryBranch = branches[0]
+  const displayPhone = phone || primaryBranch?.contactNumber || null
+  const cleanPhone = displayPhone?.replace(/[^\d]/g, "")
+  const featuredModel = stockModels[0]
+  const featuredImage = featuredModel ? officialAtherImages[featuredModel.modelName] : null
 
   React.useEffect(() => {
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault()
-      setInstallPrompt(e)
+    const handleBeforeInstall = (event: Event) => {
+      event.preventDefault()
+      setInstallPrompt(event as InstallPromptEvent)
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall)
 
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setIsInstalled(true)
-    }
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstall)
-    }
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall)
   }, [])
 
   const handleInstallClick = async () => {
     if (!installPrompt) return
-    installPrompt.prompt()
+    await installPrompt.prompt()
     const { outcome } = await installPrompt.userChoice
     if (outcome === "accepted") {
-      setIsInstalled(true)
       setInstallPrompt(null)
     }
   }
 
-  const totalInStock = stockModels.reduce((acc, m) => acc + m.inStockCount, 0)
-  const primaryBranch = branches[0]
-  const displayPhone = phone || primaryBranch?.contactNumber || "+94 11 234 5678"
+  const closeMobileMenu = () => setMobileMenuOpen(false)
 
   return (
-    <div className="dark min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-primary selection:text-white">
-      <section
-        aria-label="Electric bike benefits"
-        className="border-b border-emerald-400/15 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-emerald-50"
-      >
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-200">
-            <span className="flex size-6 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300">
-              <Sparkles className="size-3.5" aria-hidden="true" />
-            </span>
-            <span>Ride electric. Save more.</span>
-          </div>
-          <span className="hidden h-4 w-px bg-emerald-100/20 sm:block" aria-hidden="true" />
-          <p className="text-center text-[11px] leading-relaxed text-emerald-50/85 sm:text-xs">
-            Save up to <strong className="font-semibold text-white">Rs. 30,000/month</strong> on fuel
-            <span className="hidden sm:inline"> · </span>
-            <span className="sm:ml-1">Sri Lankan DMT-registered bikes · 3-year battery warranty</span>
-          </p>
-        </div>
-      </section>
+    <div
+      className="showroom min-h-screen overflow-x-clip bg-[#f7f8f6] text-[#17221f]"
+      data-showroom-domain={subdomain || domain}
+    >
+      <div className="showroom-announcement flex min-h-9 items-center justify-center gap-2 bg-[#183a34] px-4 py-2 text-center text-[11px] font-medium tracking-wide text-white sm:text-xs">
+        <Sparkles className="size-3.5 text-[#b8d7c6]" />
+        <span>Discover the Ather electric scooter range, available at {dealershipName}</span>
+      </div>
 
-      {/* 2. Sticky Glassmorphism Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo & Dealership Brand */}
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 border-b border-black/[0.07] bg-[#f7f8f6]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[4.5rem] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-7 lg:px-10">
+          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={`${dealershipName} home`}>
             {logoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={logoUrl}
-                alt={dealershipName}
-                className="size-10 rounded-xl object-contain bg-white/10 p-1 border border-white/20"
-              />
+              <img src={logoUrl} alt="" className="size-9 shrink-0 rounded-lg object-contain" />
             ) : (
-              <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                <Zap className="size-5" />
-              </div>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#183a34] text-white">
+                <Zap className="size-4" />
+              </span>
             )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base sm:text-lg tracking-tight text-white">
-                  {dealershipName}
-                </span>
-                <span className="hidden md:inline-flex rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
-                  Certified EV Dealer
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                <span className="font-mono text-cyan-400">Ev Sale Pos</span>
-                {primaryBranch && (
-                  <span className="hidden sm:inline-flex items-center gap-1">
-                    • <MapPin className="size-3 text-muted-foreground" /> {primaryBranch.name}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+            <span className="truncate text-sm font-semibold tracking-tight sm:text-base">{dealershipName}</span>
+          </Link>
 
-          {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-300">
-            <a href="#inventory" className="hover:text-emerald-400 transition-colors">
-              Available EV Bikes ({totalInStock} In Stock)
-            </a>
-            <a href="#fuel-savings" className="hover:text-emerald-400 transition-colors">
-              Fuel Savings
-            </a>
-            <a href="#financing" className="hover:text-emerald-400 transition-colors">
-              Bank Leasing
-            </a>
-            <a href="#branches" className="hover:text-emerald-400 transition-colors">
-              Branches & Showrooms
-            </a>
+          <nav aria-label="Main navigation" className="hidden items-center gap-8 text-sm font-medium text-[#52615b] lg:flex">
+            <a className="transition-colors hover:text-[#183a34]" href="#models">The range</a>
+            <a className="transition-colors hover:text-[#183a34]" href="#experience">The experience</a>
+            <a className="transition-colors hover:text-[#183a34]" href="#showrooms">Showrooms</a>
           </nav>
 
-          {/* Action CTAs */}
-          <div className="flex items-center gap-2.5">
-            {installPrompt && !isInstalled && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleInstallClick}
-                className="text-xs h-8 bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 hidden sm:inline-flex items-center gap-1.5"
-              >
-                <Download className="size-3.5" />
-                Install App
+          <div className="hidden items-center gap-2 lg:flex">
+            {installPrompt && (
+              <Button variant="ghost" size="sm" onClick={handleInstallClick} className="h-10 rounded-full px-3 text-xs">
+                <Download className="mr-1.5 size-4" />
+                Install
               </Button>
             )}
-
-            <a
-              href={`tel:${displayPhone.replace(/[^0-9+]/g, "")}`}
-              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-white/10 bg-white/5 text-xs text-slate-300 hover:bg-white/10 transition-colors"
-            >
-              <Phone className="size-3.5 text-emerald-400" />
-              <span>{displayPhone}</span>
-            </a>
-
-            <Link href="/login">
-              <Button
-                size="sm"
-                className="text-xs h-8 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
+            {cleanPhone && (
+              <a
+                className="inline-flex h-10 items-center justify-center rounded-full border border-[#183a34]/20 px-4 text-sm font-medium text-[#183a34] transition-colors hover:bg-[#eaf0ec]"
+                href={`https://wa.me/${cleanPhone}`}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                Dealer Login
-                <ArrowRight className="ml-1 size-3.5" />
-              </Button>
+                <MessageCircle className="mr-2 size-4" />
+                WhatsApp
+              </a>
+            )}
+            <Link
+              href="#models"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-[#183a34] px-5 text-sm font-medium text-white transition-colors hover:bg-[#24544a]"
+            >
+              Explore models
+              <ArrowRight className="ml-2 size-4" />
             </Link>
           </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileMenuOpen}
+            className="size-10 shrink-0 rounded-full lg:hidden"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            {mobileMenuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+          </Button>
         </div>
+
+        {mobileMenuOpen && (
+          <nav aria-label="Mobile navigation" className="border-t border-black/[0.07] bg-[#f7f8f6] px-4 py-3 lg:hidden">
+            <div className="mx-auto flex max-w-[1440px] flex-col gap-1">
+              <a onClick={closeMobileMenu} className="rounded-lg px-3 py-3 text-sm font-medium hover:bg-black/[0.04]" href="#models">The range</a>
+              <a onClick={closeMobileMenu} className="rounded-lg px-3 py-3 text-sm font-medium hover:bg-black/[0.04]" href="#experience">The experience</a>
+              <a onClick={closeMobileMenu} className="rounded-lg px-3 py-3 text-sm font-medium hover:bg-black/[0.04]" href="#showrooms">Showrooms</a>
+              {cleanPhone && (
+                <a
+                  className="mt-1 flex min-h-11 items-center gap-2 rounded-lg bg-[#183a34] px-3 text-sm font-medium text-white"
+                  href={`https://wa.me/${cleanPhone}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircle className="size-4" />
+                  Chat on WhatsApp
+                </a>
+              )}
+            </div>
+          </nav>
+        )}
       </header>
 
-      {/* 3. Modern Sri Lankan Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28">
-        {/* Modern Tropical Colombo & Cyber Electric Background Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 pointer-events-none" />
-        <div className="absolute -top-40 right-1/4 size-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-20 -left-20 size-80 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto space-y-6">
-            {/* Sri Lanka Certified Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-inner">
-              <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>Sri Lanka's Next-Gen Clean Electric Two-Wheeler Network</span>
-            </div>
-
-            {/* Bold Headline */}
-            <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-tight">
-              Ride Free from Petrol Costs with{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
-                {dealershipName}
-              </span>
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl mx-auto">
-              Explore 100% road-legal electric bikes and scooters in Colombo, Kandy, and islandwide.
-              Zero petrol queues, certified lithium battery packs with 3-year warranty, and instant lease approval.
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
-              <a href="#inventory" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto h-12 px-8 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-emerald-500/25 text-sm"
+      <main>
+        <section className="showroom-hero relative overflow-hidden border-b border-black/[0.06]">
+          <div className="mx-auto grid min-h-[620px] max-w-[1440px] items-center gap-8 px-4 py-12 sm:px-7 sm:py-16 lg:grid-cols-[0.88fr_1.12fr] lg:gap-10 lg:px-10 lg:py-20">
+            <div className="showroom-reveal relative z-10 max-w-2xl">
+              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#183a34]/15 bg-white/70 px-3.5 py-2 text-xs font-medium text-[#31584d]">
+                <span className="size-1.5 rounded-full bg-[#4f806b]" />
+                The Ather electric experience
+              </p>
+              <h1 className="max-w-[12ch] text-[clamp(2.8rem,6.6vw,5.75rem)] font-medium leading-[0.98] tracking-[-0.065em] text-[#17221f]">
+                A better way to move.
+              </h1>
+              <p className="mt-6 max-w-lg text-base leading-7 text-[#596760] sm:text-lg sm:leading-8">
+                Meet the Ather 450X and Rizta. Thoughtfully designed electric scooters, ready to explore at {dealershipName}.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="#models"
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-[#183a34] px-6 text-sm font-medium text-white transition-colors hover:bg-[#24544a]"
                 >
-                  <Bike className="size-4 mr-2" />
-                  View Live Showroom Stock ({totalInStock} Available)
-                </Button>
-              </a>
-
-              <a href="#financing" className="w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto h-12 px-6 border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm"
-                >
-                  <CreditCard className="size-4 mr-2 text-cyan-400" />
-                  Calculate Bank Leasing
-                </Button>
-              </a>
-            </div>
-
-            {/* Trust Highlights Row */}
-            <div className="pt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
-              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                  <TrendingDown className="size-4 text-emerald-400" />
-                  Running Cost
-                </div>
-                <div className="text-lg font-bold text-white mt-1">Rs. 0.85 / km</div>
-                <div className="text-[10px] text-emerald-400">vs Rs. 14/km on Petrol</div>
+                  View available models
+                  <ArrowRight className="ml-2 size-4" />
+                </Link>
+                {cleanPhone && (
+                  <a
+                    className="inline-flex h-12 items-center justify-center rounded-full border border-[#183a34]/20 px-6 text-sm font-medium text-[#183a34] transition-colors hover:bg-white"
+                    href={`https://wa.me/${cleanPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircle className="mr-2 size-4" />
+                    Enquire on WhatsApp
+                  </a>
+                )}
               </div>
-
-              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                  <BatteryCharging className="size-4 text-cyan-400" />
-                  Lithium Battery
-                </div>
-                <div className="text-lg font-bold text-white mt-1">3 Years</div>
-                <div className="text-[10px] text-slate-400">Official Factory Warranty</div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                  <Gauge className="size-4 text-amber-400" />
-                  Riding Range
-                </div>
-                <div className="text-lg font-bold text-white mt-1">Up to 150 km</div>
-                <div className="text-[10px] text-slate-400">Per single overnight charge</div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                  <ShieldCheck className="size-4 text-purple-400" />
-                  Registration
-                </div>
-                <div className="text-lg font-bold text-white mt-1">DMT Certified</div>
-                <div className="text-[10px] text-slate-400">Full Sri Lankan Road Legal</div>
+              <div className="mt-10 flex items-center gap-3 text-xs font-medium text-[#66726c]">
+                <span className="flex size-8 items-center justify-center rounded-full bg-white text-[#31584d] shadow-sm">
+                  <ShieldCheck className="size-4" />
+                </span>
+                New models · Live showroom availability
               </div>
             </div>
+
+            {featuredImage ? (
+              <div className="showroom-reveal relative mx-auto aspect-[1.13] w-full max-w-[690px] overflow-hidden rounded-[2rem] bg-[#e8eeea] sm:rounded-[2.5rem]">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_55%_45%,rgba(255,255,255,0.9),rgba(228,236,230,0.4)_56%,rgba(209,224,214,0.2))]" />
+                <Image
+                  src={featuredImage}
+                  alt={`Official Ather ${featuredModel?.modelName} electric scooter`}
+                  fill
+                  preload
+                  sizes="(max-width: 1024px) 100vw, 55vw"
+                  className="object-contain p-6 sm:p-10"
+                />
+                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between rounded-2xl border border-white/70 bg-white/75 p-4 backdrop-blur-md sm:bottom-6 sm:left-6 sm:right-6 sm:p-5">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#688176]">In the showroom</p>
+                    <p className="mt-1 text-lg font-semibold tracking-tight sm:text-xl">Ather {featuredModel?.modelName}</p>
+                  </div>
+                  <span className="mb-0.5 flex items-center gap-1.5 text-xs font-medium text-[#3e715c]">
+                    <span className="size-1.5 rounded-full bg-[#4f9a70]" />
+                    {featuredModel?.inStockCount} available
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="relative mx-auto flex aspect-[1.13] w-full max-w-[690px] flex-col justify-between overflow-hidden rounded-[2rem] bg-[#e8eeea] p-7 sm:rounded-[2.5rem] sm:p-10">
+                <div className="absolute -right-20 -top-20 size-72 rounded-full bg-white/60 blur-3xl" />
+                <div className="relative flex size-12 items-center justify-center rounded-2xl bg-white text-[#31584d] shadow-sm">
+                  <Zap className="size-5" />
+                </div>
+                <div className="relative max-w-sm">
+                  <p className="text-sm font-medium text-[#688176]">The Ather electric experience</p>
+                  <p className="mt-2 text-3xl font-medium tracking-tight sm:text-4xl">Your next ride starts here.</p>
+                  <p className="mt-3 text-sm leading-6 text-[#66726c]">
+                    No Ather scooters are currently listed as available. Contact the showroom for current stock information.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+          <a
+            href="#models"
+            className="absolute bottom-5 left-1/2 hidden -translate-x-1/2 items-center gap-2 text-xs font-medium text-[#738078] transition hover:text-[#183a34] lg:flex"
+          >
+            Scroll to explore
+            <ArrowDown className="size-3.5" />
+          </a>
+        </section>
 
-      {/* 4. Live EV Bikes Stock Grid Section */}
-      <section id="inventory" className="py-16 bg-slate-900/60 border-y border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <section id="models" className="scroll-mt-24 py-16 sm:py-20 lg:py-24">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-7 lg:px-10">
+            <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#628070]">The range</p>
+                <h2 className="mt-3 text-3xl font-medium tracking-[-0.04em] sm:text-4xl">Find your Ather.</h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[#69756e] sm:text-base">
+                  Browse only the new Ather models currently available at this showroom.
+                </p>
+              </div>
+              <p className="text-sm text-[#69756e]">
+                {stockModels.reduce((total, model) => total + model.inStockCount, 0)} available across{" "}
+                {stockModels.length} {stockModels.length === 1 ? "model" : "models"}
+              </p>
+            </div>
+            <StockGrid models={stockModels} dealershipName={dealershipName} dealerPhone={displayPhone} />
+          </div>
+        </section>
+
+        <section id="experience" className="scroll-mt-24 border-y border-black/[0.06] bg-[#edf1ed] py-16 sm:py-20">
+          <div className="mx-auto grid max-w-[1440px] gap-10 px-4 sm:px-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:gap-16 lg:px-10">
             <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-2 uppercase tracking-wider">
-                <Zap className="size-3.5" />
-                Live Showroom Inventory
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                Current EV Bike Models & Transparent Pricing
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#628070]">Made for everyday</p>
+              <h2 className="mt-3 max-w-md text-3xl font-medium leading-tight tracking-[-0.04em] sm:text-4xl">
+                The little details make a big difference.
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Real database stock from our {branches.length || 1} showroom branch location(s). All prices in Sri Lankan Rupees (LKR).
+              <p className="mt-4 max-w-md text-sm leading-7 text-[#647169] sm:text-base">
+                Explore the Ather range in person, compare the models and colours currently in stock, and speak with our team about a test ride.
               </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Filter or search models below</span>
-            </div>
-          </div>
-
-          {/* Interactive Stock Grid Component with Real Data */}
-          <div className="rounded-2xl bg-slate-950/40 p-4 sm:p-6 border border-white/5">
-            <StockGrid
-              models={stockModels}
-              dealershipName={dealershipName}
-              dealerPhone={displayPhone}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* 5. Fuel Savings & Economics Section */}
-      <section id="fuel-savings" className="py-16 bg-slate-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center space-y-4 mb-12">
-            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs">
-              Sri Lankan Commuter Economics
-            </Badge>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Why Switch to Electric in Sri Lanka Today?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
-              With rising 92 & 95 Octane petrol prices and routine engine maintenance, an EV bike pays for itself in less than 18 months.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-gradient-to-b from-white/5 to-white/0 border border-white/10 space-y-3">
-              <div className="size-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <TrendingDown className="size-6" />
-              </div>
-              <h3 className="text-base font-bold text-white">Rs. 25,000+ Monthly Savings</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Charging a 60V 32Ah battery consumes only ~2.5 units of electricity (Rs. 90-120) for 120 km of commuting, compared to Rs. 1,600+ on petrol.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-gradient-to-b from-white/5 to-white/0 border border-white/10 space-y-3">
-              <div className="size-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                <CheckCircle2 className="size-6" />
-              </div>
-              <h3 className="text-base font-bold text-white">Zero Engine Oil & Clutch Repairs</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Brushless hub motors have no gearbox, spark plugs, or engine oil. Maintenance is limited to standard brake pads and tire care.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-gradient-to-b from-white/5 to-white/0 border border-white/10 space-y-3">
-              <div className="size-12 rounded-xl bg-primary/20 text-purple-400 flex items-center justify-center">
-                <ShieldCheck className="size-6" />
-              </div>
-              <h3 className="text-base font-bold text-white">Instant DMT Registration</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Our team handles all paperwork with the Department of Motor Traffic (DMT) for official number plates, revenue license, and full insurance.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. Bank Leasing & Financing Section */}
-      <section id="financing" className="py-16 bg-slate-900/40 border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/60 p-8 sm:p-12 border border-emerald-500/20 relative overflow-hidden">
-            <div className="absolute top-0 right-0 size-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="max-w-2xl space-y-4">
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                <CreditCard className="size-4" />
-                Hassle-Free Leasing Partners
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-                Affordable EV Leasing with Leading Sri Lankan Financial Institutions
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Take home your new electric bike today with as little as 10% down payment. We work directly with major banks and finance companies for 1-day approvals.
-              </p>
-
-              <div className="pt-2 flex flex-wrap gap-2 text-xs font-medium text-slate-300">
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">Commercial Bank</span>
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">Hatton National Bank</span>
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">Sampath Bank</span>
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">LB Finance</span>
-                <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10">LOLC Finance</span>
-              </div>
-
-              <div className="pt-4 flex flex-col sm:flex-row gap-3">
-                <a href={`tel:${displayPhone.replace(/[^0-9+]/g, "")}`}>
-                  <Button className="h-10 text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-6">
-                    <Phone className="size-3.5 mr-1.5" />
-                    Speak to Leasing Officer
-                  </Button>
+              {cleanPhone && (
+                <a
+                  className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#183a34] px-5 text-sm font-medium text-white transition-colors hover:bg-[#24544a]"
+                  href={`tel:${displayPhone?.replace(/[^\d+]/g, "")}`}
+                >
+                  <Phone className="mr-2 size-4" />
+                  Call the showroom
                 </a>
-                <a href="#inventory">
-                  <Button variant="outline" className="h-10 text-xs border-white/20 bg-white/5 text-white px-6">
-                    Browse Qualifying Bikes
-                  </Button>
-                </a>
-              </div>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <article className="rounded-2xl border border-black/[0.05] bg-white p-5 sm:p-6">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-[#e8f0ea] text-[#426f59]">
+                  <BatteryCharging className="size-5" />
+                </span>
+                <h3 className="mt-5 font-semibold">Electric, by design</h3>
+                <p className="mt-2 text-sm leading-6 text-[#69756e]">Explore each model’s published range and battery details in the live showroom listing.</p>
+              </article>
+              <article className="rounded-2xl border border-black/[0.05] bg-white p-5 sm:p-6 sm:translate-y-6">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-[#e8f0ea] text-[#426f59]">
+                  <MapPin className="size-5" />
+                </span>
+                <h3 className="mt-5 font-semibold">A showroom near you</h3>
+                <p className="mt-2 text-sm leading-6 text-[#69756e]">See the available colours and find the branches that have your preferred model in stock.</p>
+              </article>
+              <article className="rounded-2xl border border-black/[0.05] bg-white p-5 sm:p-6">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-[#e8f0ea] text-[#426f59]">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <h3 className="mt-5 font-semibold">A more informed choice</h3>
+                <p className="mt-2 text-sm leading-6 text-[#69756e]">Compare current showroom pricing and ask our team for the details that matter to you.</p>
+              </article>
+              <article className="rounded-2xl border border-black/[0.05] bg-[#183a34] p-5 text-white sm:p-6 sm:translate-y-6">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-white/10 text-[#c5ddcd]">
+                  <MessageCircle className="size-5" />
+                </span>
+                <h3 className="mt-5 font-semibold">A real conversation</h3>
+                <p className="mt-2 text-sm leading-6 text-white/70">Ask about availability, arrange a visit, or book a test ride with the showroom team.</p>
+              </article>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 7. Showroom Branches Section */}
-      <section id="branches" className="py-16 bg-slate-950 border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <h2 className="text-2xl font-bold text-white">Visit Our Showroom Branches</h2>
-            <p className="text-xs text-slate-400">
-              Experience the acceleration and silent comfort firsthand. Walk into our showrooms for a free test ride today.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {branches.map((b) => (
-              <div
-                key={b.id}
-                className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 transition-colors space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-white flex items-center gap-2">
-                    <Building2 className="size-4 text-emerald-400" />
-                    {b.name}
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Open Now
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-300 flex items-start gap-2">
-                  <MapPin className="size-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                  <span>{b.location || "Colombo City Center Flagship Showroom"}</span>
-                </div>
-
-                <div className="text-xs text-slate-300 flex items-center gap-2 pt-1 border-t border-white/10">
-                  <Phone className="size-3.5 text-emerald-400 shrink-0" />
-                  <span>{b.contactNumber || displayPhone}</span>
-                </div>
+        <section id="showrooms" className="scroll-mt-24 py-16 sm:py-20">
+          <div className="mx-auto max-w-[1440px] px-4 sm:px-7 lg:px-10">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#628070]">Visit us</p>
+                <h2 className="mt-3 text-3xl font-medium tracking-[-0.04em] sm:text-4xl">Find your showroom.</h2>
               </div>
-            ))}
+              {cleanPhone && (
+                <a className="inline-flex items-center gap-2 text-sm font-medium text-[#31584d] hover:text-[#183a34]" href={`tel:${displayPhone?.replace(/[^\d+]/g, "")}`}>
+                  <Phone className="size-4" />
+                  {displayPhone}
+                </a>
+              )}
+            </div>
+            {branches.length > 0 ? (
+              <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {branches.map((branch) => (
+                  <article key={branch.name} className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-[#e8f0ea] text-[#426f59]">
+                      <MapPin className="size-5" />
+                    </div>
+                    <h3 className="mt-4 font-semibold">{branch.name}</h3>
+                    {branch.location && <p className="mt-1 text-sm leading-6 text-[#69756e]">{branch.location}</p>}
+                    {branch.contactNumber && (
+                      <a className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-medium text-[#31584d]" href={`tel:${branch.contactNumber.replace(/[^\d+]/g, "")}`}>
+                        <Phone className="size-4" />
+                        {branch.contactNumber}
+                      </a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-6 rounded-2xl border border-dashed border-black/15 bg-white/70 p-6 text-sm text-[#69756e]">
+                Contact {dealershipName} to find your nearest showroom.
+              </p>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* 8. Modern Storefront Footer */}
-      <footer className="mt-auto border-t border-white/10 bg-slate-950 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+      <footer className="border-t border-black/[0.07] bg-[#edf1ed]">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-7 text-xs text-[#647169] sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:px-10">
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-emerald-500 flex items-center justify-center text-slate-950">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-[#183a34] text-white">
               <Zap className="size-3.5" />
-            </div>
-            <span className="font-semibold text-white">{dealershipName}</span>
-            <span>• Powered by Ev Sale Pos</span>
+            </span>
+            <span className="font-medium text-[#263b33]">{dealershipName}</span>
+            <span className="text-[#9aa49d]">·</span>
+            <span>Official Ather imagery from Ather Energy</span>
           </div>
-
-          <div className="flex items-center gap-4 text-[11px]">
-            <span>100% Sri Lankan Road Legal</span>
-            <span>•</span>
-            <Link href="/login" className="hover:text-white transition-colors">
-              Dealer Staff Login
-            </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href="/login" className="font-medium transition-colors hover:text-[#183a34]">Dealer login</Link>
+            <span>Powered by EV Sale POS</span>
           </div>
         </div>
       </footer>

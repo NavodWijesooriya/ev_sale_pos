@@ -77,14 +77,14 @@ export default async function SuperAdminPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Super Admin Navigation Header */}
-      <header className="sticky top-0 z-30 border-b bg-card/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b bg-card/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <div className="size-9 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-md shadow-primary/20">
             <ShieldAlert className="size-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm tracking-tight text-foreground">
+              <span className="truncate font-semibold text-sm tracking-tight text-foreground sm:text-base">
                 Ev Sale Pos Platform Control Plane
               </span>
               <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
@@ -114,7 +114,7 @@ export default async function SuperAdminPage() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Intro Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b">
           <div>
