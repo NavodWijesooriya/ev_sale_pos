@@ -29,7 +29,6 @@ import {
   Mail,
   FileText,
   MapPin,
-  DollarSign,
   Bike,
   Wrench,
   Clock,
@@ -42,6 +41,7 @@ import {
   Building,
 } from "lucide-react"
 import { PaymentMethod, ServiceType, DMTStatus } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 export interface CustomerProfileData {
   id: string
@@ -240,7 +240,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                   Total Spent
                 </p>
                 <p className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">
-                  ${customer.totalSpent.toLocaleString()}
+                  {formatLKR(customer.totalSpent)}
                 </p>
               </div>
 
@@ -382,7 +382,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
 
                             {/* Amount */}
                             <TableCell className="align-middle py-3.5 text-right font-mono font-bold text-sm text-foreground">
-                              ${sale.totalAmount.toLocaleString()}
+                              {formatLKR(sale.totalAmount)}
                             </TableCell>
 
                             {/* Actions */}
@@ -513,10 +513,10 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                             <TableCell className="align-middle py-3.5 text-right font-mono font-bold text-sm">
                               {r.totalCost === 0 ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
-                                  $0.00 (Covered)
+                                  Rs. 0 (Covered)
                                 </span>
                               ) : (
-                                `$${r.totalCost.toLocaleString()}`
+                                formatLKR(r.totalCost)
                               )}
                             </TableCell>
 
@@ -547,4 +547,3 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
     </div>
   )
 }
-

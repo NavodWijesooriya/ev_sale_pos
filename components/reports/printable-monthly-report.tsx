@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { AdvancedReportsData } from "@/app/actions/reports"
+import { formatLKR } from "@/lib/currency"
 
 interface PrintableMonthlyReportProps {
   data: AdvancedReportsData
@@ -64,13 +65,13 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
           <div className="border border-slate-300 p-2.5 rounded bg-slate-50">
             <span className="text-[10px] uppercase font-semibold text-slate-600 block">Gross Revenue</span>
             <span className="text-base font-extrabold text-slate-900 font-mono">
-              ${data.financial.totalRevenue.toLocaleString()}
+              {formatLKR(data.financial.totalRevenue)}
             </span>
           </div>
           <div className="border border-slate-300 p-2.5 rounded bg-slate-50">
             <span className="text-[10px] uppercase font-semibold text-slate-600 block">Net Gross Profit</span>
             <span className="text-base font-extrabold text-slate-900 font-mono">
-              ${data.financial.netGrossProfit.toLocaleString()}
+              {formatLKR(data.financial.netGrossProfit)}
             </span>
             <span className="text-[9px] text-slate-600 block font-bold">({data.financial.profitMarginPercent}% Margin)</span>
           </div>
@@ -80,7 +81,7 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
               {data.inventoryAging.summary.totalInStock} units
             </span>
             <span className="text-[9px] text-slate-600 block font-mono">
-              (${data.inventoryAging.summary.totalTiedCapital.toLocaleString()})
+              ({formatLKR(data.inventoryAging.summary.totalTiedCapital)})
             </span>
           </div>
           <div className="border border-slate-300 p-2.5 rounded bg-slate-50">
@@ -115,10 +116,10 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
               <tr key={row.monthKey} className="border-b border-slate-200">
                 <td className="border border-slate-300 p-1.5 font-medium">{row.monthLabel}</td>
                 <td className="border border-slate-300 p-1.5 text-center font-mono">{row.units}</td>
-                <td className="border border-slate-300 p-1.5 text-right font-mono">${row.revenue.toLocaleString()}</td>
-                <td className="border border-slate-300 p-1.5 text-right font-mono">${row.acquisitionCost.toLocaleString()}</td>
-                <td className="border border-slate-300 p-1.5 text-right font-mono">${row.commission.toLocaleString()}</td>
-                <td className="border border-slate-300 p-1.5 text-right font-mono font-bold">${row.netProfit.toLocaleString()}</td>
+                <td className="border border-slate-300 p-1.5 text-right font-mono">{formatLKR(row.revenue)}</td>
+                <td className="border border-slate-300 p-1.5 text-right font-mono">{formatLKR(row.acquisitionCost)}</td>
+                <td className="border border-slate-300 p-1.5 text-right font-mono">{formatLKR(row.commission)}</td>
+                <td className="border border-slate-300 p-1.5 text-right font-mono font-bold">{formatLKR(row.netProfit)}</td>
                 <td className="border border-slate-300 p-1.5 text-center font-mono">{row.marginPercent}%</td>
               </tr>
             ))}
@@ -133,7 +134,7 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
         </h2>
         <div className="mb-2 text-[10px] text-slate-600">
           Showing current unsold EV stock categorized by floor age. Critical (&gt;90d):{" "}
-          <strong>{data.inventoryAging.summary.criticalOver90Count} units</strong> (${data.inventoryAging.summary.criticalOver90Capital.toLocaleString()}) |
+          <strong>{data.inventoryAging.summary.criticalOver90Count} units</strong> ({formatLKR(data.inventoryAging.summary.criticalOver90Capital)}) |
           Warning (60-90d): <strong>{data.inventoryAging.summary.warningOver60Count} units</strong> |
           Aging (30-60d): <strong>{data.inventoryAging.summary.agingOver30Count} units</strong>.
         </div>
@@ -155,7 +156,7 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
                 <td className="border border-slate-300 p-1 font-mono">{v.chassisNumber}</td>
                 <td className="border border-slate-300 p-1 font-medium">{v.brand} {v.modelName}</td>
                 <td className="border border-slate-300 p-1">{v.branchName}</td>
-                <td className="border border-slate-300 p-1 text-right font-mono">${v.purchasePrice.toLocaleString()}</td>
+                <td className="border border-slate-300 p-1 text-right font-mono">{formatLKR(v.purchasePrice)}</td>
                 <td className="border border-slate-300 p-1 text-center font-mono">
                   {new Date(v.inStockSince).toISOString().split("T")[0]}
                 </td>
@@ -238,4 +239,3 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
     </div>
   )
 }
-

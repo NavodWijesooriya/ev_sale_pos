@@ -38,6 +38,7 @@ import {
   FileCheck2,
 } from "lucide-react"
 import { PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 export interface SaleRecordItem {
   id: string
@@ -186,10 +187,10 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
       "Branch",
       "Sales Rep",
       "Payment Method",
-      "Total Amount ($)",
+      "Total Amount (LKR)",
       "Finance Company",
-      "Down Payment ($)",
-      "Financed Amount ($)",
+      "Down Payment (LKR)",
+      "Financed Amount (LKR)",
       "Finance Status",
     ]
 
@@ -212,10 +213,10 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
         `"${s.branch.name}"`,
         `"${s.soldBy.name || s.soldBy.email}"`,
         `"${s.paymentMethod}"`,
-        s.totalAmount,
+        `"${formatLKR(s.totalAmount)}"`,
         `"${s.financeDetail?.financeCompany || ""}"`,
-        s.financeDetail?.downPaymentPaid || "",
-        s.financeDetail?.totalFinanceAmount || "",
+        s.financeDetail ? `"${formatLKR(s.financeDetail.downPaymentPaid)}"` : "",
+        s.financeDetail ? `"${formatLKR(s.financeDetail.totalFinanceAmount)}"` : "",
         `"${s.financeDetail?.status || ""}"`,
       ].join(",")
     })
@@ -396,10 +397,10 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                               {sale.financeDetail.financeCompany}
                             </span>
                             <span className="text-muted-foreground text-[11px]">
-                              Leased: ${sale.financeDetail.totalFinanceAmount.toLocaleString()}
+                              Leased: {formatLKR(sale.financeDetail.totalFinanceAmount)}
                             </span>
                             <span className="text-muted-foreground text-[11px]">
-                              Down: ${sale.financeDetail.downPaymentPaid.toLocaleString()}
+                              Down: {formatLKR(sale.financeDetail.downPaymentPaid)}
                             </span>
                             <div className="pt-1">
                               {sale.financeDetail.status === FinanceStatus.Pending ? (
@@ -424,7 +425,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                       <TableCell className="align-top py-3.5 text-right">
                         <div className="flex flex-col items-end">
                           <span className="font-extrabold text-base text-foreground">
-                            ${sale.totalAmount.toLocaleString()}
+                            {formatLKR(sale.totalAmount)}
                           </span>
                           <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-none font-semibold">
                             Completed

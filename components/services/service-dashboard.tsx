@@ -14,7 +14,7 @@ import {
   Wrench,
   ShieldCheck,
   CheckCircle2,
-  DollarSign,
+  Coins,
   PlusCircle,
   RefreshCw,
   History,
@@ -31,6 +31,7 @@ import {
   ServiceRecordRow,
 } from "@/components/services/service-history-table"
 import { ServiceType } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 interface ServiceDashboardProps {
   initialVehicles: SoldVehicleItem[]
@@ -189,14 +190,14 @@ export function ServiceDashboard({
                 Service Revenue
               </p>
               <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
-                ${totalServiceRevenue.toLocaleString()}
+                {formatLKR(totalServiceRevenue)}
               </h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Paid repairs & parts
               </p>
             </div>
             <div className="size-10 sm:size-12 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <DollarSign className="size-5 sm:size-6" />
+              <Coins className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>

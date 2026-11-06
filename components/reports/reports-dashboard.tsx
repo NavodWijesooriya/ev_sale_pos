@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  DollarSign,
+  Coins,
   Bike,
   Warehouse,
   Wrench,
@@ -39,6 +39,7 @@ import {
   TrendingUp,
   Sparkles,
 } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 import { getAnalyticsData, AnalyticsData } from "@/app/actions/reports"
 import { RevenueChart } from "./revenue-chart"
 import { ModelPieChart } from "./model-pie-chart"
@@ -151,9 +152,9 @@ export function ReportsDashboard({
       "Sold By",
       "Payment Method",
       "Status",
-      "Additional Charges ($)",
-      "Discount ($)",
-      "Total Amount ($)",
+      "Additional Charges (LKR)",
+      "Discount (LKR)",
+      "Total Amount (LKR)",
     ]
 
     const csvRows = [
@@ -171,9 +172,9 @@ export function ReportsDashboard({
           `"${row.soldBy}"`,
           `"${row.paymentMethod}"`,
           `"${row.status}"`,
-          row.additionalCharges,
-          row.discount,
-          row.totalAmount,
+          `"${formatLKR(row.additionalCharges)}"`,
+          `"${formatLKR(row.discount)}"`,
+          `"${formatLKR(row.totalAmount)}"`,
         ].join(",")
       ),
     ]
@@ -352,12 +353,12 @@ export function ReportsDashboard({
               Total Revenue
             </span>
             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-              <DollarSign className="h-4 w-4" />
+              <Coins className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-2xl font-bold tracking-tight text-foreground">
-              ${data.kpis.totalRevenue.toLocaleString()}
+              {formatLKR(data.kpis.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <TrendingUp className="h-3 w-3 text-emerald-500" />
@@ -385,7 +386,7 @@ export function ReportsDashboard({
             <p className="text-xs text-muted-foreground">
               Avg Deal:{" "}
               <strong className="text-foreground">
-                ${data.kpis.averageDealSize.toLocaleString()}
+                {formatLKR(data.kpis.averageDealSize)}
               </strong>
             </p>
           </CardContent>
@@ -432,7 +433,7 @@ export function ReportsDashboard({
             <p className="text-xs text-muted-foreground">
               Service Rev:{" "}
               <strong className="text-foreground">
-                ${data.kpis.totalServiceRevenue.toLocaleString()}
+                {formatLKR(data.kpis.totalServiceRevenue)}
               </strong>
             </p>
           </CardContent>
@@ -477,7 +478,7 @@ export function ReportsDashboard({
                     </Badge>
                   </div>
                   <div className="text-lg font-bold text-foreground">
-                    ${pm.revenue.toLocaleString()}
+                    {formatLKR(pm.revenue)}
                   </div>
                 </div>
               ))}
@@ -563,7 +564,7 @@ export function ReportsDashboard({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs font-bold text-right font-mono text-emerald-600 dark:text-emerald-400">
-                      ${sale.totalAmount.toLocaleString()}
+                      {formatLKR(sale.totalAmount)}
                     </TableCell>
                     <TableCell className="text-xs text-center">
                       <Link href={`/dashboard/sales/${sale.id}/invoice`}>

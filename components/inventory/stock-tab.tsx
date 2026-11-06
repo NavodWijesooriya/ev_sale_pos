@@ -181,7 +181,7 @@ export function StockTab({ vehicles }: StockTabProps) {
       "Range",
       "Branch Name",
       "Color",
-      "Purchase Cost ($)",
+      "Purchase Cost (LKR)",
       "Days in Stock",
       "Intake Date",
       "Status",
@@ -198,7 +198,7 @@ export function StockTab({ vehicles }: StockTabProps) {
         `"${(v.vehicleModel.range || "N/A").replace(/"/g, '""')}"`,
         `"${v.branch.name.replace(/"/g, '""')}"`,
         `"${(v.color || "Standard").replace(/"/g, '""')}"`,
-        v.purchasePrice,
+        `"${formatLKR(v.purchasePrice)}"`,
         days,
         `"${formattedDate}"`,
         `"${v.status}"`,
@@ -444,4 +444,3 @@ export function StockTab({ vehicles }: StockTabProps) {
     </Card>
   )
 }
-

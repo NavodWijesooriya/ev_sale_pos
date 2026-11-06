@@ -15,7 +15,8 @@ import {
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BarChart3, LineChart as LineChartIcon, DollarSign, Bike } from "lucide-react"
+import { BarChart3, LineChart as LineChartIcon, Coins, Bike } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 
 interface RevenueChartProps {
   data: {
@@ -42,7 +43,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
       <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
         <div className="space-y-1">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-emerald-500" />
+            <Coins className="h-5 w-5 text-emerald-500" />
             Revenue & Sales Velocity Over Time
           </CardTitle>
           <CardDescription>
@@ -116,7 +117,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => `Rs. ${(value / 1000).toFixed(0)}k`}
                   />
                   <YAxis
                     yAxisId="right"
@@ -137,7 +138,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                       boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
                     }}
                     formatter={(value: any, name: any) => {
-                      if (name === "Revenue ($)") return [`$${Number(value).toLocaleString()}`, "Revenue"]
+                      if (name === "Revenue (LKR)") return [formatLKR(Number(value)), "Revenue"]
                       if (name === "Units Sold") return [`${value} units`, "Units Sold"]
                       return [value, name]
                     }}
@@ -151,7 +152,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                     yAxisId="left"
                     type="monotone"
                     dataKey="revenue"
-                    name="Revenue ($)"
+                    name="Revenue (LKR)"
                     stroke="#10b981"
                     strokeWidth={2.5}
                     fillOpacity={1}
@@ -187,7 +188,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => `Rs. ${(value / 1000).toFixed(0)}k`}
                   />
                   <YAxis
                     yAxisId="right"
@@ -207,7 +208,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                       fontSize: "12px",
                     }}
                     formatter={(value: any, name: any) => {
-                      if (name === "Revenue ($)") return [`$${Number(value).toLocaleString()}`, "Revenue"]
+                      if (name === "Revenue (LKR)") return [formatLKR(Number(value)), "Revenue"]
                       if (name === "Units Sold") return [`${value} units`, "Units Sold"]
                       return [value, name]
                     }}
@@ -220,7 +221,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                   <Bar
                     yAxisId="left"
                     dataKey="revenue"
-                    name="Revenue ($)"
+                    name="Revenue (LKR)"
                     fill="#10b981"
                     radius={[4, 4, 0, 0]}
                   />
@@ -240,4 +241,3 @@ export function RevenueChart({ data }: RevenueChartProps) {
     </Card>
   )
 }
-

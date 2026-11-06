@@ -26,10 +26,10 @@ import {
   CheckCircle2,
   AlertOctagon,
   Search,
-  DollarSign,
   Bike,
   Filter,
 } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 import { AdvancedReportsData, InStockVehicleAgingItem } from "@/app/actions/reports"
 
 interface InventoryAgingTabProps {
@@ -121,7 +121,7 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
               <span className="text-xs font-normal text-muted-foreground">EVs</span>
             </div>
             <p className="text-[11px] text-muted-foreground font-mono">
-              ${data.summary.totalTiedCapital.toLocaleString()} tied capital
+              {formatLKR(data.summary.totalTiedCapital)} tied capital
             </p>
           </CardContent>
         </Card>
@@ -140,7 +140,7 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
               <span className="text-xs font-normal text-muted-foreground">units</span>
             </div>
             <p className="text-[11px] text-red-600/80 dark:text-red-400/80 font-mono">
-              ${data.summary.criticalOver90Capital.toLocaleString()} at risk
+              {formatLKR(data.summary.criticalOver90Capital)} at risk
             </p>
           </CardContent>
         </Card>
@@ -159,7 +159,7 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
               <span className="text-xs font-normal text-muted-foreground">units</span>
             </div>
             <p className="text-[11px] text-orange-600/80 dark:text-orange-400/80 font-mono">
-              ${data.summary.warningOver60Capital.toLocaleString()} locked
+              {formatLKR(data.summary.warningOver60Capital)} locked
             </p>
           </CardContent>
         </Card>
@@ -178,7 +178,7 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
               <span className="text-xs font-normal text-muted-foreground">units</span>
             </div>
             <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 font-mono">
-              ${data.summary.agingOver30Capital.toLocaleString()} monitoring
+              {formatLKR(data.summary.agingOver30Capital)} monitoring
             </p>
           </CardContent>
         </Card>
@@ -297,7 +297,7 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
                       {vehicle.branchName}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono font-bold text-foreground">
-                      ${vehicle.purchasePrice.toLocaleString()}
+                      {formatLKR(vehicle.purchasePrice)}
                     </TableCell>
                     <TableCell className="text-xs font-mono text-muted-foreground">
                       {new Date(vehicle.inStockSince).toLocaleDateString("en-US", {
@@ -325,4 +325,3 @@ export function InventoryAgingTab({ data }: InventoryAgingTabProps) {
     </div>
   )
 }
-

@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  DollarSign,
+  Coins,
   TrendingUp,
   Percent,
   Landmark,
@@ -37,6 +37,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 import { AdvancedReportsData } from "@/app/actions/reports"
 
 interface FinancialTabProps {
@@ -62,17 +63,17 @@ export function FinancialTab({ data }: FinancialTabProps) {
               Total Revenue
             </span>
             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-              <DollarSign className="h-4 w-4" />
+              <Coins className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-mono">
-              ${data.totalRevenue.toLocaleString()}
+              {formatLKR(data.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <span>EV Bike Acquisition (COGS):</span>
               <strong className="text-foreground font-mono">
-                ${data.totalAcquisitionCost.toLocaleString()}
+                {formatLKR(data.totalAcquisitionCost)}
               </strong>
             </p>
           </CardContent>
@@ -91,7 +92,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-mono">
-              ${data.totalFinanceCommission.toLocaleString()}
+              {formatLKR(data.totalFinanceCommission)}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <span>Earned from partner bank leases & loans</span>
@@ -113,7 +114,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
           <CardContent className="space-y-1">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-cyan-600 dark:text-cyan-400 font-mono">
-                ${data.netGrossProfit.toLocaleString()}
+                {formatLKR(data.netGrossProfit)}
               </span>
               <Badge
                 variant="outline"
@@ -178,7 +179,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => `Rs. ${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
                     content={({ active, payload, label }) => {
@@ -193,21 +194,21 @@ export function FinancialTab({ data }: FinancialTabProps) {
                             </div>
                             <div className="flex items-center justify-between gap-6 text-emerald-400">
                               <span>Revenue:</span>
-                              <strong>${item.revenue.toLocaleString()}</strong>
+                              <strong>{formatLKR(item.revenue)}</strong>
                             </div>
                             <div className="flex items-center justify-between gap-6 text-slate-400">
                               <span>EV Bike Cost (COGS):</span>
-                              <strong>${item.acquisitionCost.toLocaleString()}</strong>
+                              <strong>{formatLKR(item.acquisitionCost)}</strong>
                             </div>
                             {item.commission > 0 && (
                               <div className="flex items-center justify-between gap-6 text-purple-400">
                                 <span>Finance Commission:</span>
-                                <strong>+${item.commission.toLocaleString()}</strong>
+                                <strong>+{formatLKR(item.commission)}</strong>
                               </div>
                             )}
                             <div className="border-t border-slate-700 pt-1 flex items-center justify-between gap-6 text-cyan-400 font-bold">
                               <span>Net Gross Profit:</span>
-                              <span>${item.netProfit.toLocaleString()}</span>
+                              <span>{formatLKR(item.netProfit)}</span>
                             </div>
                             <div className="flex items-center justify-between gap-6 text-slate-400 text-[11px]">
                               <span>Profit Margin:</span>
@@ -226,14 +227,14 @@ export function FinancialTab({ data }: FinancialTabProps) {
                   />
                   <Bar
                     dataKey="revenue"
-                    name="Revenue ($)"
+                    name="Revenue (LKR)"
                     fill="#10b981"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={48}
                   />
                   <Bar
                     dataKey="netProfit"
-                    name="Gross Profit ($)"
+                    name="Gross Profit (LKR)"
                     fill="#06b6d4"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={48}
@@ -249,7 +250,7 @@ export function FinancialTab({ data }: FinancialTabProps) {
       <Card className="shadow-xs border-border/80">
         <CardHeader className="pb-3 border-b">
           <CardTitle className="text-base font-bold flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-emerald-500" />
+            <Coins className="h-4 w-4 text-emerald-500" />
             6-Month Financial Ledger Breakdown
           </CardTitle>
           <CardDescription className="text-xs">
@@ -287,16 +288,16 @@ export function FinancialTab({ data }: FinancialTabProps) {
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono font-medium text-foreground">
-                    ${row.revenue.toLocaleString()}
+                    {formatLKR(row.revenue)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono text-muted-foreground">
-                    ${row.acquisitionCost.toLocaleString()}
+                    {formatLKR(row.acquisitionCost)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono text-primary">
-                    {row.commission > 0 ? `+$${row.commission.toLocaleString()}` : "$0"}
+                    {row.commission > 0 ? `+${formatLKR(row.commission)}` : formatLKR(0)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                    ${row.netProfit.toLocaleString()}
+                    {formatLKR(row.netProfit)}
                   </TableCell>
                   <TableCell className="text-xs text-center font-mono">
                     <Badge

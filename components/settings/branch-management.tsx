@@ -39,7 +39,7 @@ import {
   Trash2,
   Users,
   Bike,
-  BadgeDollarSign,
+  Coins,
   Loader2,
   AlertCircle,
   Sparkles,
@@ -317,7 +317,7 @@ export function BranchManagement({
               </p>
             </div>
             <div className="size-10 sm:size-12 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <BadgeDollarSign className="size-5 sm:size-6" />
+              <Coins className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>

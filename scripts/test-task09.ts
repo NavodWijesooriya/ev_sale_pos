@@ -75,7 +75,7 @@ async function main() {
   })
 
   console.log(`✔ Free Service logged! ID: ${freeService.id}`)
-  console.log(`  - Type: ${freeService.serviceType}, Cost: $${freeService.totalCost}`)
+  console.log(`  - Type: ${freeService.serviceType}, Cost: Rs. ${freeService.totalCost}`)
   console.log(`  - Next Due: ${freeService.nextServiceDueDate?.toISOString().split("T")[0]}`)
 
   // 3. Test 2: Log a Warranty Claim Service
@@ -95,7 +95,7 @@ async function main() {
   })
 
   console.log(`✔ Warranty Claim logged! ID: ${warrantyService.id}`)
-  console.log(`  - Type: ${warrantyService.serviceType}, Cost: $${warrantyService.totalCost}`)
+  console.log(`  - Type: ${warrantyService.serviceType}, Cost: Rs. ${warrantyService.totalCost}`)
 
   // 4. Test 3: Log a Paid Service
   console.log(`\n--- Test 3: Logging Paid Maintenance Service ---`)
@@ -114,7 +114,7 @@ async function main() {
   })
 
   console.log(`✔ Paid Service logged! ID: ${paidService.id}`)
-  console.log(`  - Type: ${paidService.serviceType}, Cost: $${paidService.totalCost}`)
+  console.log(`  - Type: ${paidService.serviceType}, Cost: Rs. ${paidService.totalCost}`)
 
   // 5. Query and verify all ServiceRecords
   console.log(`\n--- Verification: Querying Service History from DB ---`)
@@ -130,7 +130,7 @@ async function main() {
 
   console.log(`Total Service Records for ${org.businessName}: ${records.length}`)
   records.slice(0, 3).forEach((r, idx) => {
-    console.log(` [${idx + 1}] ${r.serviceType} | ${r.vehicle.vehicleModel.modelName} (${r.vehicle.chassisNumber}) | Customer: ${r.customer.name} | Cost: $${r.totalCost} | Date: ${r.serviceDate.toISOString().split("T")[0]}`)
+    console.log(` [${idx + 1}] ${r.serviceType} | ${r.vehicle.vehicleModel.modelName} (${r.vehicle.chassisNumber}) | Customer: ${r.customer.name} | Cost: Rs. ${r.totalCost} | Date: ${r.serviceDate.toISOString().split("T")[0]}`)
   })
 
   console.log(`\n>>> ALL TASK 09 VERIFICATIONS PASSED SUCCESSFULLY! <<<`)

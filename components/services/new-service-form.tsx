@@ -10,7 +10,6 @@ import {
   User,
   Phone,
   Calendar,
-  DollarSign,
   ShieldCheck,
   CheckCircle2,
   Search,
@@ -47,6 +46,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { createServiceRecord } from "@/app/actions/services"
 import { ServiceType } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 export interface SoldVehicleItem {
   id: string
@@ -496,17 +496,17 @@ export function NewServiceForm({
               <div className="p-3.5 rounded-xl bg-muted/40 border grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                 <div>
                   <span className="text-xs font-bold text-foreground block">
-                    Service Invoice Amount ($)
+                    Service Invoice Amount (LKR)
                   </span>
                   <p className="text-[11px] text-muted-foreground">
                     {serviceType === ServiceType.Free || serviceType === ServiceType.Warranty
-                      ? "Complimentary under warranty / free service program ($0.00)"
+                      ? "Complimentary under warranty / free service program (Rs. 0)"
                       : "Billable amount charged to customer for parts and labor"}
                   </p>
                 </div>
 
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <span className="absolute left-3 top-3 text-xs text-muted-foreground">Rs.</span>
                   <Input
                     type="number"
                     min="0"
@@ -517,7 +517,7 @@ export function NewServiceForm({
                       setTotalCost(e.target.value === "" ? "" : parseFloat(e.target.value))
                     }
                     disabled={serviceType === ServiceType.Free || serviceType === ServiceType.Warranty}
-                    className="pl-9 font-bold text-base h-10"
+                    className="pl-10 font-bold text-base h-10"
                   />
                 </div>
               </div>
@@ -603,7 +603,7 @@ export function NewServiceForm({
               <div className="flex justify-between items-baseline pt-1">
                 <span className="font-bold text-sm text-foreground">Service Total</span>
                 <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                  ${typeof totalCost === "number" ? totalCost.toLocaleString() : "0.00"}
+                  {formatLKR(typeof totalCost === "number" ? totalCost : 0)}
                 </span>
               </div>
             </CardContent>
@@ -670,7 +670,7 @@ export function NewServiceForm({
                         {rec.customerName}
                       </span>
                       <span className="font-mono font-bold text-foreground">
-                        {rec.totalCost === 0 ? "Free / Covered" : `$${rec.totalCost.toLocaleString()}`}
+                        {rec.totalCost === 0 ? "Free / Covered" : formatLKR(rec.totalCost)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -699,4 +699,3 @@ export function NewServiceForm({
     </form>
   )
 }
-

@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  BadgeDollarSign,
+  Coins,
   ShoppingCart,
   Receipt,
   Bike,
@@ -20,6 +20,7 @@ import {
   Building2,
   RefreshCw,
 } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 import {
   NewSaleForm,
   InStockVehicle,
@@ -133,7 +134,7 @@ export function SalesDashboard({
                 Total EV Revenue
               </p>
               <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1 font-mono">
-                ${totalRevenue.toLocaleString()}
+                {formatLKR(totalRevenue)}
               </h3>
               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-1">
                 <TrendingUp className="h-3 w-3" />
@@ -141,7 +142,7 @@ export function SalesDashboard({
               </p>
             </div>
             <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <BadgeDollarSign className="h-5 w-5 sm:h-6 sm:w-6" />
+              <Coins className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </CardContent>
         </Card>

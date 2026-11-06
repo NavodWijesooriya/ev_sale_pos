@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   CreditCard,
   Building,
-  DollarSign,
   User,
   Phone,
   FileText,
@@ -51,6 +50,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { processSale } from "@/app/actions/sales"
 import { PaymentMethod } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 interface VehicleModelData {
   id: string
@@ -409,7 +409,7 @@ export function NewSaleForm({
                             </div>
                             <div className="text-right">
                               <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                                ${v.vehicleModel.defaultPrice.toLocaleString()}
+                                {formatLKR(v.vehicleModel.defaultPrice)}
                               </span>
                               {v.color && (
                                 <p className="text-[11px] text-muted-foreground capitalize">
@@ -457,9 +457,9 @@ export function NewSaleForm({
 
                   <div className="pt-2 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <Label className="text-xs font-semibold">Agreed Base Price ($) <span className="text-destructive">*</span></Label>
+                      <Label className="text-xs font-semibold">Agreed Base Price (LKR) <span className="text-destructive">*</span></Label>
                       <div className="relative mt-1">
-                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <span className="absolute left-2.5 top-2.5 text-xs text-muted-foreground">Rs.</span>
                         <Input
                           type="number"
                           min="1"
@@ -470,16 +470,16 @@ export function NewSaleForm({
                             const val = e.target.value === "" ? "" : parseFloat(e.target.value)
                             setSalePrice(val)
                           }}
-                          className="pl-8 font-bold text-foreground"
+                          className="pl-9 font-bold text-foreground"
                           required
                         />
                       </div>
                     </div>
 
                     <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Additional Charges ($)</Label>
+                      <Label className="text-xs font-semibold text-muted-foreground">Additional Charges (LKR)</Label>
                       <div className="relative mt-1">
-                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <span className="absolute left-2.5 top-2.5 text-xs text-muted-foreground">Rs.</span>
                         <Input
                           type="number"
                           min="0"
@@ -490,15 +490,15 @@ export function NewSaleForm({
                             const val = e.target.value === "" ? "" : parseFloat(e.target.value)
                             setAdditionalCharges(val)
                           }}
-                          className="pl-8"
+                          className="pl-9"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Dealership Discount ($)</Label>
+                      <Label className="text-xs font-semibold text-muted-foreground">Dealership Discount (LKR)</Label>
                       <div className="relative mt-1">
-                        <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <span className="absolute left-2.5 top-2.5 text-xs text-muted-foreground">Rs.</span>
                         <Input
                           type="number"
                           min="0"
@@ -509,7 +509,7 @@ export function NewSaleForm({
                             const val = e.target.value === "" ? "" : parseFloat(e.target.value)
                             setDiscount(val)
                           }}
-                          className="pl-8 text-amber-600 dark:text-amber-400"
+                          className="pl-9 text-amber-600 dark:text-amber-400"
                         />
                       </div>
                     </div>
@@ -517,10 +517,10 @@ export function NewSaleForm({
 
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40 bg-muted/20 px-3 py-2 rounded-lg">
                     <span className="text-muted-foreground font-medium">
-                      Calculated Net Total: ({baseVehiclePrice.toLocaleString()} + {numAdditional.toLocaleString()}) - {numDiscount.toLocaleString()}
+                      Calculated Net Total: ({formatLKR(baseVehiclePrice)} + {formatLKR(numAdditional)}) - {formatLKR(numDiscount)}
                     </span>
                     <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                      = ${dynamicTotal.toLocaleString()}
+                      = {formatLKR(dynamicTotal)}
                     </span>
                   </div>
                 </div>
@@ -750,10 +750,10 @@ export function NewSaleForm({
 
                     <div className="space-y-1.5">
                       <Label htmlFor="down-payment" className="text-xs font-medium">
-                        Customer Down Payment Paid ($) <span className="text-destructive">*</span>
+                        Customer Down Payment Paid (LKR) <span className="text-destructive">*</span>
                       </Label>
                       <div className="relative">
-                        <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <span className="absolute left-3 top-3 text-xs text-muted-foreground">Rs.</span>
                         <Input
                           id="down-payment"
                           type="number"
@@ -766,7 +766,7 @@ export function NewSaleForm({
                               e.target.value === "" ? 0 : parseFloat(e.target.value)
                             )
                           }
-                          className="pl-9 h-10 bg-background font-semibold"
+                          className="pl-10 h-10 bg-background font-semibold"
                           required={isFinanceSelected}
                         />
                       </div>
@@ -774,10 +774,10 @@ export function NewSaleForm({
 
                     <div className="space-y-1.5">
                       <Label htmlFor="finance-amount" className="text-xs font-medium">
-                        Total Amount Financed ($) <span className="text-destructive">*</span>
+                        Total Amount Financed (LKR) <span className="text-destructive">*</span>
                       </Label>
                       <div className="relative">
-                        <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <span className="absolute left-3 top-3 text-xs text-muted-foreground">Rs.</span>
                         <Input
                           id="finance-amount"
                           type="number"
@@ -790,7 +790,7 @@ export function NewSaleForm({
                               e.target.value === "" ? "" : parseFloat(e.target.value)
                             )
                           }
-                          className="pl-9 h-10 bg-background font-semibold text-primary-foreground dark:text-purple-400"
+                          className="pl-10 h-10 bg-background font-semibold text-primary-foreground dark:text-purple-400"
                           required={isFinanceSelected}
                         />
                       </div>
@@ -798,7 +798,7 @@ export function NewSaleForm({
 
                     <div className="space-y-1.5">
                       <Label htmlFor="dealer-commission" className="text-xs font-medium">
-                        Dealer Commission ($ - Optional)
+                        Dealer Commission (LKR - Optional)
                       </Label>
                       <div className="relative">
                         <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -898,7 +898,7 @@ export function NewSaleForm({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Vehicle Base Price</span>
                   <span className="font-semibold text-foreground font-mono">
-                    ${baseVehiclePrice.toLocaleString()}
+                    {formatLKR(baseVehiclePrice)}
                   </span>
                 </div>
 
@@ -906,7 +906,7 @@ export function NewSaleForm({
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Additional Charges:</span>
                     <span className="font-medium text-foreground font-mono">
-                      +${numAdditional.toLocaleString()}
+                      +{formatLKR(numAdditional)}
                     </span>
                   </div>
                 )}
@@ -915,7 +915,7 @@ export function NewSaleForm({
                   <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400">
                     <span>Dealership Discount:</span>
                     <span className="font-medium font-mono">
-                      -${numDiscount.toLocaleString()}
+                      -{formatLKR(numDiscount)}
                     </span>
                   </div>
                 )}
@@ -925,13 +925,13 @@ export function NewSaleForm({
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Down Payment:</span>
                       <span className="font-medium text-foreground font-mono">
-                        ${typeof downPaymentPaid === "number" ? downPaymentPaid.toLocaleString() : "0.00"}
+                        {formatLKR(typeof downPaymentPaid === "number" ? downPaymentPaid : 0)}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs text-primary-foreground dark:text-purple-400">
                       <span>Lease / Financed:</span>
                       <span className="font-medium font-mono">
-                        ${typeof totalFinanceAmount === "number" ? totalFinanceAmount.toLocaleString() : "0.00"}
+                        {formatLKR(typeof totalFinanceAmount === "number" ? totalFinanceAmount : 0)}
                       </span>
                     </div>
                   </>
@@ -942,7 +942,7 @@ export function NewSaleForm({
                 <div className="flex justify-between items-baseline pt-1">
                   <span className="font-bold text-base text-foreground">Final Total Due</span>
                   <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                    ${dynamicTotal.toLocaleString()}
+                    {formatLKR(dynamicTotal)}
                   </span>
                 </div>
               </div>
@@ -1010,7 +1010,7 @@ export function NewSaleForm({
                         {sale.customerName}
                       </span>
                       <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        ${sale.totalAmount.toLocaleString()}
+                        {formatLKR(sale.totalAmount)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">

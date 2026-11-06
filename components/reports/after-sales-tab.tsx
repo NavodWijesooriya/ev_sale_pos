@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table"
 import {
   Wrench,
-  DollarSign,
+  Coins,
   ShieldCheck,
   Sparkles,
   Search,
@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 import { AdvancedReportsData, ServiceRecordItem } from "@/app/actions/reports"
 
 interface AfterSalesTabProps {
@@ -102,12 +103,12 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
               Paid Service Revenue
             </span>
             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-              <DollarSign className="h-4 w-4" />
+              <Coins className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
-              ${data.summary.totalPaidServiceRevenue.toLocaleString()}
+              {formatLKR(data.summary.totalPaidServiceRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Direct billing for routine maintenance & repairs
@@ -176,7 +177,7 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
               <span className="text-sm font-normal text-muted-foreground">orders</span>
             </div>
             <p className="text-xs text-muted-foreground font-mono">
-              ${data.summary.totalGrossCost.toLocaleString()} combined labor & parts
+              {formatLKR(data.summary.totalGrossCost)} combined labor & parts
             </p>
           </CardContent>
         </Card>
@@ -286,7 +287,7 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
                     </TableCell>
 
                     <TableCell className="text-xs font-mono font-bold text-right text-emerald-600 dark:text-emerald-400">
-                      ${service.totalCost.toLocaleString()}
+                      {formatLKR(service.totalCost)}
                     </TableCell>
 
                     <TableCell className="text-xs font-mono text-muted-foreground text-center">

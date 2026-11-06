@@ -46,7 +46,7 @@ async function main() {
   console.log(`\nFound ${customers.length} registered customer(s) in CRM for ${org.businessName}:`)
   customers.forEach((c, idx) => {
     const totalSpent = c.sales.reduce((sum, s) => sum + s.totalAmount, 0)
-    console.log(` [${idx + 1}] ${c.name} | Phone: ${c.phone} | NIC: ${c.nic || "N/A"} | Purchases: ${c._count.sales} | Services: ${c._count.serviceRecords} | Lifetime Spent: $${totalSpent.toLocaleString()}`)
+    console.log(` [${idx + 1}] ${c.name} | Phone: ${c.phone} | NIC: ${c.nic || "N/A"} | Purchases: ${c._count.sales} | Services: ${c._count.serviceRecords} | Lifetime Spent: Rs. ${totalSpent.toLocaleString()}`)
   })
 
   if (customers.length === 0) {
@@ -100,17 +100,17 @@ async function main() {
   console.log(`  - Phone: ${dossier.phone}, NIC: ${dossier.nic}`)
   console.log(`  - Email: ${dossier.email || "N/A"}`)
   console.log(`  - Address: ${dossier.address}`)
-  console.log(`  - Calculated Total Spent: $${totalSpent.toLocaleString()}`)
+  console.log(`  - Calculated Total Spent: Rs. ${totalSpent.toLocaleString()}`)
 
   console.log(`✔ Purchase History (${dossier.sales.length} vehicles):`)
   dossier.sales.forEach((s) => {
     const v = s.items[0]?.vehicle
-    console.log(`  - Date: ${s.saleDate.toISOString().split("T")[0]} | Model: ${v?.vehicleModel.brand} ${v?.vehicleModel.modelName} | VIN: ${v?.chassisNumber} | Paid: $${s.totalAmount} | Status: ${s.status}`)
+    console.log(`  - Date: ${s.saleDate.toISOString().split("T")[0]} | Model: ${v?.vehicleModel.brand} ${v?.vehicleModel.modelName} | VIN: ${v?.chassisNumber} | Paid: Rs. ${s.totalAmount} | Status: ${s.status}`)
   })
 
   console.log(`✔ Service History (${dossier.serviceRecords.length} visits):`)
   dossier.serviceRecords.forEach((sr) => {
-    console.log(`  - Date: ${sr.serviceDate.toISOString().split("T")[0]} | Vehicle: ${sr.vehicle.vehicleModel.modelName} (${sr.vehicle.chassisNumber}) | Type: ${sr.serviceType} | Cost: $${sr.totalCost} | Notes: ${sr.description?.slice(0, 45)}...`)
+    console.log(`  - Date: ${sr.serviceDate.toISOString().split("T")[0]} | Vehicle: ${sr.vehicle.vehicleModel.modelName} (${sr.vehicle.chassisNumber}) | Type: ${sr.serviceType} | Cost: Rs. ${sr.totalCost} | Notes: ${sr.description?.slice(0, 45)}...`)
   })
 
   // 4. Verify organizationId tenant isolation

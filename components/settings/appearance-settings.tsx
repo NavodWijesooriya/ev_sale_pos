@@ -327,7 +327,7 @@ export function AppearanceSettings({ initialData }: AppearanceSettingsProps) {
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Volt Motors</span>
                     <h4 className="text-xs font-bold text-foreground">Apex 2000W GT</h4>
                   </div>
-                  <span className="text-xs font-black text-foreground">$2,450</span>
+                  <span className="text-xs font-black text-foreground">Rs. 2,450</span>
                 </div>
 
                 {/* 3-Col EV Bike Specs Preview */}

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { PaymentMethod, FinanceStatus } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 export interface InvoiceSaleData {
   id: string
@@ -305,7 +306,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Chassis No. (VIN)</th>
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Motor No.</th>
                   <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Specs</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black text-right">Amount ($)</th>
+                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black text-right">Amount (LKR)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60 print:divide-zinc-200">
@@ -342,7 +343,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                         {v.warrantyPeriod && <div>Warranty: {v.warrantyPeriod}</div>}
                       </td>
                       <td className="py-3 px-3 font-bold text-sm text-right text-foreground print:text-black">
-                        ${item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatLKR(item.price)}
                       </td>
                     </tr>
                   )
@@ -354,46 +355,26 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
 
         {/* PAYMENT SUMMARY & LEASING BREAKDOWN */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 pt-4 pb-8 border-t border-border print:border-zinc-300">
-          {/* Left Column: Finance details if applicable */}
+          {/* Customer-facing payment terms without internal financing calculations */}
           <div className="sm:col-span-7">
             {isFinance && sale.financeDetail ? (
               <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 print:bg-zinc-50 print:border-zinc-300 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 print:text-black flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4" />
-                    Automotive Financing / Lease Settlement
+                    <CreditCard className="h-4 w-4" />
+                    Financing / Lease
                   </span>
                   <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary print:text-black print:border-zinc-400">
                     {sale.financeDetail.status}
                   </Badge>
                 </div>
-
-                <div className="text-xs space-y-1.5 text-muted-foreground print:text-zinc-700 pt-1">
-                  <div className="flex justify-between">
-                    <span>Financing Institution:</span>
-                    <span className="font-semibold text-foreground print:text-black">
-                      {sale.financeDetail.financeCompany}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Down Payment Received (Cash/Bank):</span>
-                    <span className="font-semibold text-foreground print:text-black">
-                      ${sale.financeDetail.downPaymentPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Financed Principal Loan Amount:</span>
-                    <span className="font-bold text-purple-700 dark:text-purple-400 print:text-black">
-                      ${sale.financeDetail.totalFinanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  {sale.financeDetail.dealerCommission && (
-                    <div className="flex justify-between text-[11px]">
-                      <span>Dealer Commission / Facility Fee:</span>
-                      <span>${sale.financeDetail.dealerCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground print:text-zinc-700">
+                  Financing arranged through{" "}
+                  <span className="font-semibold text-foreground print:text-black">
+                    {sale.financeDetail.financeCompany}
+                  </span>
+                  . Financing terms are subject to the provider&apos;s agreement.
+                </p>
               </div>
             ) : (
               <div className="p-4 rounded-xl border border-dashed border-border/80 print:border-zinc-300 space-y-1 text-xs text-muted-foreground print:text-zinc-600">
@@ -410,7 +391,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
             <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
               <span>Agreed Vehicle Price</span>
               <span className="font-semibold text-foreground print:text-black">
-                ${(sale.items[0]?.price || sale.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {formatLKR(sale.items[0]?.price || sale.totalAmount)}
               </span>
             </div>
 
@@ -418,7 +399,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
               <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
                 <span>Additional Charges & Reg</span>
                 <span className="font-semibold text-foreground print:text-black">
-                  +${sale.additionalCharges.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  +{formatLKR(sale.additionalCharges)}
                 </span>
               </div>
             )}
@@ -427,7 +408,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
               <div className="flex justify-between py-1 text-emerald-600 dark:text-emerald-400 print:text-black">
                 <span>Dealership Discount</span>
                 <span className="font-semibold">
-                  -${sale.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  -{formatLKR(sale.discount)}
                 </span>
               </div>
             )}
@@ -442,26 +423,9 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
             <div className="flex justify-between items-baseline pt-1">
               <span className="text-sm font-bold text-foreground print:text-black">Final Total</span>
               <span className="text-2xl font-black text-emerald-600 print:text-black">
-                ${sale.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {formatLKR(sale.totalAmount)}
               </span>
             </div>
-
-            {isFinance && sale.financeDetail && (
-              <div className="p-2.5 rounded-lg bg-muted/60 print:bg-zinc-100 space-y-1 text-[11px] mt-2">
-                <div className="flex justify-between text-muted-foreground print:text-zinc-700">
-                  <span>Down Payment Collected:</span>
-                  <span className="font-semibold text-foreground print:text-black">
-                    ${sale.financeDetail.downPaymentPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground print:text-zinc-700">
-                  <span>Financed by {sale.financeDetail.financeCompany}:</span>
-                  <span className="font-semibold text-foreground print:text-black">
-                    ${sale.financeDetail.totalFinanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

@@ -27,7 +27,7 @@ import {
   ShieldCheck,
   Building2,
   Bike,
-  DollarSign,
+  Coins,
   Users,
   Search,
   LogOut,
@@ -311,7 +311,7 @@ export function SuperAdminView({
                 Total Sales Value
               </span>
               <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                <DollarSign className="h-4 w-4" />
+                <Coins className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent className="space-y-0.5">

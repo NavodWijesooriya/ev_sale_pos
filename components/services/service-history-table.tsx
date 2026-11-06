@@ -37,6 +37,7 @@ import {
   FileText,
 } from "lucide-react"
 import { ServiceType } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 export interface ServiceRecordRow {
   id: string
@@ -200,7 +201,7 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
       "Battery Serial",
       "Vehicle Model",
       "Service Type",
-      "Cost ($)",
+      "Cost (LKR)",
       "Next Due Date",
       "Description",
       "Branch",
@@ -215,7 +216,7 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
       `"${r.vehicle.batterySerialNumber || ""}"`,
       `"${r.vehicle.vehicleModel.brand} ${r.vehicle.vehicleModel.modelName}"`,
       `"${r.serviceType}"`,
-      r.totalCost,
+      `"${formatLKR(r.totalCost)}"`,
       `"${r.nextServiceDueDate ? new Date(r.nextServiceDueDate).toLocaleDateString() : ""}"`,
       `"${(r.description || "").replace(/"/g, '""')}"`,
       `"${r.branch.name}"`,
@@ -397,10 +398,10 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
                       <TableCell className="align-top py-3.5 text-right font-mono font-bold text-sm">
                         {r.totalCost === 0 ? (
                           <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
-                            $0.00 (Covered)
+                            Rs. 0 (Covered)
                           </span>
                         ) : (
-                          `$${r.totalCost.toLocaleString()}`
+                          formatLKR(r.totalCost)
                         )}
                       </TableCell>
 
@@ -429,4 +430,3 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
     </Card>
   )
 }
-

@@ -33,7 +33,7 @@ async function main() {
 
   console.log(`\nIn-Stock Vehicles Available: ${inStockVehicles.length}`)
   inStockVehicles.forEach((v) => {
-    console.log(` - VIN: ${v.chassisNumber} | ${v.vehicleModel.brand} ${v.vehicleModel.modelName} | Price: $${v.vehicleModel.defaultPrice}`)
+    console.log(` - VIN: ${v.chassisNumber} | ${v.vehicleModel.brand} ${v.vehicleModel.modelName} | Price: Rs. ${v.vehicleModel.defaultPrice}`)
   })
 
   if (inStockVehicles.length === 0) {
@@ -139,10 +139,10 @@ async function main() {
   console.log(`Vehicle VIN: ${result.updatedVehicle.chassisNumber}`)
   console.log(`New Vehicle Status: ${result.updatedVehicle.status} (Verified transitioned from InStock to Sold)`)
   console.log(`Payment Method: ${result.sale.paymentMethod}`)
-  console.log(`Total Sale Price: $${result.sale.totalAmount}`)
+  console.log(`Total Sale Price: Rs. ${result.sale.totalAmount}`)
   console.log(`Finance Company: ${result.financeDetail.financeCompany}`)
-  console.log(`Down Payment Paid: $${result.financeDetail.downPaymentPaid}`)
-  console.log(`Financed Amount: $${result.financeDetail.totalFinanceAmount}`)
+  console.log(`Down Payment Paid: Rs. ${result.financeDetail.downPaymentPaid}`)
+  console.log(`Financed Amount: Rs. ${result.financeDetail.totalFinanceAmount}`)
   console.log(`Finance Status: ${result.financeDetail.status}`)
 
   // 4. Verify in database that vehicle is no longer in InStock list

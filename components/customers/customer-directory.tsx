@@ -29,7 +29,7 @@ import {
   Phone,
   Mail,
   FileText,
-  DollarSign,
+  Coins,
   Bike,
   ArrowRight,
   Sparkles,
@@ -39,6 +39,7 @@ import {
 } from "lucide-react"
 import { CustomerSummaryItem } from "@/app/actions/customers"
 import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
+import { formatLKR } from "@/lib/currency"
 
 interface CustomerDirectoryProps {
   customers: CustomerSummaryItem[]
@@ -88,7 +89,7 @@ export function CustomerDirectory({
       "Address",
       "Total Vehicles Purchased",
       "Total Services",
-      "Total Spent ($)",
+      "Total Spent (LKR)",
     ]
 
     const rows = filteredCustomers.map((c) => [
@@ -205,14 +206,14 @@ export function CustomerDirectory({
                 Customer LTV
               </p>
               <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
-                ${totalLifetimeValue.toLocaleString()}
+                {formatLKR(totalLifetimeValue)}
               </h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Total lifetime revenue
               </p>
             </div>
             <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <DollarSign className="size-5 sm:size-6" />
+              <Coins className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>
@@ -344,7 +345,7 @@ export function CustomerDirectory({
 
                       {/* Total Spent */}
                       <TableCell className="align-middle py-3.5 text-right font-mono font-bold text-sm text-foreground">
-                        ${c.totalSpent.toLocaleString()}
+                        {formatLKR(c.totalSpent)}
                       </TableCell>
 
                       {/* Action */}

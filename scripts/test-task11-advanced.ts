@@ -32,13 +32,13 @@ async function verifyAdvancedReports() {
     totalNetGrossProfit += (saleProfit + comm)
 
     console.log(
-      `  Sale #${idx + 1} | Total: $${s.totalAmount} | Charges: $${s.additionalCharges} | Discount: $${s.discount} | Cost: $${purchaseCost} | Net Profit: $${saleProfit + comm}`
+      `  Sale #${idx + 1} | Total: Rs. ${s.totalAmount} | Charges: Rs. ${s.additionalCharges} | Discount: Rs. ${s.discount} | Cost: Rs. ${purchaseCost} | Net Profit: Rs. ${saleProfit + comm}`
     )
   })
 
-  console.log(`  -> Calculated Total Revenue: $${totalRevenue.toLocaleString()}`)
-  console.log(`  -> Calculated Finance Commission: $${totalCommission.toLocaleString()}`)
-  console.log(`  -> Calculated Net Gross Profit: $${totalNetGrossProfit.toLocaleString()}`)
+  console.log(`  -> Calculated Total Revenue: Rs. ${totalRevenue.toLocaleString()}`)
+  console.log(`  -> Calculated Finance Commission: Rs. ${totalCommission.toLocaleString()}`)
+  console.log(`  -> Calculated Net Gross Profit: Rs. ${totalNetGrossProfit.toLocaleString()}`)
   const margin = totalRevenue > 0 ? ((totalNetGrossProfit / totalRevenue) * 100).toFixed(1) : "0"
   console.log(`  -> Overall Profit Margin: ${margin}%`)
 
@@ -90,7 +90,7 @@ async function verifyAdvancedReports() {
     if (s.serviceType === "Free") freeCount += 1
     if (s.serviceType === "Warranty") warrantyCount += 1
   })
-  console.log(`  -> Total Paid Service Revenue: $${paidRev.toLocaleString()}`)
+  console.log(`  -> Total Paid Service Revenue: Rs. ${paidRev.toLocaleString()}`)
   console.log(`  -> Total Free Services Done: ${freeCount}`)
   console.log(`  -> Total Warranty Claims: ${warrantyCount}`)
   console.log(`  -> Total Service Orders: ${services.length}`)

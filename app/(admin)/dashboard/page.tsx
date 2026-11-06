@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   Bike,
-  BadgeDollarSign,
+  Coins,
   Building2,
   Clock,
   ArrowUpRight,
@@ -123,7 +123,7 @@ export default async function DashboardPage() {
       title: "Total Sales Revenue",
       value: formatLKR(totalSalesRevenue),
       change: `${totalSalesCount} total sales finalized`,
-      icon: BadgeDollarSign,
+      icon: Coins,
       iconColor: "text-emerald-500",
       bgColor: "bg-emerald-500/10 border-emerald-500/20",
     },

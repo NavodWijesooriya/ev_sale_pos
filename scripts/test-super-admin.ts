@@ -49,7 +49,7 @@ async function runSuperAdminVerification() {
 
   console.log(`  - Total Registered Organizations: ${totalOrgs}`)
   console.log(`  - Total Active Vehicles (InStock): ${activeVehicles} (of ${totalVehicles} total inventory)`)
-  console.log(`  - Total Sales Value Across Tenants: $${totalSalesValue.toLocaleString()}`)
+  console.log(`  - Total Sales Value Across Tenants: Rs. ${totalSalesValue.toLocaleString()}`)
   console.log(`  - Total Registered Staff Logins: ${totalUsers}`)
 
   console.log("\n[3] Organizations Directory (Data Table Preview):")

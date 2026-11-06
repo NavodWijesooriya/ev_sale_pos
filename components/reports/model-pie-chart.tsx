@@ -11,6 +11,7 @@ import {
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bike, PieChart as PieChartIcon } from "lucide-react"
+import { formatLKR } from "@/lib/currency"
 
 interface ModelPieChartProps {
   data: {
@@ -81,7 +82,7 @@ export function ModelPieChart({ data }: ModelPieChartProps) {
                           <div className="flex items-center justify-between gap-4 text-slate-300">
                             <span>Gross Revenue:</span>
                             <span className="font-bold text-emerald-400">
-                              ${item.revenue.toLocaleString()}
+                              {formatLKR(item.revenue)}
                             </span>
                           </div>
                         </div>
@@ -121,4 +122,3 @@ export function ModelPieChart({ data }: ModelPieChartProps) {
     </Card>
   )
 }
-

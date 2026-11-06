@@ -49,7 +49,7 @@ async function runTask11Verification() {
   })
 
   console.log("\n[1] KPI Summary Verification (Last 30 Days):")
-  console.log(`  - Total Revenue: $${(salesAgg._sum.totalAmount || 0).toLocaleString()}`)
+  console.log(`  - Total Revenue: Rs. ${(salesAgg._sum.totalAmount || 0).toLocaleString()}`)
   console.log(`  - Total Vehicles Sold: ${soldVehiclesCount} units`)
   console.log(`  - Available Stock (InStock): ${inStockCount} units`)
   console.log(`  - Services Completed: ${servicesCount} records`)
@@ -105,7 +105,7 @@ async function runTask11Verification() {
     console.log(
       `  [${idx + 1}] Date: ${s.saleDate.toISOString().split("T")[0]} | Customer: ${
         s.customer.name
-      } | Models: ${models} | Amount: $${s.totalAmount.toLocaleString()} | Status: ${s.status}`
+      } | Models: ${models} | Amount: Rs. ${s.totalAmount.toLocaleString()} | Status: ${s.status}`
     )
   })
 

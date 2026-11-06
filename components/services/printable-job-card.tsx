@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ServiceType } from "@prisma/client"
+import { formatLKR } from "@/lib/currency"
 
 export interface ServiceJobCardData {
   id: string
@@ -376,14 +377,14 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
             <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
               <span>Labor & Diagnostic Charge</span>
               <span className="font-semibold text-foreground print:text-black">
-                {record.totalCost === 0 ? "Complimentary" : `$${record.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                {record.totalCost === 0 ? "Complimentary" : formatLKR(record.totalCost)}
               </span>
             </div>
 
             <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
               <span>Warranty / Free Program Concession</span>
               <span className="font-semibold text-emerald-600 print:text-black">
-                {record.totalCost === 0 ? "- 100% Covered" : "$0.00"}
+                {record.totalCost === 0 ? "- 100% Covered" : formatLKR(0)}
               </span>
             </div>
 
@@ -392,7 +393,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
             <div className="flex justify-between items-baseline pt-1">
               <span className="text-sm font-bold text-foreground print:text-black">Total Paid Amount</span>
               <span className="text-2xl font-black text-emerald-600 print:text-black">
-                {record.totalCost === 0 ? "$0.00" : `$${record.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                {formatLKR(record.totalCost)}
               </span>
             </div>
           </div>
@@ -437,4 +438,3 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
     </div>
   )
 }
-
