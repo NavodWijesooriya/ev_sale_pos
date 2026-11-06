@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 import {
   Building2,
   LogOut,
@@ -23,6 +24,8 @@ import {
   ExternalLink,
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface HeaderProps {
   userName?: string
@@ -41,6 +44,8 @@ export function Header({
   organizationId,
   onToggleSidebar,
 }: HeaderProps) {
+  const router = useRouter()
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -48,6 +53,20 @@ export function Header({
       .slice(0, 2)
       .join("")
       .toUpperCase()
+  }
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error("Failed to sign out:", error)
+      toast.error("Unable to sign out. Please try again.")
+      return
+    }
+
+    router.push("/login")
+    router.refresh()
   }
 
   return (
@@ -178,7 +197,7 @@ export function Header({
             {/* Logout Action */}
             <DropdownMenuItem
               className="cursor-pointer text-xs text-red-600 dark:text-red-400 flex items-center gap-2 py-2 focus:bg-red-500/10 focus:text-red-600"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleSignOut}
             >
               <LogOut className="size-3.5" />
               <span>Sign Out</span>
