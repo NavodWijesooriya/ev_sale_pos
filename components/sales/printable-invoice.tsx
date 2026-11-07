@@ -3,25 +3,19 @@
 import * as React from "react"
 import Link from "next/link"
 import {
-  Printer,
   ArrowLeft,
+  Download,
+  Printer,
   Zap,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
-  FileText,
-  CheckCircle2,
-  ShieldCheck,
-  CreditCard,
-  Bike,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { PaymentMethod, FinanceStatus } from "@prisma/client"
+import { Button } from "@/components/ui/button"
 import { formatLKR } from "@/lib/currency"
+import {
+  downloadDocumentPdf,
+  printDocumentA4,
+} from "@/lib/download-document-pdf"
+import { toast } from "sonner"
 
 export interface InvoiceSaleData {
   id: string
@@ -92,379 +86,1106 @@ interface PrintableInvoiceProps {
 }
 
 export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
-  const handlePrint = () => {
-    window.print()
-  }
+  const documentRef = React.useRef<HTMLDivElement>(null)
+  const [isDownloading, setIsDownloading] = React.useState(false)
 
   const invoiceNumber = `INV-${sale.id.slice(0, 8).toUpperCase()}`
-  const formattedSaleDate = new Date(sale.saleDate).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-  const formattedPrintDate = new Date().toLocaleDateString("en-US", {
+  const formattedSaleDate = new Date(sale.saleDate).toLocaleDateString("en-LK", {
     year: "numeric",
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   })
-
+  const itemSubtotal = sale.items.reduce((sum, item) => sum + item.price, 0)
+  const discount = sale.discount ?? 0
+  const additionalCharges = sale.additionalCharges ?? 0
   const isFinance =
     sale.paymentMethod === PaymentMethod.Finance ||
     sale.paymentMethod === PaymentMethod.SplitPayment
+  const financeReceived =
+    isFinance && sale.financeDetail?.status === FinanceStatus.Received
+      ? sale.financeDetail.totalFinanceAmount
+      : 0
+  const recordedPaidAmount = isFinance
+    ? (sale.financeDetail?.downPaymentPaid ?? 0) + financeReceived
+    : ["paid", "completed"].includes(sale.status.toLowerCase())
+      ? sale.totalAmount
+      : 0
+  const paidAmount = Math.min(sale.totalAmount, recordedPaidAmount)
+  const balanceDue = Math.max(0, sale.totalAmount - paidAmount)
+
+  const handlePrint = () => {
+    if (documentRef.current) {
+      printDocumentA4(documentRef.current)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    if (!documentRef.current) {
+      toast.error("Unable to find the invoice to download.")
+      return
+    }
+
+    setIsDownloading(true)
+    try {
+      await downloadDocumentPdf(documentRef.current, `invoice-${invoiceNumber}`)
+    } catch (error) {
+      console.error("Failed to download invoice PDF.", error)
+      toast.error("Failed to download the invoice PDF. Please try again.")
+    } finally {
+      setIsDownloading(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-muted/30 py-4 sm:py-8 print:p-0 print:m-0 print:bg-white print:min-h-0">
-      {/* Print Controls Bar - Hidden when printing */}
-      <div className="max-w-4xl mx-auto px-4 mb-6 print:hidden">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/90 backdrop-blur p-4 rounded-xl border border-border shadow-xs">
-          <Link href="/dashboard/sales">
-            <Button variant="ghost" size="sm" className="gap-2 text-xs font-semibold">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Sales Dashboard
-            </Button>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-1">
-              Status: {sale.status}
-            </Badge>
-
-            <Button
-              onClick={handlePrint}
-              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md h-10 px-5 text-sm"
-            >
-              <Printer className="h-4 w-4" />
-              Print Invoice / Receipt
-            </Button>
-          </div>
+    <main
+      className="invoice-page"
+      style={{
+        boxSizing: "border-box",
+        minHeight: "100vh",
+        padding: "24px 16px",
+        backgroundColor: "#f1f5f9",
+        color: "#0f172a",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      }}
+    >
+      {/* Action Toolbar */}
+      <nav
+        className="invoice-toolbar"
+        aria-label="Invoice actions"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+          width: "100%",
+          maxWidth: "210mm",
+          margin: "0 auto 20px",
+        }}
+      >
+        <Link href="/dashboard/sales">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            style={{
+              backgroundColor: "transparent",
+              color: "#334155",
+            }}
+          >
+            <ArrowLeft className="size-4" />
+            Back to Sales
+          </Button>
+        </Link>
+        <div
+          className="invoice-toolbar-actions"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: "12px",
+          }}
+        >
+          <span
+            style={{
+              color: "#047857",
+              fontSize: "13px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Status: {sale.status}
+          </span>
+          <Button
+            onClick={handlePrint}
+            className="gap-2"
+            style={{
+              backgroundColor: "#000000",
+              color: "#ffffff",
+            }}
+          >
+            <Printer className="size-4" />
+            Print Invoice
+          </Button>
+          <Button
+            onClick={handleDownloadPdf}
+            disabled={isDownloading}
+            variant="outline"
+            className="gap-2"
+            style={{
+              backgroundColor: "#ffffff",
+              color: "#000000",
+              borderColor: "#cbd5e1",
+            }}
+          >
+            <Download className="size-4" />
+            {isDownloading ? "Preparing PDF..." : "Download PDF"}
+          </Button>
         </div>
-      </div>
+      </nav>
 
-      {/* Main A4 Invoice Container */}
-      <div className="max-w-4xl mx-auto bg-card text-card-foreground border border-border/80 shadow-xl rounded-2xl p-6 sm:p-12 print:max-w-none print:w-full print:border-none print:shadow-none print:rounded-none print:p-6 print:bg-white print:text-black">
-        {/* INVOICE HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-border print:border-zinc-300">
-          {/* Dealership Info */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
+      {/* A4 Printable Invoice Sheet */}
+      <article
+        ref={documentRef}
+        data-pdf-document="invoice-modern"
+        className="print-document invoice-sheet"
+        aria-label={`Invoice ${invoiceNumber}`}
+        style={{
+          boxSizing: "border-box",
+          width: "210mm",
+          height: "297mm",
+          maxHeight: "297mm",
+          margin: "0 auto",
+          padding: "12mm 14mm",
+          backgroundColor: "#ffffff",
+          color: "#0f172a",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+          borderRadius: "3px",
+          overflow: "hidden",
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          lineHeight: 1.35,
+          position: "relative",
+        }}
+      >
+        {/* TOP SECTION: Header & Meta */}
+        <div>
+          <header
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto",
+              gap: "24px",
+              paddingBottom: "14px",
+              borderBottom: "2px solid #0f172a",
+              alignItems: "flex-start",
+            }}
+          >
+            {/* Organization / Dealership Info */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "14px",
+              }}
+            >
               {sale.organization.logoUrl ? (
                 <img
                   src={sale.organization.logoUrl}
-                  alt={sale.organization.businessName}
-                  className="h-12 w-auto object-contain"
+                  alt={`${sale.organization.businessName} logo`}
+                  style={{
+                    width: "56px",
+                    height: "56px",
+                    objectFit: "contain",
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
+                    padding: "3px",
+                    backgroundColor: "#ffffff",
+                    flexShrink: 0,
+                  }}
                 />
               ) : (
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md print:bg-black print:text-white">
-                  <Zap className="h-6 w-6" />
+                <div
+                  style={{
+                    width: "52px",
+                    height: "52px",
+                    backgroundColor: "#0f172a",
+                    color: "#ffffff",
+                    borderRadius: "6px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                  aria-hidden="true"
+                >
+                  <Zap size={26} color="#ffffff" />
                 </div>
               )}
               <div>
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground print:text-black">
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "#047857",
+                  }}
+                >
+                  Authorized EV Dealership
+                </p>
+                <h1
+                  style={{
+                    margin: "2px 0 3px",
+                    fontSize: "22px",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.15,
+                  }}
+                >
                   {sale.organization.businessName}
                 </h1>
-                <p className="text-xs text-muted-foreground print:text-zinc-600 font-medium">
-                  Official Electric Bike Dealership
-                </p>
-              </div>
-            </div>
-
-            <div className="text-xs text-muted-foreground print:text-zinc-600 space-y-0.5 pt-1">
-              <p className="flex items-center gap-1.5 font-medium text-foreground print:text-black">
-                <Building2 className="h-3.5 w-3.5 text-muted-foreground print:text-zinc-600 shrink-0" />
-                {sale.branch.name}
-                {sale.branch.location && ` • ${sale.branch.location}`}
-              </p>
-              {(sale.organization.phone || sale.branch.contactNumber) && (
-                <p className="flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground print:text-zinc-600 shrink-0" />
-                  {sale.organization.phone || sale.branch.contactNumber}
-                </p>
-              )}
-              {sale.organization.domain && (
-                <p className="text-[11px] font-mono">
-                  {sale.organization.domain}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Invoice Meta */}
-          <div className="text-left sm:text-right space-y-1.5">
-            <div className="inline-block bg-primary/10 text-primary px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider print:bg-zinc-100 print:text-black print:border print:border-zinc-300">
-              Tax Invoice & Receipt
-            </div>
-            <h2 className="text-xl font-black text-foreground print:text-black font-mono mt-1">
-              {invoiceNumber}
-            </h2>
-            <div className="text-xs text-muted-foreground print:text-zinc-600 space-y-0.5">
-              <p>
-                <span className="font-semibold text-foreground print:text-black">Date of Sale:</span>{" "}
-                {formattedSaleDate}
-              </p>
-              <p>
-                <span className="font-semibold text-foreground print:text-black">Sales Rep:</span>{" "}
-                {sale.soldBy.name || sale.soldBy.email}
-              </p>
-              <p>
-                <span className="font-semibold text-foreground print:text-black">Payment Status:</span>{" "}
-                <span className="font-bold text-emerald-600 print:text-black uppercase">
-                  {sale.status}
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* BILL TO & VEHICLE SPEC SUMMARY */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-b border-border print:border-zinc-300">
-          {/* Customer / Buyer Information */}
-          <div className="p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600">
-              Bill To / Purchaser Details
-            </span>
-            <h3 className="font-bold text-base text-foreground print:text-black">
-              {sale.customer.name}
-            </h3>
-            <div className="text-xs text-muted-foreground print:text-zinc-700 space-y-1">
-              <p className="font-mono flex items-center gap-1.5">
-                <Phone className="h-3 w-3 shrink-0" />
-                {sale.customer.phone}
-              </p>
-              {sale.customer.nic && (
-                <p className="font-mono flex items-center gap-1.5">
-                  <FileText className="h-3 w-3 shrink-0" />
-                  NIC / Passport: <span className="font-semibold text-foreground print:text-black">{sale.customer.nic}</span>
-                </p>
-              )}
-              {sale.customer.email && (
-                <p className="flex items-center gap-1.5">
-                  <Mail className="h-3 w-3 shrink-0" />
-                  {sale.customer.email}
-                </p>
-              )}
-              {sale.customer.address && (
-                <p className="flex items-center gap-1.5 pt-0.5">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  {sale.customer.address}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Deal & Payment Terms Overview */}
-          <div className="p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600">
-              Payment & Delivery Terms
-            </span>
-            <div className="text-xs space-y-2 pt-1">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground print:text-zinc-600">Payment Method:</span>
-                <Badge variant="outline" className="font-semibold text-xs print:border-zinc-400">
-                  {sale.paymentMethod}
-                </Badge>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground print:text-zinc-600">Issuing Branch:</span>
-                <span className="font-medium text-foreground print:text-black">
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "12px",
+                    color: "#475569",
+                    fontWeight: 500,
+                  }}
+                >
                   {sale.branch.name}
-                </span>
+                  {sale.branch.location ? ` • ${sale.branch.location}` : ""}
+                </p>
+                {(sale.organization.phone || sale.branch.contactNumber) && (
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontSize: "11px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Tel: {sale.organization.phone || sale.branch.contactNumber}
+                  </p>
+                )}
+                {sale.organization.domain && (
+                  <p
+                    style={{
+                      margin: "1px 0 0",
+                      fontSize: "11px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Web: {sale.organization.domain}
+                  </p>
+                )}
               </div>
+            </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground print:text-zinc-600">Transaction ID:</span>
-                <span className="font-mono text-[11px] text-muted-foreground print:text-zinc-700">
+            {/* Document Title & Invoice Meta */}
+            <div
+              style={{
+                textAlign: "right",
+                paddingLeft: "20px",
+                borderLeft: "2px solid #e2e8f0",
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "26px",
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  color: "#0f172a",
+                  lineHeight: 1,
+                }}
+              >
+                TAX INVOICE
+              </h2>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontFamily: 'Consolas, "Courier New", monospace',
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#047857",
+                }}
+              >
+                {invoiceNumber}
+              </p>
+              <div
+                style={{
+                  marginTop: "8px",
+                  display: "grid",
+                  gridTemplateColumns: "auto auto",
+                  gap: "3px 12px",
+                  fontSize: "11px",
+                  textAlign: "right",
+                  color: "#475569",
+                }}
+              >
+                <span>Date:</span>
+                <strong style={{ color: "#0f172a" }}>{formattedSaleDate}</strong>
+                <span>Payment:</span>
+                <strong style={{ color: "#0f172a" }}>{sale.paymentMethod}</strong>
+                <span>Status:</span>
+                <strong style={{ color: "#047857", textTransform: "uppercase" }}>
+                  {sale.status}
+                </strong>
+              </div>
+            </div>
+          </header>
+
+          {/* PARTIES: Bill To & Sale Details */}
+          <section
+            aria-label="Invoice parties"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "16px",
+              marginTop: "14px",
+            }}
+          >
+            {/* Buyer Info Card */}
+            <div
+              style={{
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "6px",
+                padding: "10px 14px",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#047857",
+                }}
+              >
+                Buyer Information (Bill To)
+              </p>
+              <h3
+                style={{
+                  margin: "3px 0 6px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#0f172a",
+                }}
+              >
+                {sale.customer.name}
+              </h3>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "75px 1fr",
+                  gap: "3px 8px",
+                  fontSize: "11px",
+                  color: "#334155",
+                }}
+              >
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Phone:</span>
+                <span>{sale.customer.phone}</span>
+                {sale.customer.nic && (
+                  <>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>NIC / Pass:</span>
+                    <span>{sale.customer.nic}</span>
+                  </>
+                )}
+                {sale.customer.address && (
+                  <>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>Address:</span>
+                    <span>{sale.customer.address}</span>
+                  </>
+                )}
+                {sale.customer.email && (
+                  <>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>Email:</span>
+                    <span>{sale.customer.email}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Sale & Dispatch Details Card */}
+            <div
+              style={{
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "6px",
+                padding: "10px 14px",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#047857",
+                }}
+              >
+                Sale &amp; Branch Records
+              </p>
+              <h3
+                style={{
+                  margin: "3px 0 6px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#0f172a",
+                }}
+              >
+                {sale.branch.name}
+              </h3>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "95px 1fr",
+                  gap: "3px 8px",
+                  fontSize: "11px",
+                  color: "#334155",
+                }}
+              >
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Sales Officer:</span>
+                <span>{sale.soldBy.name || sale.soldBy.email}</span>
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Branch Location:</span>
+                <span>{sale.branch.location || "Main Showroom"}</span>
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Invoice Number:</span>
+                <span style={{ fontFamily: 'Consolas, "Courier New", monospace' }}>
+                  {invoiceNumber}
+                </span>
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Issue Date:</span>
+                <span>{formattedSaleDate}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* ITEMIZATION TABLE */}
+          <section
+            aria-labelledby="invoice-items-title"
+            style={{
+              marginTop: "14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                marginBottom: "6px",
+              }}
+            >
+              <span
+                id="invoice-items-title"
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "#0f172a",
+                }}
+              >
+                Vehicle Itemization ({sale.items.length}{" "}
+                {sale.items.length === 1 ? "unit" : "units"})
+              </span>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>
+                All prices in Sri Lankan Rupee (LKR)
+              </span>
+            </div>
+
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "11px",
+                tableLayout: "fixed",
+              }}
+            >
+              <thead>
+                <tr
+                  style={{
+                    backgroundColor: "#0f172a",
+                    color: "#ffffff",
+                    borderTop: "1px solid #0f172a",
+                    borderBottom: "1px solid #0f172a",
+                  }}
+                >
+                  <th
+                    style={{
+                      width: "6%",
+                      padding: "8px 6px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    #
+                  </th>
+                  <th
+                    style={{
+                      width: "36%",
+                      padding: "8px 10px",
+                      textAlign: "left",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    EV Model &amp; Specifications
+                  </th>
+                  <th
+                    style={{
+                      width: "28%",
+                      padding: "8px 10px",
+                      textAlign: "left",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    VIN / Chassis Number
+                  </th>
+                  <th
+                    style={{
+                      width: "12%",
+                      padding: "8px 8px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    Color
+                  </th>
+                  <th
+                    style={{
+                      width: "18%",
+                      padding: "8px 10px",
+                      textAlign: "right",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    Unit Price
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sale.items.map((item, index) => (
+                  <tr
+                    key={item.id}
+                    style={{
+                      borderBottom: "1px solid #e2e8f0",
+                      backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "10px 6px",
+                        textAlign: "center",
+                        color: "#64748b",
+                        fontWeight: 600,
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 10px",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "12px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        {item.vehicle.vehicleModel.brand}{" "}
+                        {item.vehicle.vehicleModel.modelName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "#64748b",
+                          marginTop: "2px",
+                        }}
+                      >
+                        {item.vehicle.motorNumber
+                          ? `Motor: ${item.vehicle.motorNumber}`
+                          : "Pure Electric Vehicle (BEV)"}
+                        {item.vehicle.vehicleModel.batteryCapacity
+                          ? ` • ${item.vehicle.vehicleModel.batteryCapacity}`
+                          : ""}
+                      </div>
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 10px",
+                        fontFamily: 'Consolas, "Courier New", monospace',
+                        fontSize: "11px",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      {item.vehicle.chassisNumber}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 8px",
+                        textAlign: "center",
+                        color: "#334155",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      {item.vehicle.color || "Standard"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 10px",
+                        textAlign: "right",
+                        fontWeight: 700,
+                        fontSize: "12px",
+                        color: "#047857",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      {formatLKR(item.price)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          {/* FINANCIAL SUMMARY & PAYMENT DETAILS */}
+          <section
+            aria-label="Payment summary"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.1fr 0.9fr",
+              gap: "20px",
+              marginTop: "14px",
+              paddingTop: "12px",
+              borderTop: "1px solid #cbd5e1",
+            }}
+          >
+            {/* Payment Method / Financing Details */}
+            <div
+              style={{
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "6px",
+                padding: "12px 14px",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#047857",
+                }}
+              >
+                Payment Settlement
+              </p>
+              <h3
+                style={{
+                  margin: "3px 0 6px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#0f172a",
+                }}
+              >
+                {sale.paymentMethod}
+              </h3>
+              {isFinance && sale.financeDetail ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "110px 1fr",
+                    gap: "4px 8px",
+                    fontSize: "11px",
+                    color: "#334155",
+                  }}
+                >
+                  <span style={{ color: "#64748b" }}>Finance Company:</span>
+                  <strong style={{ color: "#0f172a" }}>
+                    {sale.financeDetail.financeCompany}
+                  </strong>
+                  <span style={{ color: "#64748b" }}>Finance Status:</span>
+                  <strong style={{ color: "#047857" }}>
+                    {sale.financeDetail.status}
+                  </strong>
+                  <span style={{ color: "#64748b" }}>Down Payment:</span>
+                  <strong style={{ color: "#0f172a" }}>
+                    {formatLKR(sale.financeDetail.downPaymentPaid)}
+                  </strong>
+                  <span style={{ color: "#64748b" }}>Financed Amount:</span>
+                  <strong style={{ color: "#0f172a" }}>
+                    {formatLKR(sale.financeDetail.totalFinanceAmount)}
+                  </strong>
+                </div>
+              ) : (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "11px",
+                    color: "#475569",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Payment has been fully processed and verified in accordance with
+                  dealership sales terms.
+                </p>
+              )}
+              <div
+                style={{
+                  marginTop: "8px",
+                  paddingTop: "6px",
+                  borderTop: "1px dashed #cbd5e1",
+                  fontSize: "10px",
+                  color: "#64748b",
+                }}
+              >
+                Sale Ref ID:{" "}
+                <span
+                  style={{
+                    fontFamily: 'Consolas, "Courier New", monospace',
+                    color: "#0f172a",
+                  }}
+                >
                   {sale.id}
                 </span>
               </div>
-
-              <div className="flex justify-between items-center pt-1 border-t border-border/60 print:border-zinc-300">
-                <span className="font-semibold text-foreground print:text-black">EV Bike Delivery:</span>
-                <span className="font-semibold text-emerald-600 print:text-black flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Ownership Transferred
-                </span>
-              </div>
             </div>
-          </div>
-        </div>
 
-        {/* ITEMIZED VEHICLE TABLE */}
-        <div className="py-6">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 mb-3">
-            Itemized EV Bike Specification
-          </h3>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b-2 border-border print:border-black bg-muted/30 print:bg-zinc-100">
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Item #</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">EV Bike Description</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Chassis No. (VIN)</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Motor No.</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black">Specs</th>
-                  <th className="py-2.5 px-3 font-bold text-foreground print:text-black text-right">Amount (LKR)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60 print:divide-zinc-200">
-                {sale.items.map((item, idx) => {
-                  const v = item.vehicle
-                  const m = v.vehicleModel
-                  return (
-                    <tr key={item.id} className="align-top">
-                      <td className="py-3 px-3 font-mono font-medium">{idx + 1}</td>
-                      <td className="py-3 px-3">
-                        <span className="font-bold text-sm text-foreground print:text-black block">
-                          {m.brand} {m.modelName}
-                        </span>
-                        {v.color && (
-                          <span className="text-[11px] text-muted-foreground print:text-zinc-600 capitalize">
-                            Exterior Color: {v.color}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-semibold text-foreground print:text-black">
-                        {v.chassisNumber}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-muted-foreground print:text-zinc-700">
-                        {v.motorNumber || "N/A"}
-                      </td>
-                      <td className="py-3 px-3 text-[11px] text-muted-foreground print:text-zinc-700">
-                        {m.batteryCapacity && <div>Battery: {m.batteryCapacity}</div>}
-                        {m.range && <div>Range: {m.range}</div>}
-                        {v.batterySerialNumber && (
-                          <div className="font-mono text-[10px] text-emerald-600 print:text-black">
-                            Bat S/N: {v.batterySerialNumber}
-                          </div>
-                        )}
-                        {v.warrantyPeriod && <div>Warranty: {v.warrantyPeriod}</div>}
-                      </td>
-                      <td className="py-3 px-3 font-bold text-sm text-right text-foreground print:text-black">
-                        {formatLKR(item.price)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* PAYMENT SUMMARY & LEASING BREAKDOWN */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 pt-4 pb-8 border-t border-border print:border-zinc-300">
-          {/* Customer-facing payment terms without internal financing calculations */}
-          <div className="sm:col-span-7">
-            {isFinance && sale.financeDetail ? (
-              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 print:bg-zinc-50 print:border-zinc-300 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 print:text-black flex items-center gap-1.5">
-                    <CreditCard className="h-4 w-4" />
-                    Financing / Lease
-                  </span>
-                  <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary print:text-black print:border-zinc-400">
-                    {sale.financeDetail.status}
-                  </Badge>
+            {/* Calculations Breakdown */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "5px",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#475569",
+                }}
+              >
+                <span>Subtotal</span>
+                <strong style={{ color: "#0f172a" }}>{formatLKR(itemSubtotal)}</strong>
+              </div>
+              {additionalCharges > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: "#475569",
+                  }}
+                >
+                  <span>Additional Charges / Registration</span>
+                  <strong style={{ color: "#0f172a" }}>
+                    {formatLKR(additionalCharges)}
+                  </strong>
                 </div>
-                <p className="text-xs text-muted-foreground print:text-zinc-700">
-                  Financing arranged through{" "}
-                  <span className="font-semibold text-foreground print:text-black">
-                    {sale.financeDetail.financeCompany}
-                  </span>
-                  . Financing terms are subject to the provider&apos;s agreement.
-                </p>
+              )}
+              {discount > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: "#047857",
+                  }}
+                >
+                  <span>Promotional Discount</span>
+                  <strong>−{formatLKR(discount)}</strong>
+                </div>
+              )}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 0",
+                  margin: "4px 0",
+                  borderTop: "2px solid #0f172a",
+                  borderBottom: "2px solid #0f172a",
+                  fontSize: "13px",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                }}
+              >
+                <span style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                  Total Payable
+                </span>
+                <span
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 900,
+                    color: "#047857",
+                  }}
+                >
+                  {formatLKR(sale.totalAmount)}
+                </span>
               </div>
-            ) : (
-              <div className="p-4 rounded-xl border border-dashed border-border/80 print:border-zinc-300 space-y-1 text-xs text-muted-foreground print:text-zinc-600">
-                <span className="font-semibold text-foreground print:text-black block">Settlement Note</span>
-                <p>
-                  Full vehicle payment settled via {sale.paymentMethod}. No outstanding lease or finance lien on this chassis from dealership records.
-                </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#475569",
+                }}
+              >
+                <span>Amount Paid / Settled</span>
+                <strong style={{ color: "#047857" }}>{formatLKR(paidAmount)}</strong>
               </div>
-            )}
-          </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: balanceDue > 0 ? "#b91c1c" : "#047857",
+                  fontWeight: 700,
+                }}
+              >
+                <span>Balance Due</span>
+                <strong>{formatLKR(balanceDue)}</strong>
+              </div>
+            </div>
+          </section>
 
-          {/* Right Column: Totals */}
-          <div className="sm:col-span-5 space-y-2 text-xs">
-            <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Agreed Vehicle Price</span>
-              <span className="font-semibold text-foreground print:text-black">
-                {formatLKR(sale.items[0]?.price || sale.totalAmount)}
+          {/* WARRANTY & CONDITIONS BOX */}
+          <section
+            aria-labelledby="invoice-warranty-title"
+            style={{
+              marginTop: "14px",
+              padding: "12px 14px",
+              backgroundColor: "#f8fafc",
+              border: "1px solid #cbd5e1",
+              borderLeft: "4px solid #047857",
+              borderRadius: "6px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingBottom: "8px",
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "9px",
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "#047857",
+                  }}
+                >
+                  Official Dealership Warranty
+                </p>
+                <h3
+                  id="invoice-warranty-title"
+                  style={{
+                    margin: "2px 0 0",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                  }}
+                >
+                  Warranty Coverage &amp; Service Conditions
+                </h3>
+              </div>
+              <span
+                style={{
+                  padding: "3px 8px",
+                  backgroundColor: "#ecfdf5",
+                  border: "1px solid #a7f3d0",
+                  borderRadius: "20px",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  color: "#047857",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                VIN-Linked Protection
               </span>
             </div>
 
-            {!!sale.additionalCharges && sale.additionalCharges > 0 && (
-              <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-                <span>Additional Charges & Reg</span>
-                <span className="font-semibold text-foreground print:text-black">
-                  +{formatLKR(sale.additionalCharges)}
-                </span>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1.3fr",
+                gap: "16px",
+                paddingTop: "8px",
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Registered Covered Units:
+                </p>
+                {sale.items.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      marginBottom: "6px",
+                      fontSize: "10px",
+                      color: "#334155",
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    <strong style={{ color: "#0f172a" }}>
+                      {item.vehicle.vehicleModel.brand}{" "}
+                      {item.vehicle.vehicleModel.modelName}
+                    </strong>
+                    <div>VIN: {item.vehicle.chassisNumber}</div>
+                    <div>
+                      Battery SN:{" "}
+                      {item.vehicle.batterySerialNumber || "Manufacturer Spec"}
+                    </div>
+                    <div>
+                      Motor No: {item.vehicle.motorNumber || "Factory Fitted"}
+                    </div>
+                    <div style={{ color: "#047857", fontWeight: 600 }}>
+                      Warranty Period:{" "}
+                      {item.vehicle.warrantyPeriod ||
+                        "Standard Manufacturer Term (2 Years / 20,000 KM)"}
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
 
-            {!!sale.discount && sale.discount > 0 && (
-              <div className="flex justify-between py-1 text-emerald-600 dark:text-emerald-400 print:text-black">
-                <span>Dealership Discount</span>
-                <span className="font-semibold">
-                  -{formatLKR(sale.discount)}
-                </span>
+              <div>
+                <p
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Terms &amp; Obligations:
+                </p>
+                <ul
+                  style={{
+                    margin: 0,
+                    paddingLeft: "16px",
+                    fontSize: "10px",
+                    color: "#475569",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <li style={{ marginBottom: "3px" }}>
+                    Warranty starts on the date of sale and applies exclusively to the
+                    chassis, motor, and battery serial numbers listed above.
+                  </li>
+                  <li style={{ marginBottom: "3px" }}>
+                    Routine maintenance must be carried out only at authorized service
+                    centers in adherence with the manufacturer service manual.
+                  </li>
+                  <li style={{ marginBottom: "3px" }}>
+                    Modifications, unauthorized electrical alterations, water
+                    submersion, or accidental damage void the battery and electrical warranty.
+                  </li>
+                  <li>
+                    Please present this original invoice document and vehicle logbook
+                    when requesting warranty service or inspection.
+                  </li>
+                </ul>
               </div>
-            )}
-
-            <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Documentation & PDI</span>
-              <span className="font-medium text-foreground print:text-black">Included</span>
             </div>
+          </section>
+        </div>
 
-            <Separator className="my-2" />
-
-            <div className="flex justify-between items-baseline pt-1">
-              <span className="text-sm font-bold text-foreground print:text-black">Final Total</span>
-              <span className="text-2xl font-black text-emerald-600 print:text-black">
-                {formatLKR(sale.totalAmount)}
+        {/* BOTTOM SECTION: Signatures & Footer (Always at the base of A4) */}
+        <div>
+          <section
+            aria-label="Acknowledgements"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "48px",
+              padding: "16px 24px 0",
+              borderTop: "1px solid #cbd5e1",
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  height: "28px",
+                  borderBottom: "1px dashed #64748b",
+                  marginBottom: "6px",
+                }}
+              />
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: "11px",
+                  color: "#0f172a",
+                }}
+              >
+                Customer Signature &amp; Acceptance
+              </strong>
+              <span style={{ fontSize: "9px", color: "#64748b" }}>
+                Received in good condition with accessories
               </span>
             </div>
-          </div>
-        </div>
 
-        {/* SIGNATURES & AUTHORIZATION AREA */}
-        <div className="pt-8 border-t border-border print:border-zinc-300 grid grid-cols-2 gap-12 mt-6">
-          <div className="text-center space-y-2">
-            <div className="h-14 border-b border-dashed border-zinc-400 print:border-zinc-600" />
-            <p className="font-bold text-xs text-foreground print:text-black">
-              Customer / Purchaser Signature
-            </p>
-            <p className="text-[10px] text-muted-foreground print:text-zinc-600">
-              I acknowledge receipt of the vehicle and agree to terms
-            </p>
-          </div>
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  height: "28px",
+                  borderBottom: "1px dashed #64748b",
+                  marginBottom: "6px",
+                }}
+              />
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: "11px",
+                  color: "#0f172a",
+                }}
+              >
+                Authorized Dealership Representative
+              </strong>
+              <span style={{ fontSize: "9px", color: "#64748b" }}>
+                {sale.soldBy.name || sale.soldBy.email} • {sale.branch.name}
+              </span>
+            </div>
+          </section>
 
-          <div className="text-center space-y-2">
-            <div className="h-14 border-b border-dashed border-zinc-400 print:border-zinc-600" />
-            <p className="font-bold text-xs text-foreground print:text-black">
-              Authorized Dealership Representative
-            </p>
-            <p className="text-[10px] text-muted-foreground print:text-zinc-600">
-              Issued by: {sale.soldBy.name || sale.soldBy.email} • Official Stamp
-            </p>
-          </div>
+          <footer
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: "14px",
+              paddingTop: "8px",
+              borderTop: "1px solid #e2e8f0",
+              fontSize: "9px",
+              color: "#94a3b8",
+            }}
+          >
+            <span>
+              {sale.organization.businessName} • {sale.branch.name}
+              {sale.branch.location ? ` (${sale.branch.location})` : ""}
+            </span>
+            <span>
+              Generated: {formattedSaleDate} • Invoice ID: {invoiceNumber} • Page 1 of 1
+            </span>
+          </footer>
         </div>
-
-        {/* FOOTER DISCLAIMER */}
-        <div className="mt-10 pt-4 border-t border-border/40 print:border-zinc-200 text-center text-[10px] text-muted-foreground print:text-zinc-500 space-y-1">
-          <p className="font-semibold">
-            Thank you for choosing {sale.organization.businessName} for your Electric Vehicle journey!
-          </p>
-          <p>
-            This document serves as an official commercial tax invoice and receipt of payment. Keep safe for warranty claims and motor traffic vehicle registration.
-          </p>
-          <p className="font-mono text-[9px] pt-1">
-            Generated via Ev Sale Pos • Document ID: {sale.id} • Printed: {formattedPrintDate}
-          </p>
-        </div>
-      </div>
-    </div>
+      </article>
+    </main>
   )
 }

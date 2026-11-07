@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import {
   Printer,
+  Download,
   ArrowLeft,
   Wrench,
   Zap,
@@ -26,6 +27,11 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ServiceType } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
+import {
+  downloadDocumentPdf,
+  printDocumentA4,
+} from "@/lib/download-document-pdf"
+import { toast } from "sonner"
 
 export interface ServiceJobCardData {
   id: string
@@ -77,8 +83,14 @@ interface PrintableJobCardProps {
 }
 
 export function PrintableJobCard({ record }: PrintableJobCardProps) {
+  const documentRef = React.useRef<HTMLDivElement>(null)
+  const [isDownloading, setIsDownloading] = React.useState(false)
+
   const handlePrint = () => {
-    window.print()
+    const documentElement = documentRef.current
+    if (documentElement) {
+      printDocumentA4(documentElement)
+    }
   }
 
   const jobCardNumber = `JOB-${record.id.slice(0, 8).toUpperCase()}`
@@ -103,6 +115,26 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
     hour: "2-digit",
     minute: "2-digit",
   })
+
+  const handleDownloadPdf = async () => {
+    if (!documentRef.current) {
+      toast.error("Unable to find the job card to download.")
+      return
+    }
+
+    setIsDownloading(true)
+    try {
+      await downloadDocumentPdf(
+        documentRef.current,
+        `job-card-${jobCardNumber}`,
+      )
+    } catch (error) {
+      console.error("Failed to download job card PDF.", error)
+      toast.error("Failed to download the job card PDF. Please try again.")
+    } finally {
+      setIsDownloading(false)
+    }
+  }
 
   const renderServiceBadge = (type: ServiceType) => {
     switch (type) {
@@ -163,14 +195,27 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
               <Printer className="size-4" />
               Print Job Card
             </Button>
+            <Button
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              variant="outline"
+              className="gap-2 font-bold h-10 px-5 text-sm"
+            >
+              <Download className="size-4" />
+              {isDownloading ? "Preparing PDF..." : "Download PDF"}
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Main A4 Printable Card Container */}
-      <div className="max-w-4xl mx-auto bg-card text-card-foreground border border-border/80 shadow-xl rounded-2xl p-6 sm:p-12 print:max-w-none print:w-full print:border-none print:shadow-none print:rounded-none print:p-6 print:bg-white print:text-black">
+      <div
+        ref={documentRef}
+        data-pdf-document
+        className="print-document max-w-4xl mx-auto bg-card text-card-foreground border border-border/80 shadow-xl rounded-2xl p-6 sm:p-12 print:max-w-none print:w-full print:border-none print:shadow-none print:rounded-none print:p-6 print:bg-white print:text-black"
+      >
         {/* HEADER SECTION */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-border print:border-zinc-300">
+        <div className="print-header flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-border print:border-zinc-300">
           {/* Dealership Info */}
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -245,9 +290,9 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         </div>
 
         {/* DETAILS SECTION: CUSTOMER & VEHICLE */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-b border-border print:border-zinc-300">
+        <div className="print-section print-details grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-b border-border print:border-zinc-300">
           {/* Customer / Owner Profile */}
-          <div className="p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
+          <div className="print-panel p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
               <User className="size-3.5 text-blue-500" />
               Customer / Vehicle Owner
@@ -282,7 +327,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
           </div>
 
           {/* Vehicle & High-Voltage Battery Profile */}
-          <div className="p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
+          <div className="print-panel p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
               <Bike className="size-3.5 text-emerald-500" />
               Electric Bike Specifications
@@ -318,7 +363,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         </div>
 
         {/* WORK CARRIED OUT & DIAGNOSTICS */}
-        <div className="py-6 border-b border-border print:border-zinc-300 space-y-4">
+        <div className="print-section py-6 border-b border-border print:border-zinc-300 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
               <Wrench className="size-4 text-primary-foreground" />
@@ -327,7 +372,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
             {renderServiceBadge(record.serviceType)}
           </div>
 
-          <div className="p-4 rounded-xl bg-muted/30 print:bg-white print:border print:border-zinc-200">
+          <div className="print-panel p-4 rounded-xl bg-muted/30 print:bg-white print:border print:border-zinc-200">
             <p className="text-xs text-foreground print:text-black leading-relaxed whitespace-pre-wrap font-sans">
               {record.description || "Routine Electric Vehicle multi-point inspection completed according to factory maintenance standards."}
             </p>
@@ -355,10 +400,10 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         </div>
 
         {/* BILLING SUMMARY & NEXT SERVICE DUE */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 py-6 border-b border-border print:border-zinc-300">
+        <div className="print-section print-summary grid grid-cols-1 sm:grid-cols-12 gap-6 py-6 border-b border-border print:border-zinc-300">
           {/* Next Recommended Service Due Callout */}
           <div className="sm:col-span-7">
-            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 print:bg-zinc-50 print:border-zinc-300 space-y-2">
+            <div className="print-panel p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 print:bg-zinc-50 print:border-zinc-300 space-y-2">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 print:text-black flex items-center gap-1.5">
                 <Calendar className="size-4" />
                 Next Recommended Service Interval
@@ -400,7 +445,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         </div>
 
         {/* SIGNATURES & AUTHORIZATION */}
-        <div className="pt-8 grid grid-cols-2 gap-12 mt-4">
+        <div className="print-signatures pt-8 grid grid-cols-2 gap-12 mt-4">
           <div className="text-center space-y-2">
             <div className="h-14 border-b border-dashed border-zinc-400 print:border-zinc-600" />
             <p className="font-bold text-xs text-foreground print:text-black">
@@ -423,7 +468,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         </div>
 
         {/* FOOTER DISCLAIMER */}
-        <div className="mt-10 pt-4 border-t border-border/40 print:border-zinc-200 text-center text-[10px] text-muted-foreground print:text-zinc-500 space-y-1">
+        <div className="print-footer mt-10 pt-4 border-t border-border/40 print:border-zinc-200 text-center text-[10px] text-muted-foreground print:text-zinc-500 space-y-1">
           <p className="font-semibold">
             Thank you for trusting {record.organization.businessName} with your Electric Vehicle care and maintenance!
           </p>
