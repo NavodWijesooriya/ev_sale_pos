@@ -246,6 +246,7 @@ export async function processSale(input: ProcessSaleInput) {
           const newCust = await tx.customer.create({
             data: {
               organizationId,
+              category: "DIRECT",
               name: input.customerName.trim(),
               phone: input.customerPhone.trim(),
               email: input.customerEmail?.trim() || null,

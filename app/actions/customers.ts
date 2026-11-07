@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { CustomerCategory } from "@prisma/client"
 
 /**
  * Enforces session authentication and extracts the user's organizationId
@@ -19,6 +20,7 @@ async function requireAuthOrg() {
 
 export interface CustomerSummaryItem {
   id: string
+  category: CustomerCategory
   name: string
   phone: string
   email?: string | null
@@ -82,6 +84,7 @@ export async function getCustomers() {
 
       return {
         id: c.id,
+        category: c.category,
         name: c.name,
         phone: c.phone,
         email: c.email,
@@ -197,4 +200,3 @@ export async function getCustomerProfile(customerId: string) {
     }
   }
 }
-

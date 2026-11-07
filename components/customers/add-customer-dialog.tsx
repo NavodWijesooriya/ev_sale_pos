@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Plus, UserRoundPlus } from "lucide-react"
+import { CustomerCategory } from "@prisma/client"
 import { createCustomer } from "@/app/actions/customer"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -29,7 +30,9 @@ export function AddCustomerDialog() {
         return
       }
 
-      toast.success(`Customer added with CRN ${result.crn}.`)
+      toast.success(
+        `${result.category === CustomerCategory.DIRECT ? "Direct customer" : "CRM lead/customer"} added with CRN ${result.crn}.`,
+      )
       form.reset()
       setOpen(false)
       router.refresh()
@@ -69,6 +72,22 @@ export function AddCustomerDialog() {
               {errorMessage}
             </p>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="customer-category">Customer category</Label>
+            <select
+              id="customer-category"
+              name="category"
+              defaultValue={CustomerCategory.CRM}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option value={CustomerCategory.CRM}>CRM lead / customer</option>
+              <option value={CustomerCategory.DIRECT}>Direct customer</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Customers created during a POS sale are categorized as direct automatically.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="customer-name">Customer name</Label>

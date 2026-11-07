@@ -40,11 +40,12 @@ import {
   Receipt,
   Building,
 } from "lucide-react"
-import { PaymentMethod, ServiceType, DMTStatus } from "@prisma/client"
+import { CustomerCategory, PaymentMethod, ServiceType, DMTStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 
 export interface CustomerProfileData {
   id: string
+  category: CustomerCategory
   name: string
   phone: string
   email?: string | null
@@ -199,7 +200,9 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                     {customer.name}
                   </h1>
                   <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                    VIP Client
+                    {customer.category === CustomerCategory.DIRECT
+                      ? "Direct Customer"
+                      : "CRM Lead / Customer"}
                   </Badge>
                 </div>
 

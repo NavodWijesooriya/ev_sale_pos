@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
+import { CustomerCategory } from "@prisma/client"
 
 type CreateCustomerResult =
-  | { success: true; crn: string }
+  | { success: true; crn: string; category: CustomerCategory }
   | { success: false; error: string }
 
 export async function createCustomer(formData: FormData): Promise<CreateCustomerResult> {
@@ -20,6 +21,11 @@ export async function createCustomer(formData: FormData): Promise<CreateCustomer
   const name = String(formData.get("name") ?? "").trim()
   const phone = String(formData.get("phone") ?? "").trim()
   const email = String(formData.get("email") ?? "").trim()
+  const requestedCategory = String(formData.get("category") ?? CustomerCategory.CRM)
+  const category =
+    requestedCategory === CustomerCategory.DIRECT
+      ? CustomerCategory.DIRECT
+      : CustomerCategory.CRM
 
   if (!name || !phone) {
     return { success: false, error: "Customer name and phone number are required." }
@@ -34,6 +40,7 @@ export async function createCustomer(formData: FormData): Promise<CreateCustomer
     await prisma.customer.create({
       data: {
         organizationId,
+        category,
         name,
         phone,
         email: email || null,
@@ -42,7 +49,7 @@ export async function createCustomer(formData: FormData): Promise<CreateCustomer
     })
 
     revalidatePath("/dashboard/customers")
-    return { success: true, crn }
+    return { success: true, crn, category }
   } catch (error) {
     console.error("createCustomer error:", error)
     return {

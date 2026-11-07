@@ -40,6 +40,8 @@ import {
 import { CustomerSummaryItem } from "@/app/actions/customers"
 import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
 import { formatLKR } from "@/lib/currency"
+import { CustomerCategory } from "@prisma/client"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface CustomerDirectoryProps {
   customers: CustomerSummaryItem[]
@@ -51,24 +53,35 @@ export function CustomerDirectory({
   dealershipName,
 }: CustomerDirectoryProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [activeCategory, setActiveCategory] = useState("all")
 
-  // Filtered customers
   const filteredCustomers = useMemo(() => {
-    if (!searchQuery.trim()) return customers
     const q = searchQuery.toLowerCase()
 
     return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone.toLowerCase().includes(q) ||
-        (c.nic && c.nic.toLowerCase().includes(q)) ||
-        (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.address && c.address.toLowerCase().includes(q))
-    )
-  }, [customers, searchQuery])
+      (c) => {
+        const matchesCategory =
+          activeCategory === "all" ||
+          (activeCategory === "direct" && c.category === CustomerCategory.DIRECT) ||
+          (activeCategory === "crm" && c.category === CustomerCategory.CRM)
+        const matchesSearch =
+          !q ||
+          c.name.toLowerCase().includes(q) ||
+          c.phone.toLowerCase().includes(q) ||
+          (c.nic && c.nic.toLowerCase().includes(q)) ||
+          (c.email && c.email.toLowerCase().includes(q)) ||
+          (c.address && c.address.toLowerCase().includes(q))
 
-  // KPI Calculations
+        return matchesCategory && matchesSearch
+      },
+    )
+  }, [activeCategory, customers, searchQuery])
+
   const totalCustomers = customers.length
+  const directCustomers = customers.filter(
+    (customer) => customer.category === CustomerCategory.DIRECT,
+  ).length
+  const crmCustomers = customers.length - directCustomers
   const totalVehiclesPurchased = customers.reduce(
     (sum, c) => sum + c.totalPurchases,
     0
@@ -82,6 +95,7 @@ export function CustomerDirectory({
 
     const headers = [
       "Customer ID",
+      "Category",
       "Full Name",
       "Phone Number",
       "NIC / Passport",
@@ -94,6 +108,7 @@ export function CustomerDirectory({
 
     const rows = filteredCustomers.map((c) => [
       `"${c.id}"`,
+      c.category === CustomerCategory.DIRECT ? "Direct Customer" : "CRM Lead / Customer",
       `"${c.name}"`,
       `"${c.phone}"`,
       `"${c.nic || ""}"`,
@@ -131,14 +146,14 @@ export function CustomerDirectory({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Customer Directory & CRM
+              Customer Management
             </h1>
             <Badge variant="outline" className="text-xs font-semibold bg-blue-500/10 text-blue-600 border-blue-500/20">
               Dealership CRM
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage EV buyers, view purchase histories, and track customer relationships for{" "}
+            Manage direct customers and CRM leads, view purchase histories, and track relationships for{" "}
             <span className="font-semibold text-foreground">{dealershipName}</span>.
           </p>
         </div>
@@ -170,7 +185,7 @@ export function CustomerDirectory({
                 {totalCustomers}
               </h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Registered profiles
+                Direct customers and CRM records
               </p>
             </div>
             <div className="size-10 sm:size-12 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -245,13 +260,31 @@ export function CustomerDirectory({
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Users2 className="size-5 text-primary" />
-                Registered EV Buyers & CRM Clients
+                Customers & CRM
               </CardTitle>
               <CardDescription className="text-xs">
-                Search, inspect individual buyer dossiers, and review lifetime value
+                Filter by customer category, inspect profiles, and review activity
               </CardDescription>
             </div>
           </div>
+
+          <Tabs
+            value={activeCategory}
+            onValueChange={setActiveCategory}
+            className="mt-4"
+          >
+            <TabsList className="grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto">
+              <TabsTrigger value="all" className="gap-1.5 px-3 py-2 text-xs">
+                All Customers <span className="text-muted-foreground">({totalCustomers})</span>
+              </TabsTrigger>
+              <TabsTrigger value="direct" className="gap-1.5 px-3 py-2 text-xs">
+                Direct Customers <span className="text-muted-foreground">({directCustomers})</span>
+              </TabsTrigger>
+              <TabsTrigger value="crm" className="gap-1.5 px-3 py-2 text-xs">
+                CRM Leads/Customers <span className="text-muted-foreground">({crmCustomers})</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* Search bar */}
           <div className="relative mt-3">
@@ -271,6 +304,7 @@ export function CustomerDirectory({
               <TableHeader className="bg-muted/40">
                 <TableRow className="border-border/60">
                   <TableHead className="font-semibold text-xs">Customer</TableHead>
+                  <TableHead className="font-semibold text-xs">Category</TableHead>
                   <TableHead className="font-semibold text-xs">Phone Number</TableHead>
                   <TableHead className="font-semibold text-xs">NIC / Passport</TableHead>
                   <TableHead className="font-semibold text-xs">Email Address</TableHead>
@@ -282,7 +316,7 @@ export function CustomerDirectory({
               <TableBody>
                 {filteredCustomers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-1">
                         <Users2 className="size-8 text-muted-foreground/40 mb-1" />
                         <p className="font-semibold text-sm">No customers found</p>
@@ -312,6 +346,23 @@ export function CustomerDirectory({
                             )}
                           </div>
                         </div>
+                      </TableCell>
+
+                      <TableCell className="align-middle py-3.5">
+                        <Badge
+                          variant="outline"
+                          className={
+                            c.category === CustomerCategory.DIRECT
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                              : "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                          }
+                        >
+                          {c.category === CustomerCategory.DIRECT
+                            ? "Direct"
+                            : c.totalPurchases > 0
+                              ? "CRM Customer"
+                              : "CRM Lead"}
+                        </Badge>
                       </TableCell>
 
                       {/* Phone */}
