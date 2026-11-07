@@ -2,29 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import {
-  Printer,
-  Download,
-  ArrowLeft,
-  Wrench,
-  Zap,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
-  FileText,
-  CheckCircle2,
-  ShieldCheck,
-  BatteryCharging,
-  Bike,
-  Clock,
-  Sparkles,
-  User,
-} from "lucide-react"
+import { ArrowLeft, Download, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { ServiceType } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 import {
@@ -40,6 +19,7 @@ export interface ServiceJobCardData {
   serviceType: ServiceType
   description?: string | null
   totalCost: number
+  status?: string
   organization: {
     id: string
     businessName: string
@@ -76,45 +56,114 @@ export interface ServiceJobCardData {
       range?: string | null
     }
   }
+  serviceJob?: {
+    partsCost: number
+    totalCost: number
+    parts: Array<{
+      id: string
+      quantity: number
+      unitPrice: number
+      totalPrice: number
+      sparePart: {
+        id: string
+        name: string
+        sku: string
+      }
+    }>
+  } | null
 }
 
 interface PrintableJobCardProps {
   record: ServiceJobCardData
 }
 
+const colors = {
+  ink: "#0f172a",
+  muted: "#475569",
+  subtle: "#64748b",
+  border: "#dbe4e8",
+  soft: "#f4f8f6",
+  green: "#047857",
+  greenDark: "#065f46",
+  greenPale: "#eaf5ef",
+  white: "#ffffff",
+}
+
+const sectionHeadingStyle: React.CSSProperties = {
+  margin: "0 0 2mm",
+  color: colors.greenDark,
+  fontSize: "8pt",
+  fontWeight: 800,
+  letterSpacing: "0.09em",
+  textTransform: "uppercase",
+}
+
+const detailPanelStyle: React.CSSProperties = {
+  boxSizing: "border-box",
+  width: "50%",
+  minWidth: 0,
+  padding: "3mm",
+  border: `1px solid ${colors.border}`,
+  borderRadius: "2mm",
+  backgroundColor: colors.soft,
+}
+
+const detailRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "2mm",
+  margin: "1.1mm 0 0",
+  color: colors.muted,
+  fontSize: "8pt",
+  lineHeight: 1.3,
+  overflowWrap: "anywhere",
+}
+
+function formatDocumentDate(value: Date | string | null | undefined) {
+  if (!value) return "Not scheduled"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Not scheduled"
+  return date.toLocaleDateString("en-LK", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+}
+
+function formatServiceType(type: ServiceType) {
+  switch (type) {
+    case ServiceType.Free:
+      return "Free Periodic Service"
+    case ServiceType.Warranty:
+      return "Warranty Repair / Claim"
+    case ServiceType.Paid:
+      return "Paid Maintenance"
+    default:
+      return String(type)
+  }
+}
+
 export function PrintableJobCard({ record }: PrintableJobCardProps) {
   const documentRef = React.useRef<HTMLDivElement>(null)
   const [isDownloading, setIsDownloading] = React.useState(false)
 
-  const handlePrint = () => {
-    const documentElement = documentRef.current
-    if (documentElement) {
-      printDocumentA4(documentElement)
-    }
-  }
-
   const jobCardNumber = `JOB-${record.id.slice(0, 8).toUpperCase()}`
-  const formattedServiceDate = new Date(record.serviceDate).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-
-  const formattedDueDate = record.nextServiceDueDate
-    ? new Date(record.nextServiceDueDate).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : null
-
-  const formattedPrintDate = new Date().toLocaleDateString("en-US", {
+  const printDate = new Date().toLocaleString("en-LK", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   })
+  const partsCost = record.serviceJob?.partsCost ?? 0
+  const totalCost = record.serviceJob?.totalCost ?? record.totalCost
+  const laborCost = Math.max(0, totalCost - partsCost)
+  const status = (record.status || "COMPLETED").replaceAll("_", " ")
+  const vehicleModel = `${record.vehicle.vehicleModel.brand} ${record.vehicle.vehicleModel.modelName}`
+
+  const handlePrint = () => {
+    if (documentRef.current) printDocumentA4(documentRef.current)
+  }
 
   const handleDownloadPdf = async () => {
     if (!documentRef.current) {
@@ -124,10 +173,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
 
     setIsDownloading(true)
     try {
-      await downloadDocumentPdf(
-        documentRef.current,
-        `job-card-${jobCardNumber}`,
-      )
+      await downloadDocumentPdf(documentRef.current, `job-card-${jobCardNumber}`)
     } catch (error) {
       console.error("Failed to download job card PDF.", error)
       toast.error("Failed to download the job card PDF. Please try again.")
@@ -136,62 +182,40 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
     }
   }
 
-  const renderServiceBadge = (type: ServiceType) => {
-    switch (type) {
-      case ServiceType.Free:
-        return (
-          <Badge
-            variant="outline"
-            className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold text-xs gap-1 print:border-zinc-400 print:text-black"
-          >
-            <CheckCircle2 className="size-3" />
-            Free Periodic Service
-          </Badge>
-        )
-      case ServiceType.Warranty:
-        return (
-          <Badge
-            variant="outline"
-            className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-bold text-xs gap-1 print:border-zinc-400 print:text-black"
-          >
-            <ShieldCheck className="size-3" />
-            Warranty Repair / Claim
-          </Badge>
-        )
-      case ServiceType.Paid:
-        return (
-          <Badge
-            variant="outline"
-            className="bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 font-bold text-xs gap-1 print:border-zinc-400 print:text-black"
-          >
-            <Wrench className="size-3" />
-            Paid Maintenance Service
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{type}</Badge>
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-muted/30 py-4 sm:py-8 print:p-0 print:m-0 print:bg-white print:min-h-0">
-      {/* Top Action Controls - Hidden when printing */}
-      <div className="max-w-4xl mx-auto px-4 mb-6 print:hidden">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/90 backdrop-blur p-4 rounded-xl border border-border shadow-xs">
+    <main
+      className="service-job-card-page"
+      style={{
+        minHeight: "100vh",
+        padding: "16px",
+        boxSizing: "border-box",
+        backgroundColor: "#eef3f1",
+        color: colors.ink,
+        fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
+      }}
+    >
+      <div className="print:hidden" style={{ maxWidth: "960px", margin: "0 auto 16px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+            padding: "12px 16px",
+            border: `1px solid ${colors.border}`,
+            borderRadius: "10px",
+            backgroundColor: colors.white,
+          }}
+        >
           <Link href="/dashboard/services">
-            <Button variant="ghost" size="sm" className="gap-2 text-xs font-semibold">
+            <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="size-4" />
-              Back to Services Dashboard
+              Back to Services
             </Button>
           </Link>
-
-          <div className="flex items-center gap-3">
-            {renderServiceBadge(record.serviceType)}
-
-            <Button
-              onClick={handlePrint}
-              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md h-10 px-5 text-sm"
-            >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            <Button onClick={handlePrint} className="gap-2">
               <Printer className="size-4" />
               Print Job Card
             </Button>
@@ -199,7 +223,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
               onClick={handleDownloadPdf}
               disabled={isDownloading}
               variant="outline"
-              className="gap-2 font-bold h-10 px-5 text-sm"
+              className="gap-2"
             >
               <Download className="size-4" />
               {isDownloading ? "Preparing PDF..." : "Download PDF"}
@@ -208,278 +232,375 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
         </div>
       </div>
 
-      {/* Main A4 Printable Card Container */}
-      <div
+      <article
         ref={documentRef}
-        data-pdf-document
-        className="print-document max-w-4xl mx-auto bg-card text-card-foreground border border-border/80 shadow-xl rounded-2xl p-6 sm:p-12 print:max-w-none print:w-full print:border-none print:shadow-none print:rounded-none print:p-6 print:bg-white print:text-black"
+        className="service-job-card-sheet"
+        data-pdf-document="job-card"
+        aria-label={`Service job card ${jobCardNumber}`}
+        style={{
+          boxSizing: "border-box",
+          width: "198mm",
+          minHeight: "285mm",
+          margin: "0 auto",
+          padding: "8mm 9mm",
+          display: "flex",
+          flexDirection: "column",
+          gap: "4mm",
+          overflow: "visible",
+          backgroundColor: colors.white,
+          color: colors.ink,
+          fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
+          fontSize: "8pt",
+          lineHeight: 1.3,
+          boxShadow: "0 8px 26px rgba(15, 23, 42, 0.12)",
+        }}
       >
-        {/* HEADER SECTION */}
-        <div className="print-header flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-border print:border-zinc-300">
-          {/* Dealership Info */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              {record.organization.logoUrl ? (
-                <img
-                  src={record.organization.logoUrl}
-                  alt={record.organization.businessName}
-                  className="h-12 w-auto object-contain"
-                />
-              ) : (
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md print:bg-black print:text-white">
-                  <Zap className="h-6 w-6" />
-                </div>
-              )}
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground print:text-black">
-                  {record.organization.businessName}
-                </h1>
-                <p className="text-xs text-muted-foreground print:text-zinc-600 font-medium">
-                  Official Electric Vehicle Service & Workshop Center
-                </p>
-              </div>
+        <header
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "8mm",
+            paddingBottom: "4mm",
+            borderBottom: `2px solid ${colors.green}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "3mm", minWidth: 0 }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: "13mm",
+                height: "13mm",
+                flex: "0 0 13mm",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "2mm",
+                backgroundColor: colors.green,
+                color: colors.white,
+                fontSize: "15pt",
+                fontWeight: 800,
+              }}
+            >
+              {record.organization.businessName.trim().charAt(0).toUpperCase() || "E"}
             </div>
-
-            <div className="text-xs text-muted-foreground print:text-zinc-600 space-y-0.5 pt-1">
-              <p className="flex items-center gap-1.5 font-medium text-foreground print:text-black">
-                <Building2 className="size-3.5 text-muted-foreground print:text-zinc-600 shrink-0" />
+            <div style={{ minWidth: 0 }}>
+              <p
+                style={{
+                  margin: "0 0 1mm",
+                  color: colors.green,
+                  fontSize: "7pt",
+                  fontWeight: 800,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Authorized EV Workshop
+              </p>
+              <h1
+                style={{
+                  margin: 0,
+                  color: colors.ink,
+                  fontSize: "17pt",
+                  fontWeight: 800,
+                  lineHeight: 1.1,
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {record.organization.businessName}
+              </h1>
+              <p style={{ margin: "1mm 0 0", color: colors.muted, fontSize: "8pt" }}>
                 {record.branch.name}
-                {record.branch.location && ` • ${record.branch.location}`}
+                {record.branch.location ? ` · ${record.branch.location}` : ""}
               </p>
-              {(record.organization.phone || record.branch.contactNumber) && (
-                <p className="flex items-center gap-1.5">
-                  <Phone className="size-3.5 text-muted-foreground print:text-zinc-600 shrink-0" />
-                  {record.organization.phone || record.branch.contactNumber}
-                </p>
-              )}
-              {record.organization.domain && (
-                <p className="text-[11px] font-mono">
-                  {record.organization.domain}
+              {(record.organization.phone || record.branch.contactNumber || record.organization.domain) && (
+                <p style={{ margin: "1mm 0 0", color: colors.subtle, fontSize: "7.5pt" }}>
+                  {[record.organization.phone || record.branch.contactNumber, record.organization.domain]
+                    .filter(Boolean)
+                    .join("  ·  ")}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Job Card Meta */}
-          <div className="text-left sm:text-right space-y-1.5">
-            <div className="inline-block bg-primary/10 text-primary px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider print:bg-zinc-100 print:text-black print:border print:border-zinc-300">
+          <div style={{ flex: "0 0 auto", textAlign: "right" }}>
+            <p
+              style={{
+                display: "inline-block",
+                margin: 0,
+                padding: "1.5mm 2.5mm",
+                borderRadius: "1mm",
+                backgroundColor: colors.greenPale,
+                color: colors.greenDark,
+                fontSize: "7pt",
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
               Service Job Card
-            </div>
-            <h2 className="text-xl font-black text-foreground print:text-black font-mono mt-1">
+            </p>
+            <p
+              style={{
+                margin: "2mm 0 1mm",
+                color: colors.ink,
+                fontFamily: 'Consolas, "Courier New", monospace',
+                fontSize: "13pt",
+                fontWeight: 800,
+              }}
+            >
               {jobCardNumber}
-            </h2>
-            <div className="text-xs text-muted-foreground print:text-zinc-600 space-y-0.5">
-              <p>
-                <span className="font-semibold text-foreground print:text-black">Date of Service:</span>{" "}
-                {formattedServiceDate}
+            </p>
+            <p style={{ margin: "0.7mm 0", color: colors.muted }}>
+              <strong style={{ color: colors.ink }}>Date:</strong>{" "}
+              {formatDocumentDate(record.serviceDate)}
+            </p>
+            <p style={{ margin: "0.7mm 0", color: colors.muted }}>
+              <strong style={{ color: colors.ink }}>Status:</strong>{" "}
+              <span style={{ color: colors.greenDark, fontWeight: 800 }}>{status}</span>
+            </p>
+            <p style={{ margin: "0.7mm 0", color: colors.muted }}>
+              <strong style={{ color: colors.ink }}>Service:</strong>{" "}
+              {formatServiceType(record.serviceType)}
+            </p>
+          </div>
+        </header>
+
+        <section aria-label="Customer and vehicle details">
+          <div style={{ display: "flex", gap: "3mm" }}>
+            <div style={detailPanelStyle}>
+              <h2 style={sectionHeadingStyle}>Customer Details</h2>
+              <p style={{ margin: 0, color: colors.ink, fontSize: "11pt", fontWeight: 800 }}>
+                {record.customer.name}
               </p>
-              <p>
-                <span className="font-semibold text-foreground print:text-black">Service Category:</span>{" "}
-                <span className="font-bold text-foreground print:text-black uppercase">
-                  {record.serviceType}
-                </span>
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 18mm" }}>Phone</strong>
+                <span>{record.customer.phone || "—"}</span>
               </p>
-              <p>
-                <span className="font-semibold text-foreground print:text-black">Status:</span>{" "}
-                <span className="font-bold text-emerald-600 print:text-black">
-                  Completed & Verified
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 18mm" }}>NIC</strong>
+                <span>{record.customer.nic || "—"}</span>
+              </p>
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 18mm" }}>Address</strong>
+                <span>{record.customer.address || "—"}</span>
+              </p>
+            </div>
+            <div style={detailPanelStyle}>
+              <h2 style={sectionHeadingStyle}>Vehicle Details</h2>
+              <p style={{ margin: 0, color: colors.ink, fontSize: "11pt", fontWeight: 800 }}>
+                {vehicleModel}
+              </p>
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 24mm" }}>Chassis / VIN</strong>
+                <span style={{ overflowWrap: "anywhere" }}>{record.vehicle.chassisNumber}</span>
+              </p>
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 24mm" }}>Motor No.</strong>
+                <span>{record.vehicle.motorNumber || "—"}</span>
+              </p>
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 24mm" }}>Battery S/N</strong>
+                <span>{record.vehicle.batterySerialNumber || "—"}</span>
+              </p>
+              <p style={detailRowStyle}>
+                <strong style={{ color: colors.ink, flex: "0 0 24mm" }}>Color / Warranty</strong>
+                <span>
+                  {[record.vehicle.color, record.vehicle.warrantyPeriod || "Not specified"]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* DETAILS SECTION: CUSTOMER & VEHICLE */}
-        <div className="print-section print-details grid grid-cols-1 sm:grid-cols-2 gap-6 py-6 border-b border-border print:border-zinc-300">
-          {/* Customer / Owner Profile */}
-          <div className="print-panel p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
-              <User className="size-3.5 text-blue-500" />
-              Customer / Vehicle Owner
+        <section aria-label="Work and inspection summary">
+          <h2 style={sectionHeadingStyle}>Work Carried Out & Inspection Summary</h2>
+          <div
+            style={{
+              minHeight: "16mm",
+              padding: "3mm",
+              border: `1px solid ${colors.border}`,
+              borderRadius: "2mm",
+              color: colors.ink,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              lineHeight: 1.4,
+            }}
+          >
+            {record.description?.trim() || "No work description recorded."}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "2mm 4mm",
+              marginTop: "2.5mm",
+              color: colors.muted,
+              fontSize: "7.5pt",
+            }}
+          >
+            {[
+              "Battery health / connections",
+              "Motor & drivetrain",
+              "Brakes & road test",
+              "Lights, controls & safety",
+            ].map((item) => (
+              <span key={item} style={{ display: "inline-flex", alignItems: "center", gap: "1.5mm" }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    boxSizing: "border-box",
+                    width: "3mm",
+                    height: "3mm",
+                    border: `1px solid ${colors.subtle}`,
+                    borderRadius: "0.5mm",
+                  }}
+                />
+                {item}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section aria-label="Spare parts used">
+          <h2 style={sectionHeadingStyle}>Spare Parts Used</h2>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
+              color: colors.ink,
+              fontSize: "7.5pt",
+            }}
+          >
+            <thead>
+              <tr style={{ backgroundColor: colors.greenPale, color: colors.greenDark }}>
+                <th style={{ width: "33%", padding: "2mm", textAlign: "left", borderBottom: `1px solid ${colors.border}` }}>Part Name</th>
+                <th style={{ width: "20%", padding: "2mm", textAlign: "left", borderBottom: `1px solid ${colors.border}` }}>SKU</th>
+                <th style={{ width: "9%", padding: "2mm", textAlign: "right", borderBottom: `1px solid ${colors.border}` }}>Qty</th>
+                <th style={{ width: "19%", padding: "2mm", textAlign: "right", borderBottom: `1px solid ${colors.border}` }}>Unit Price</th>
+                <th style={{ width: "19%", padding: "2mm", textAlign: "right", borderBottom: `1px solid ${colors.border}` }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {record.serviceJob?.parts.length ? (
+                record.serviceJob.parts.map((part) => (
+                  <tr key={part.id}>
+                    <td style={{ padding: "1.7mm 2mm", borderBottom: `1px solid ${colors.border}`, overflowWrap: "anywhere" }}>{part.sparePart.name}</td>
+                    <td style={{ padding: "1.7mm 2mm", borderBottom: `1px solid ${colors.border}`, fontFamily: 'Consolas, "Courier New", monospace', overflowWrap: "anywhere" }}>{part.sparePart.sku}</td>
+                    <td style={{ padding: "1.7mm 2mm", borderBottom: `1px solid ${colors.border}`, textAlign: "right" }}>{part.quantity}</td>
+                    <td style={{ padding: "1.7mm 2mm", borderBottom: `1px solid ${colors.border}`, textAlign: "right", whiteSpace: "nowrap" }}>{formatLKR(part.unitPrice)}</td>
+                    <td style={{ padding: "1.7mm 2mm", borderBottom: `1px solid ${colors.border}`, textAlign: "right", whiteSpace: "nowrap", fontWeight: 700 }}>{formatLKR(part.totalPrice)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} style={{ padding: "2mm", borderBottom: `1px solid ${colors.border}`, color: colors.subtle, textAlign: "center" }}>
+                    No spare parts recorded for this service.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <section aria-label="Service charges and next service date">
+          <div style={{ display: "flex", alignItems: "stretch", gap: "4mm" }}>
+            <div
+              style={{
+                boxSizing: "border-box",
+                width: "50%",
+                padding: "3mm",
+                border: `1px solid ${colors.border}`,
+                borderRadius: "2mm",
+                backgroundColor: colors.soft,
+              }}
+            >
+              <h2 style={sectionHeadingStyle}>Next Recommended Service</h2>
+              <p style={{ margin: 0, color: colors.ink, fontSize: "11pt", fontWeight: 800 }}>
+                {formatDocumentDate(record.nextServiceDueDate)}
+              </p>
+              <p style={{ margin: "1.5mm 0 0", color: colors.subtle, fontSize: "7pt" }}>
+                Please follow the vehicle manufacturer’s maintenance schedule.
+              </p>
+            </div>
+            <div
+              style={{
+                boxSizing: "border-box",
+                width: "50%",
+                padding: "3mm",
+                border: `1px solid ${colors.border}`,
+                borderRadius: "2mm",
+              }}
+            >
+              <h2 style={sectionHeadingStyle}>Financial Summary</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "3mm", margin: "1mm 0", color: colors.muted }}>
+                <span>Labor & diagnostics</span>
+                <strong style={{ color: colors.ink }}>{laborCost === 0 ? "Complimentary" : formatLKR(laborCost)}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "3mm", margin: "1mm 0", color: colors.muted }}>
+                <span>Spare parts</span>
+                <strong style={{ color: colors.ink }}>{formatLKR(partsCost)}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "3mm", margin: "1mm 0", color: colors.muted }}>
+                <span>Total Paid Amount</span>
+                <strong style={{ color: colors.ink }}>Not recorded</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "3mm", marginTop: "2mm", paddingTop: "2mm", borderTop: `1px solid ${colors.border}` }}>
+                <strong style={{ color: colors.greenDark, fontSize: "9pt" }}>Total Service Amount</strong>
+                <strong style={{ color: colors.greenDark, fontSize: "13pt" }}>{formatLKR(totalCost)}</strong>
+              </div>
+              <p style={{ margin: "1mm 0 0", color: colors.subtle, fontSize: "6.5pt", textAlign: "right" }}>
+                Payment received is not recorded on this service record.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <footer style={{ marginTop: "auto" }}>
+          <div style={{ display: "flex", gap: "12mm", paddingTop: "5mm" }}>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ height: "11mm", borderBottom: `1px solid ${colors.subtle}` }} />
+              <p style={{ margin: "1.5mm 0 0", color: colors.ink, fontSize: "7.5pt", fontWeight: 700 }}>
+                Customer Acknowledgement
+              </p>
+              <p style={{ margin: "1mm 0 0", color: colors.subtle, fontSize: "6.5pt" }}>
+                I acknowledge receipt of the vehicle and the work described above.
+              </p>
+            </div>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ height: "11mm", borderBottom: `1px solid ${colors.subtle}` }} />
+              <p style={{ margin: "1.5mm 0 0", color: colors.ink, fontSize: "7.5pt", fontWeight: 700 }}>
+                Technician / Authorized Signature
+              </p>
+              <p style={{ margin: "1mm 0 0", color: colors.subtle, fontSize: "6.5pt" }}>
+                {record.branch.name}
+              </p>
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "4mm",
+              marginTop: "4mm",
+              paddingTop: "2mm",
+              borderTop: `1px solid ${colors.border}`,
+              color: colors.subtle,
+              fontSize: "6.5pt",
+            }}
+          >
+            <span>
+              Retain this document for your vehicle’s service and warranty records.
             </span>
-            <h3 className="font-bold text-base text-foreground print:text-black">
-              {record.customer.name}
-            </h3>
-            <div className="text-xs text-muted-foreground print:text-zinc-700 space-y-1">
-              <p className="font-mono flex items-center gap-1.5">
-                <Phone className="size-3 shrink-0" />
-                {record.customer.phone}
-              </p>
-              {record.customer.nic && (
-                <p className="font-mono flex items-center gap-1.5">
-                  <FileText className="size-3 shrink-0" />
-                  NIC: <span className="font-semibold text-foreground print:text-black">{record.customer.nic}</span>
-                </p>
-              )}
-              {record.customer.email && (
-                <p className="flex items-center gap-1.5">
-                  <Mail className="size-3 shrink-0" />
-                  {record.customer.email}
-                </p>
-              )}
-              {record.customer.address && (
-                <p className="flex items-center gap-1.5 pt-0.5">
-                  <MapPin className="size-3 shrink-0" />
-                  {record.customer.address}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Vehicle & High-Voltage Battery Profile */}
-          <div className="print-panel p-4 rounded-xl bg-muted/40 print:bg-zinc-50 print:border print:border-zinc-200 space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
-              <Bike className="size-3.5 text-emerald-500" />
-              Electric Bike Specifications
+            <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+              Generated {printDate} · {record.id}
             </span>
-            <h3 className="font-bold text-base text-foreground print:text-black">
-              {record.vehicle.vehicleModel.brand} {record.vehicle.vehicleModel.modelName}
-            </h3>
-            <div className="text-xs text-muted-foreground print:text-zinc-700 space-y-1">
-              <p className="font-mono">
-                Chassis (VIN):{" "}
-                <span className="font-bold text-foreground print:text-black">
-                  {record.vehicle.chassisNumber}
-                </span>
-              </p>
-              {record.vehicle.motorNumber && (
-                <p className="font-mono">
-                  Electric Motor No: {record.vehicle.motorNumber}
-                </p>
-              )}
-              {record.vehicle.batterySerialNumber && (
-                <p className="font-mono text-emerald-600 print:text-black font-semibold">
-                  Battery Pack S/N: {record.vehicle.batterySerialNumber}
-                </p>
-              )}
-              <p>
-                Warranty Period:{" "}
-                <strong className="text-foreground print:text-black">
-                  {record.vehicle.warrantyPeriod || "3 Years / 100,000 km"}
-                </strong>
-              </p>
-            </div>
           </div>
-        </div>
-
-        {/* WORK CARRIED OUT & DIAGNOSTICS */}
-        <div className="print-section py-6 border-b border-border print:border-zinc-300 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground print:text-zinc-600 flex items-center gap-1.5">
-              <Wrench className="size-4 text-primary-foreground" />
-              Work Carried Out & Technical Inspection Summary
-            </h3>
-            {renderServiceBadge(record.serviceType)}
-          </div>
-
-          <div className="print-panel p-4 rounded-xl bg-muted/30 print:bg-white print:border print:border-zinc-200">
-            <p className="text-xs text-foreground print:text-black leading-relaxed whitespace-pre-wrap font-sans">
-              {record.description || "Routine Electric Vehicle multi-point inspection completed according to factory maintenance standards."}
-            </p>
-          </div>
-
-          {/* Standard EV Multi-Point Inspection Table Checklist */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/20 border print:border-zinc-200">
-              <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
-              <span>High-Voltage Battery SOH</span>
-            </div>
-            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/20 border print:border-zinc-200">
-              <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
-              <span>Drive Motor Coolant Level</span>
-            </div>
-            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/20 border print:border-zinc-200">
-              <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
-              <span>Regenerative Braking Test</span>
-            </div>
-            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-muted/20 border print:border-zinc-200">
-              <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
-              <span>Firmware & Safety Diagnostics</span>
-            </div>
-          </div>
-        </div>
-
-        {/* BILLING SUMMARY & NEXT SERVICE DUE */}
-        <div className="print-section print-summary grid grid-cols-1 sm:grid-cols-12 gap-6 py-6 border-b border-border print:border-zinc-300">
-          {/* Next Recommended Service Due Callout */}
-          <div className="sm:col-span-7">
-            <div className="print-panel p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 print:bg-zinc-50 print:border-zinc-300 space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 print:text-black flex items-center gap-1.5">
-                <Calendar className="size-4" />
-                Next Recommended Service Interval
-              </span>
-              <p className="text-sm font-black text-foreground print:text-black">
-                {formattedDueDate || "In 6 Months or 10,000 km (Whichever Occurs First)"}
-              </p>
-              <p className="text-[11px] text-muted-foreground print:text-zinc-600">
-                To maintain your manufacturer EV battery warranty validity, ensure regular periodic servicing at any authorized {record.organization.businessName} workshop.
-              </p>
-            </div>
-          </div>
-
-          {/* Cost Breakdown */}
-          <div className="sm:col-span-5 space-y-2 text-xs">
-            <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Labor & Diagnostic Charge</span>
-              <span className="font-semibold text-foreground print:text-black">
-                {record.totalCost === 0 ? "Complimentary" : formatLKR(record.totalCost)}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-1 text-muted-foreground print:text-zinc-600">
-              <span>Warranty / Free Program Concession</span>
-              <span className="font-semibold text-emerald-600 print:text-black">
-                {record.totalCost === 0 ? "- 100% Covered" : formatLKR(0)}
-              </span>
-            </div>
-
-            <Separator className="my-2" />
-
-            <div className="flex justify-between items-baseline pt-1">
-              <span className="text-sm font-bold text-foreground print:text-black">Total Paid Amount</span>
-              <span className="text-2xl font-black text-emerald-600 print:text-black">
-                {formatLKR(record.totalCost)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* SIGNATURES & AUTHORIZATION */}
-        <div className="print-signatures pt-8 grid grid-cols-2 gap-12 mt-4">
-          <div className="text-center space-y-2">
-            <div className="h-14 border-b border-dashed border-zinc-400 print:border-zinc-600" />
-            <p className="font-bold text-xs text-foreground print:text-black">
-              Customer / Vehicle Recipient Signature
-            </p>
-            <p className="text-[10px] text-muted-foreground print:text-zinc-600">
-              I acknowledge completion and satisfaction of the service work described
-            </p>
-          </div>
-
-          <div className="text-center space-y-2">
-            <div className="h-14 border-b border-dashed border-zinc-400 print:border-zinc-600" />
-            <p className="font-bold text-xs text-foreground print:text-black">
-              Workshop Supervisor / Certified EV Technician
-            </p>
-            <p className="text-[10px] text-muted-foreground print:text-zinc-600">
-              {record.branch.name} • Official Workshop Seal
-            </p>
-          </div>
-        </div>
-
-        {/* FOOTER DISCLAIMER */}
-        <div className="print-footer mt-10 pt-4 border-t border-border/40 print:border-zinc-200 text-center text-[10px] text-muted-foreground print:text-zinc-500 space-y-1">
-          <p className="font-semibold">
-            Thank you for trusting {record.organization.businessName} with your Electric Vehicle care and maintenance!
-          </p>
-          <p>
-            This official job card serves as verification of work performed and battery health inspection. Please retain for vehicle service history and warranty records.
-          </p>
-          <p className="font-mono text-[9px] pt-1">
-            Generated via Ev Sale Pos • Document ID: {record.id} • Printed: {formattedPrintDate}
-          </p>
-        </div>
-      </div>
-    </div>
+        </footer>
+      </article>
+    </main>
   )
 }

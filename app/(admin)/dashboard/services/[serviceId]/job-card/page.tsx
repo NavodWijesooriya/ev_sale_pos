@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation"
+import { UserRole } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PrintableJobCard } from "@/components/services/printable-job-card"
+import type { ServiceJobCardData } from "@/components/services/printable-job-card"
 
 export const instant = false
 
@@ -22,6 +24,28 @@ export default async function ServiceJobCardPage({ params }: ServiceJobCardPageP
   if (!session?.user?.organizationId) {
     redirect("/login?callbackUrl=/dashboard/services")
   }
+  if (
+    session.user.role !== UserRole.OrgAdmin &&
+    session.user.role !== UserRole.Technician
+  ) {
+    redirect("/dashboard")
+  }
+  const authUser = await prisma.user.findFirst({
+    where: {
+      id: session.user.id,
+      organizationId: session.user.organizationId,
+      isActive: true,
+    },
+    select: { role: true, branchId: true },
+  })
+  if (
+    !authUser ||
+    (authUser.role !== UserRole.OrgAdmin &&
+      authUser.role !== UserRole.Technician) ||
+    (authUser.role === UserRole.Technician && !authUser.branchId)
+  ) {
+    redirect("/dashboard")
+  }
 
   const { serviceId } = await params
 
@@ -34,6 +58,9 @@ export default async function ServiceJobCardPage({ params }: ServiceJobCardPageP
     where: {
       id: serviceId,
       organizationId: session.user.organizationId,
+      ...(authUser.role === UserRole.Technician
+        ? { branchId: authUser.branchId! }
+        : {}),
     },
     include: {
       organization: {
@@ -76,6 +103,18 @@ export default async function ServiceJobCardPage({ params }: ServiceJobCardPageP
           },
         },
       },
+      serviceJob: {
+        include: {
+          parts: {
+            include: {
+              sparePart: {
+                select: { id: true, name: true, sku: true },
+              },
+            },
+            orderBy: { sparePart: { name: "asc" } },
+          },
+        },
+      },
     },
   })
 
@@ -84,5 +123,5 @@ export default async function ServiceJobCardPage({ params }: ServiceJobCardPageP
     notFound()
   }
 
-  return <PrintableJobCard record={record as any} />
+  return <PrintableJobCard record={record as ServiceJobCardData} />
 }

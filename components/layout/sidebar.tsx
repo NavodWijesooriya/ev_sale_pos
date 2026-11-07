@@ -40,7 +40,8 @@ export const navigationItems: NavItem[] = [
   { title: "EV Inventory", href: "/dashboard/inventory", icon: Bike, badge: "Stock", roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"] },
   { title: "Sales & POS", href: "/dashboard/sales", icon: Coins, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
   { title: "Customers", href: "/dashboard/customers", icon: Users2, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
-  { title: "Services", href: "/dashboard/services", icon: Wrench, roles: ["OrgAdmin", "BranchManager", "Technician", "SalesRep", "SuperAdmin"] },
+  { title: "Services", href: "/dashboard/services", icon: Wrench, roles: ["OrgAdmin", "Technician"] },
+  { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts", icon: Boxes, roles: ["OrgAdmin"] },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
   { title: "Team & Access", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
@@ -150,7 +151,9 @@ export function SidebarContent({
               const Icon = item.icon
               const isActive = item.href === "/dashboard"
                 ? pathname === "/dashboard"
-                : Boolean(pathname?.startsWith(item.href))
+                : item.href === "/dashboard/services"
+                  ? Boolean(pathname?.startsWith(item.href) && !pathname.startsWith("/dashboard/services/spare-parts"))
+                  : Boolean(pathname?.startsWith(item.href))
 
               return (
                 <Link

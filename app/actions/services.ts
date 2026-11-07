@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
-import { ServiceType, VehicleStatus } from "@prisma/client"
+import { ServiceType, UserRole, VehicleStatus } from "@prisma/client"
 
 /**
  * Enforces session authentication and extracts the user's organizationId and userId
@@ -20,6 +20,28 @@ async function requireAuthOrg() {
   }
 }
 
+async function requireServiceAccess() {
+  const auth = await requireAuthOrg()
+  const user = await prisma.user.findFirst({
+    where: {
+      id: auth.userId,
+      organizationId: auth.organizationId,
+      isActive: true,
+    },
+    select: { role: true, branchId: true },
+  })
+  if (!user || (user.role !== UserRole.OrgAdmin && user.role !== UserRole.Technician)) {
+    throw new Error("Forbidden. Service job cards are available to service staff and organization admins only.")
+  }
+  if (user.role === UserRole.Technician && !user.branchId) {
+    throw new Error("Forbidden. A workshop branch must be assigned to your technician account.")
+  }
+  return {
+    organizationId: auth.organizationId,
+    user: { id: auth.userId, role: user.role, branchId: user.branchId },
+  }
+}
+
 export interface CreateServiceRecordInput {
   vehicleId: string
   customerId: string
@@ -28,6 +50,7 @@ export interface CreateServiceRecordInput {
   description: string
   totalCost: number
   nextServiceDueDate?: string | Date | null
+  parts?: Array<{ sparePartId: string; quantity: number }>
 }
 
 /**
@@ -35,14 +58,18 @@ export interface CreateServiceRecordInput {
  */
 export async function getServiceInitialData() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireServiceAccess()
 
-    const [soldVehicles, branches, customers] = await Promise.all([
+    const branchScope =
+      user.role === UserRole.Technician ? { branchId: user.branchId! } : {}
+
+    const [soldVehicles, branches, customers, spareParts] = await Promise.all([
       // Sold vehicles only
       prisma.vehicle.findMany({
         where: {
           organizationId,
           status: VehicleStatus.Sold,
+          ...branchScope,
         },
         include: {
           vehicleModel: true,
@@ -65,7 +92,7 @@ export async function getServiceInitialData() {
 
       // Branches
       prisma.branch.findMany({
-        where: { organizationId },
+        where: { organizationId, ...branchScope },
         orderBy: { name: "asc" },
       }),
 
@@ -75,6 +102,12 @@ export async function getServiceInitialData() {
         orderBy: { name: "asc" },
         take: 100,
       }),
+
+      prisma.sparePart.findMany({
+        where: { organizationId, stockQuantity: { gt: 0 } },
+        select: { id: true, name: true, sku: true, price: true, stockQuantity: true },
+        orderBy: { name: "asc" },
+      }),
     ])
 
     return {
@@ -83,6 +116,7 @@ export async function getServiceInitialData() {
         vehicles: soldVehicles,
         branches,
         customers,
+        spareParts,
       },
     }
   } catch (error) {
@@ -90,7 +124,7 @@ export async function getServiceInitialData() {
     return {
       success: false,
       error: (error as Error).message,
-      data: { vehicles: [], branches: [], customers: [] },
+      data: { vehicles: [], branches: [], customers: [], spareParts: [] },
     }
   }
 }
@@ -100,10 +134,15 @@ export async function getServiceInitialData() {
  */
 export async function getServiceRecords() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireServiceAccess()
 
     const records = await prisma.serviceRecord.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        ...(user.role === UserRole.Technician
+          ? { branchId: user.branchId! }
+          : {}),
+      },
       orderBy: { serviceDate: "desc" },
       include: {
         customer: true,
@@ -133,9 +172,9 @@ export async function getServiceRecords() {
 /**
  * Creates a new service/repair record connecting organization, branch, vehicle, and customer
  */
-export async function createServiceRecord(input: CreateServiceRecordInput) {
+export async function completeServiceJob(input: CreateServiceRecordInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireServiceAccess()
 
     // 1. Validation
     if (!input.vehicleId?.trim()) {
@@ -154,62 +193,146 @@ export async function createServiceRecord(input: CreateServiceRecordInput) {
       throw new Error("Please enter service details / work description.")
     }
 
-    // 2. Multi-tenant checks
-    const vehicle = await prisma.vehicle.findFirst({
-      where: { id: input.vehicleId, organizationId },
-      include: { vehicleModel: true },
-    })
-
-    if (!vehicle) {
-      throw new Error("Vehicle not found in your dealership records.")
+    const laborCost = Number(input.totalCost)
+    if (!Number.isFinite(laborCost) || laborCost < 0) {
+      throw new Error("Service labor cost must be zero or greater.")
     }
-
-    const customer = await prisma.customer.findFirst({
-      where: { id: input.customerId, organizationId },
-    })
-
-    if (!customer) {
-      throw new Error("Customer not found in your dealership records.")
-    }
-
-    const branch = await prisma.branch.findFirst({
-      where: { id: input.branchId, organizationId },
-    })
-
-    if (!branch) {
-      throw new Error("Branch workshop not found.")
-    }
-
-    // For Free or Warranty, cost is usually 0 unless paid parts are added
-    const cost = input.serviceType === ServiceType.Paid ? Math.max(0, Number(input.totalCost) || 0) : Math.max(0, Number(input.totalCost) || 0)
-
     const nextDueDate = input.nextServiceDueDate ? new Date(input.nextServiceDueDate) : null
+    if (nextDueDate && Number.isNaN(nextDueDate.getTime())) {
+      throw new Error("Enter a valid next service due date.")
+    }
 
-    // 3. Create ServiceRecord
-    const record = await prisma.serviceRecord.create({
-      data: {
-        organizationId,
-        branchId: input.branchId,
-        vehicleId: input.vehicleId,
-        customerId: input.customerId,
-        serviceType: input.serviceType,
-        description: input.description.trim(),
-        totalCost: cost,
-        nextServiceDueDate: nextDueDate,
-        serviceDate: new Date(),
-      },
+    const selectedParts = new Map<string, number>()
+    for (const part of input.parts ?? []) {
+      if (!part.sparePartId?.trim() || !Number.isInteger(part.quantity) || part.quantity <= 0) {
+        throw new Error("Each spare part must have a valid ID and positive whole-number quantity.")
+      }
+      selectedParts.set(
+        part.sparePartId,
+        (selectedParts.get(part.sparePartId) ?? 0) + part.quantity,
+      )
+    }
+
+    const record = await prisma.$transaction(async (tx) => {
+      const [vehicle, customer, branch] = await Promise.all([
+        tx.vehicle.findFirst({
+          where: { id: input.vehicleId, organizationId },
+          include: {
+            vehicleModel: true,
+            saleItems: {
+              include: { sale: { select: { customerId: true } } },
+              take: 1,
+            },
+          },
+        }),
+        tx.customer.findFirst({
+          where: { id: input.customerId, organizationId },
+        }),
+        tx.branch.findFirst({
+          where: { id: input.branchId, organizationId },
+        }),
+      ])
+      if (!vehicle) throw new Error("Vehicle not found in your dealership records.")
+      if (!customer) throw new Error("Customer not found in your dealership records.")
+      if (!branch) throw new Error("Workshop branch not found.")
+      if (vehicle.saleItems[0]?.sale.customerId !== customer.id) {
+        throw new Error("The selected customer is not the registered owner of this vehicle.")
+      }
+      if (
+        user.role === UserRole.Technician &&
+        vehicle.branchId !== user.branchId
+      ) {
+        throw new Error("Technicians can only service vehicles assigned to their workshop branch.")
+      }
+      if (user.role === UserRole.Technician && branch.id !== user.branchId) {
+        throw new Error("Technicians can only complete service jobs at their assigned branch.")
+      }
+
+      const partIds = [...selectedParts.keys()]
+      const spareParts = partIds.length
+        ? await tx.sparePart.findMany({
+            where: { organizationId, id: { in: partIds } },
+            select: { id: true, name: true, price: true, stockQuantity: true },
+            orderBy: { id: "asc" },
+          })
+        : []
+      if (spareParts.length !== partIds.length) {
+        throw new Error("One or more selected spare parts are unavailable.")
+      }
+
+      const partCost = spareParts.reduce((sum, part) => {
+        return sum + part.price * (selectedParts.get(part.id) ?? 0)
+      }, 0)
+      const totalCost = laborCost + partCost
+
+      for (const part of spareParts) {
+        const quantity = selectedParts.get(part.id)!
+        const updated = await tx.sparePart.updateMany({
+          where: {
+            id: part.id,
+            organizationId,
+            stockQuantity: { gte: quantity },
+          },
+          data: { stockQuantity: { decrement: quantity } },
+        })
+        if (updated.count !== 1) {
+          throw new Error(`Insufficient stock for "${part.name}". Refresh inventory and try again.`)
+        }
+      }
+
+      const serviceRecord = await tx.serviceRecord.create({
+        data: {
+          organizationId,
+          branchId: input.branchId,
+          vehicleId: input.vehicleId,
+          customerId: input.customerId,
+          serviceType: input.serviceType,
+          description: input.description.trim(),
+          totalCost,
+          nextServiceDueDate: nextDueDate,
+          serviceDate: new Date(),
+          status: "COMPLETED",
+        },
+      })
+
+      await tx.serviceJob.create({
+        data: {
+          organizationId,
+          serviceRecordId: serviceRecord.id,
+          status: "COMPLETED",
+          partsCost: partCost,
+          totalCost,
+          parts: {
+            create: spareParts.map((part) => {
+              const quantity = selectedParts.get(part.id)!
+              return {
+                sparePartId: part.id,
+                quantity,
+                unitPrice: part.price,
+                totalPrice: part.price * quantity,
+              }
+            }),
+          },
+        },
+      })
+
+      return { ...serviceRecord, vehicleModelName: `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName}`, chassisNumber: vehicle.chassisNumber }
+    }, {
+      maxWait: 5000,
+      timeout: 20000,
     })
 
     revalidatePath("/dashboard/services")
+    revalidatePath("/dashboard/services/spare-parts")
     revalidatePath("/dashboard")
 
     return {
       success: true,
-      message: `Service record logged successfully for ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (VIN: ${vehicle.chassisNumber})!`,
+      message: `Service job completed for ${record.vehicleModelName} (VIN: ${record.chassisNumber}). Spare-part stock and service total were updated.`,
       data: record,
     }
   } catch (error) {
-    console.error("createServiceRecord error:", error)
+    console.error("completeServiceJob error:", error)
     return {
       success: false,
       error: (error as Error).message || "Failed to log service record.",
@@ -217,3 +340,6 @@ export async function createServiceRecord(input: CreateServiceRecordInput) {
   }
 }
 
+export async function createServiceRecord(input: CreateServiceRecordInput) {
+  return completeServiceJob(input)
+}

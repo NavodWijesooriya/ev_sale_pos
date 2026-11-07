@@ -61,6 +61,8 @@ model Organization {
   sales          Sale[]
   serviceRecords ServiceRecord[]
   testRides      TestRide[]
+  spareParts     SparePart[]
+  serviceJobs    ServiceJob[]
   customDomain   String?         @unique
 }
 
@@ -363,6 +365,56 @@ model ServiceRecord {
   totalCost          Float       @default(0)
   status             String      @default("PENDING")
   createdAt          DateTime    @default(now())
+  serviceJob         ServiceJob?
+}
+
+model SparePart {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  sku            String
+  price          Float
+  stockQuantity  Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  serviceParts ServicePart[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, name])
+}
+
+model ServiceJob {
+  id              String        @id @default(uuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceRecordId String        @unique
+  serviceRecord   ServiceRecord @relation(fields: [serviceRecordId], references: [id], onDelete: Cascade)
+  status          String        @default("COMPLETED")
+  partsCost       Float         @default(0)
+  totalCost       Float         @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  parts ServicePart[]
+
+  @@index([organizationId, createdAt])
+}
+
+model ServicePart {
+  id           String     @id @default(uuid())
+  serviceJobId String
+  serviceJob   ServiceJob @relation(fields: [serviceJobId], references: [id], onDelete: Cascade)
+  sparePartId  String
+  sparePart    SparePart  @relation(fields: [sparePartId], references: [id], onDelete: Restrict)
+  quantity     Int
+  unitPrice    Float
+  totalPrice   Float
+  createdAt    DateTime   @default(now())
+
+  @@unique([serviceJobId, sparePartId])
+  @@index([sparePartId])
 }
 
 model Payment {

@@ -22,6 +22,8 @@ import {
   FileText,
   BookmarkCheck,
   ExternalLink,
+  PackagePlus,
+  Trash2,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -44,7 +46,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { createServiceRecord } from "@/app/actions/services"
+import { completeServiceJob } from "@/app/actions/services"
 import { ServiceType } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 
@@ -94,10 +96,19 @@ export interface CustomerOption {
   nic?: string | null
 }
 
+export interface SparePartOption {
+  id: string
+  name: string
+  sku: string
+  price: number
+  stockQuantity: number
+}
+
 interface NewServiceFormProps {
   vehicles: SoldVehicleItem[]
   branches: BranchOption[]
   customers: CustomerOption[]
+  spareParts: SparePartOption[]
   recentRecords?: Array<{
     id: string
     customerName: string
@@ -114,6 +125,7 @@ export function NewServiceForm({
   vehicles,
   branches,
   customers,
+  spareParts,
   recentRecords = [],
   onSuccess,
 }: NewServiceFormProps) {
@@ -131,11 +143,25 @@ export function NewServiceForm({
   const [description, setDescription] = useState("")
   const [totalCost, setTotalCost] = useState<number | "">("")
   const [nextServiceDueDate, setNextServiceDueDate] = useState("")
+  const [selectedParts, setSelectedParts] = useState<Array<{ sparePartId: string; quantity: number }>>([])
+  const [partToAdd, setPartToAdd] = useState("")
+  const [partQuantity, setPartQuantity] = useState(1)
 
   // Find currently selected vehicle
   const selectedVehicle = useMemo(() => {
     return vehicles.find((v) => v.id === selectedVehicleId) || null
   }, [vehicles, selectedVehicleId])
+
+  const selectedPartDetails = useMemo(
+    () =>
+      selectedParts.flatMap((selected) => {
+        const part = spareParts.find((available) => available.id === selected.sparePartId)
+        return part ? [{ ...selected, part, total: part.price * selected.quantity }] : []
+      }),
+    [selectedParts, spareParts],
+  )
+  const partsTotal = selectedPartDetails.reduce((sum, item) => sum + item.total, 0)
+  const serviceTotal = (typeof totalCost === "number" ? totalCost : 0) + partsTotal
 
   // Resolve associated customer from vehicle's sale record or list
   const linkedCustomer = useMemo(() => {
@@ -197,6 +223,31 @@ export function NewServiceForm({
     setDescription("")
     setTotalCost("")
     setNextServiceDueDate("")
+    setSelectedParts([])
+    setPartToAdd("")
+    setPartQuantity(1)
+  }
+
+  const addSelectedPart = () => {
+    const part = spareParts.find((available) => available.id === partToAdd)
+    if (!part) return
+    const existing = selectedParts.find((selected) => selected.sparePartId === part.id)
+    const requestedQuantity = (existing?.quantity ?? 0) + partQuantity
+    if (requestedQuantity > part.stockQuantity) {
+      toast.error(`Only ${part.stockQuantity} unit(s) of ${part.name} are in stock.`)
+      return
+    }
+    setSelectedParts((current) =>
+      existing
+        ? current.map((selected) =>
+            selected.sparePartId === part.id
+              ? { ...selected, quantity: requestedQuantity }
+              : selected,
+          )
+        : [...current, { sparePartId: part.id, quantity: partQuantity }],
+    )
+    setPartToAdd("")
+    setPartQuantity(1)
   }
 
   // Submit service job
@@ -221,13 +272,14 @@ export function NewServiceForm({
 
     try {
       setIsSubmitting(true)
-      const res = await createServiceRecord({
+      const res = await completeServiceJob({
         vehicleId: selectedVehicle.id,
         customerId,
         branchId: selectedBranchId || selectedVehicle.branchId,
         serviceType,
         description: description.trim(),
         totalCost: typeof totalCost === "number" ? totalCost : 0,
+        parts: selectedParts,
         nextServiceDueDate: nextServiceDueDate ? new Date(nextServiceDueDate) : null,
       })
 
@@ -493,15 +545,86 @@ export function NewServiceForm({
               </div>
 
               {/* Total Cost Input */}
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-bold">
+                    <PackagePlus className="size-4 text-primary" />
+                    Spare parts used
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Select available stock. Quantities are validated and deducted when the job is saved.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_100px_auto]">
+                  <select
+                    value={partToAdd}
+                    onChange={(event) => setPartToAdd(event.target.value)}
+                    className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-xs"
+                    aria-label="Select spare part"
+                  >
+                    <option value="">Select an in-stock part</option>
+                    {spareParts
+                      .filter((part) => part.stockQuantity > 0)
+                      .map((part) => (
+                        <option key={part.id} value={part.id}>
+                          {part.name} · {part.sku} · {formatLKR(part.price)} · {part.stockQuantity} in stock
+                        </option>
+                      ))}
+                  </select>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={partQuantity}
+                    onChange={(event) => setPartQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    aria-label="Spare part quantity"
+                  />
+                  <Button type="button" variant="outline" onClick={addSelectedPart} disabled={!partToAdd}>
+                    Add part
+                  </Button>
+                </div>
+                {selectedPartDetails.length > 0 && (
+                  <div className="divide-y rounded-lg border">
+                    {selectedPartDetails.map(({ sparePartId, quantity, part, total }) => (
+                      <div key={sparePartId} className="flex items-center justify-between gap-3 p-2.5 text-xs">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{part.name} <span className="font-normal text-muted-foreground">({part.sku})</span></p>
+                          <p className="text-muted-foreground">{quantity} × {formatLKR(part.price)} = {formatLKR(total)}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${part.name}`}
+                          onClick={() => setSelectedParts((current) => current.filter((selected) => selected.sparePartId !== sparePartId))}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex justify-between p-2.5 text-xs font-bold">
+                      <span>Parts subtotal</span>
+                      <span>{formatLKR(partsTotal)}</span>
+                    </div>
+                  </div>
+                )}
+                {spareParts.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No spare parts are currently in stock.
+                  </p>
+                )}
+              </div>
+
+              {/* Labor / Service Charge Input */}
               <div className="p-3.5 rounded-xl bg-muted/40 border grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                 <div>
                   <span className="text-xs font-bold text-foreground block">
-                    Service Invoice Amount (LKR)
+                    Service / Labor Charge (LKR)
                   </span>
                   <p className="text-[11px] text-muted-foreground">
                     {serviceType === ServiceType.Free || serviceType === ServiceType.Warranty
-                      ? "Complimentary under warranty / free service program (Rs. 0)"
-                      : "Billable amount charged to customer for parts and labor"}
+                      ? "No labor charge for this service type. Selected parts are still added to the total."
+                      : "Labor or workshop charge before spare parts"}
                   </p>
                 </div>
 
@@ -603,7 +726,7 @@ export function NewServiceForm({
               <div className="flex justify-between items-baseline pt-1">
                 <span className="font-bold text-sm text-foreground">Service Total</span>
                 <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                  {formatLKR(typeof totalCost === "number" ? totalCost : 0)}
+                  {formatLKR(serviceTotal)}
                 </span>
               </div>
             </CardContent>

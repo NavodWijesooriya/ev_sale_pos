@@ -1190,6 +1190,24 @@
 }
 
 @media print {
+  .service-job-card-page {
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .service-job-card-sheet {
+    width: 198mm !important;
+    min-height: 285mm !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
   .invoice-page {
     width: 100%;
     min-height: 0;

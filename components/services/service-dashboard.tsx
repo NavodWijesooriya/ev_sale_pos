@@ -25,6 +25,7 @@ import {
   SoldVehicleItem,
   BranchOption,
   CustomerOption,
+  SparePartOption,
 } from "@/components/services/new-service-form"
 import {
   ServiceHistoryTable,
@@ -37,16 +38,20 @@ interface ServiceDashboardProps {
   initialVehicles: SoldVehicleItem[]
   branches: BranchOption[]
   customers: CustomerOption[]
+  spareParts: SparePartOption[]
   initialRecords: ServiceRecordRow[]
   dealershipName: string
+  canViewHistory: boolean
 }
 
 export function ServiceDashboard({
   initialVehicles,
   branches,
   customers,
+  spareParts,
   initialRecords,
   dealershipName,
+  canViewHistory,
 }: ServiceDashboardProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<string>("new-service")
@@ -123,8 +128,9 @@ export function ServiceDashboard({
         </div>
       </div>
 
-      {/* KPI Cards: Structured White Cards with Subtle Borders */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards: owner/admin dashboard summary */}
+      {canViewHistory && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border border-slate-200/90 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-xs bg-white dark:bg-slate-900">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div>
@@ -201,11 +207,12 @@ export function ServiceDashboard({
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       {/* Main Tabs Navigation (Requirement 3: shadcn Tabs for top-level page navigation) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 max-w-md h-12 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 shadow-xs">
+        <TabsList className={`grid ${canViewHistory ? "grid-cols-2" : "grid-cols-1"} max-w-md h-12 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 shadow-xs`}>
           <TabsTrigger value="new-service" className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs">
             <PlusCircle className="size-4" />
             New Service Job
@@ -213,13 +220,15 @@ export function ServiceDashboard({
               {initialVehicles.length} Sold
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs">
-            <History className="size-4" />
-            Service History
-            <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
-              {totalServices}
-            </Badge>
-          </TabsTrigger>
+          {canViewHistory && (
+            <TabsTrigger value="history" className="gap-2 text-xs font-bold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs">
+              <History className="size-4" />
+              Service History
+              <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
+                {totalServices}
+              </Badge>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Tab 1: New Service Job Form */}
@@ -228,15 +237,18 @@ export function ServiceDashboard({
             vehicles={initialVehicles}
             branches={branches}
             customers={customers}
+            spareParts={spareParts}
             recentRecords={recentRecords}
             onSuccess={handleServiceSuccess}
           />
         </TabsContent>
 
         {/* Tab 2: Service History Table */}
-        <TabsContent value="history" className="m-0 focus-visible:outline-none">
-          <ServiceHistoryTable records={initialRecords} />
-        </TabsContent>
+        {canViewHistory && (
+          <TabsContent value="history" className="m-0 focus-visible:outline-none">
+            <ServiceHistoryTable records={initialRecords} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
