@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { ServiceType, UserRole, VehicleStatus } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
+
+type ServiceRecordWithParts = Prisma.ServiceRecordGetPayload<{
+  include: { serviceJob: { include: { parts: true } } }
+}>
 
 /**
  * Enforces session authentication and extracts the user's organizationId and userId
@@ -51,6 +56,36 @@ export interface CreateServiceRecordInput {
   totalCost: number
   nextServiceDueDate?: string | Date | null
   parts?: Array<{ sparePartId: string; quantity: number }>
+}
+
+async function restoreCompletedServiceResources(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  record: ServiceRecordWithParts,
+) {
+  if (record.serviceType === ServiceType.Free) {
+    const restored = await tx.vehicle.updateMany({
+      where: {
+        id: record.vehicleId,
+        organizationId,
+        freeServicesUsed: { gt: 0 },
+      },
+      data: { freeServicesUsed: { decrement: 1 } },
+    })
+    if (restored.count !== 1) {
+      throw new Error("Unable to restore the vehicle's free-service balance.")
+    }
+  }
+
+  for (const part of record.serviceJob?.parts ?? []) {
+    const restored = await tx.sparePart.updateMany({
+      where: { id: part.sparePartId, organizationId },
+      data: { stockQuantity: { increment: part.quantity } },
+    })
+    if (restored.count !== 1) {
+      throw new Error("Unable to restore spare-part stock for the service job.")
+    }
+  }
 }
 
 /**
@@ -126,6 +161,79 @@ export async function getServiceInitialData() {
       error: (error as Error).message,
       data: { vehicles: [], branches: [], customers: [], spareParts: [] },
     }
+  }
+}
+
+export async function getVehicleFreeServiceStatus(vehicleId: string) {
+  try {
+    const { organizationId, user } = await requireServiceAccess()
+    if (!vehicleId?.trim()) throw new Error("Select a vehicle to check its free-service balance.")
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        organizationId,
+        status: VehicleStatus.Sold,
+        ...(user.role === UserRole.Technician ? { branchId: user.branchId! } : {}),
+      },
+      select: {
+        freeServiceEntitlement: true,
+        freeServicesUsed: true,
+      },
+    })
+    if (!vehicle) throw new Error("Vehicle not found in your dealership records.")
+
+    return {
+      success: true,
+      data: {
+        ...vehicle,
+        remaining: Math.max(0, vehicle.freeServiceEntitlement - vehicle.freeServicesUsed),
+      },
+    }
+  } catch (error) {
+    console.error("getVehicleFreeServiceStatus error:", error)
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function setVehicleFreeServiceEntitlement(
+  vehicleId: string,
+  entitlement: number,
+) {
+  try {
+    const { organizationId, user } = await requireServiceAccess()
+    if (user.role !== UserRole.OrgAdmin) {
+      throw new Error("Only organization admins can update free-service entitlements.")
+    }
+    if (!vehicleId?.trim() || !Number.isInteger(entitlement) || entitlement < 0) {
+      throw new Error("Enter a valid non-negative whole-number entitlement.")
+    }
+
+    const result = await prisma.vehicle.updateMany({
+      where: {
+        id: vehicleId,
+        organizationId,
+        freeServicesUsed: { lte: entitlement },
+      },
+      data: { freeServiceEntitlement: entitlement },
+    })
+    if (result.count !== 1) {
+      const vehicle = await prisma.vehicle.findFirst({
+        where: { id: vehicleId, organizationId },
+        select: { freeServicesUsed: true },
+      })
+      if (!vehicle) throw new Error("Vehicle not found in your dealership records.")
+      throw new Error(
+        `Entitlement cannot be less than the ${vehicle.freeServicesUsed} free service(s) already used.`,
+      )
+    }
+
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/services")
+    return { success: true }
+  } catch (error) {
+    console.error("setVehicleFreeServiceEntitlement error:", error)
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -248,6 +356,20 @@ export async function completeServiceJob(input: CreateServiceRecordInput) {
         throw new Error("Technicians can only complete service jobs at their assigned branch.")
       }
 
+      if (input.serviceType === ServiceType.Free) {
+        const usage = await tx.vehicle.updateMany({
+          where: {
+            id: vehicle.id,
+            organizationId,
+            freeServicesUsed: { lt: vehicle.freeServiceEntitlement },
+          },
+          data: { freeServicesUsed: { increment: 1 } },
+        })
+        if (usage.count !== 1) {
+          throw new Error("No free maintenance services remain for this vehicle.")
+        }
+      }
+
       const partIds = [...selectedParts.keys()]
       const spareParts = partIds.length
         ? await tx.sparePart.findMany({
@@ -337,6 +459,92 @@ export async function completeServiceJob(input: CreateServiceRecordInput) {
       success: false,
       error: (error as Error).message || "Failed to log service record.",
     }
+  }
+}
+
+export async function voidServiceJob(serviceRecordId: string) {
+  try {
+    const { organizationId, user } = await requireServiceAccess()
+    if (user.role !== UserRole.OrgAdmin) {
+      throw new Error("Only organization admins can void completed service jobs.")
+    }
+    if (!serviceRecordId?.trim()) throw new Error("Service job ID is required.")
+
+    await prisma.$transaction(async (tx) => {
+      const record = await tx.serviceRecord.findFirst({
+        where: { id: serviceRecordId, organizationId },
+        include: { serviceJob: { include: { parts: true } } },
+      })
+      if (!record) throw new Error("Service job not found.")
+      if (record.status !== "COMPLETED") {
+        throw new Error("Only completed service jobs can be voided.")
+      }
+
+      const updated = await tx.serviceRecord.updateMany({
+        where: { id: record.id, organizationId, status: "COMPLETED" },
+        data: { status: "VOIDED" },
+      })
+      if (updated.count !== 1) {
+        throw new Error("This service job has already been updated.")
+      }
+
+      await restoreCompletedServiceResources(tx, organizationId, record)
+      if (record.serviceJob) {
+        await tx.serviceJob.update({
+          where: { id: record.serviceJob.id },
+          data: { status: "VOIDED" },
+        })
+      }
+    }, { maxWait: 5000, timeout: 20000 })
+
+    revalidatePath("/dashboard/services")
+    revalidatePath("/dashboard/customers")
+    revalidatePath(`/dashboard/services/${serviceRecordId}/job-card`)
+    return { success: true, message: "Service job voided and its free-service balance restored." }
+  } catch (error) {
+    console.error("voidServiceJob error:", error)
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function deleteServiceJob(serviceRecordId: string) {
+  try {
+    const { organizationId, user } = await requireServiceAccess()
+    if (user.role !== UserRole.OrgAdmin) {
+      throw new Error("Only organization admins can delete service jobs.")
+    }
+    if (!serviceRecordId?.trim()) throw new Error("Service job ID is required.")
+
+    await prisma.$transaction(async (tx) => {
+      const record = await tx.serviceRecord.findFirst({
+        where: { id: serviceRecordId, organizationId },
+        include: { serviceJob: { include: { parts: true } } },
+      })
+      if (!record) throw new Error("Service job not found.")
+      if (record.status === "COMPLETED") {
+        const updated = await tx.serviceRecord.updateMany({
+          where: { id: record.id, organizationId, status: "COMPLETED" },
+          data: { status: "VOIDED" },
+        })
+        if (updated.count !== 1) {
+          throw new Error("This service job has already been updated.")
+        }
+        await restoreCompletedServiceResources(tx, organizationId, record)
+      } else if (record.status !== "VOIDED") {
+        throw new Error("Only completed or voided service jobs can be deleted.")
+      }
+
+      await tx.serviceRecord.delete({
+        where: { id: record.id },
+      })
+    }, { maxWait: 5000, timeout: 20000 })
+
+    revalidatePath("/dashboard/services")
+    revalidatePath("/dashboard/customers")
+    return { success: true, message: "Service job deleted." }
+  } catch (error) {
+    console.error("deleteServiceJob error:", error)
+    return { success: false, error: (error as Error).message }
   }
 }
 

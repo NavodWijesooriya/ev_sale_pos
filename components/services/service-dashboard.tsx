@@ -58,15 +58,15 @@ export function ServiceDashboard({
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // KPI Calculations
-  const totalServices = initialRecords.length
+  const totalServices = initialRecords.filter((r) => r.status === "COMPLETED").length
   const freeServicesCount = initialRecords.filter(
-    (r) => r.serviceType === ServiceType.Free
+    (r) => r.serviceType === ServiceType.Free && r.status === "COMPLETED"
   ).length
   const warrantyClaimsCount = initialRecords.filter(
-    (r) => r.serviceType === ServiceType.Warranty
+    (r) => r.serviceType === ServiceType.Warranty && r.status === "COMPLETED"
   ).length
   const totalServiceRevenue = initialRecords.reduce(
-    (sum, r) => sum + r.totalCost,
+    (sum, r) => sum + (r.status === "COMPLETED" ? r.totalCost : 0),
     0
   )
 

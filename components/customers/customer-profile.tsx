@@ -3,6 +3,8 @@
 import * as React from "react"
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
@@ -21,10 +23,9 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
 import {
   ArrowLeft,
-  User,
   Phone,
   Mail,
   FileText,
@@ -36,12 +37,11 @@ import {
   ShieldCheck,
   FileCheck2,
   Printer,
-  Sparkles,
   Receipt,
-  Building,
 } from "lucide-react"
 import { CustomerCategory, PaymentMethod, ServiceType, DMTStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
+import { setVehicleFreeServiceEntitlement } from "@/app/actions/services"
 
 export interface CustomerProfileData {
   id: string
@@ -78,6 +78,8 @@ export interface CustomerProfileData {
         chassisNumber: string
         motorNumber?: string | null
         color?: string | null
+        freeServiceEntitlement: number
+        freeServicesUsed: number
         vehicleModel: {
           brand: string
           modelName: string
@@ -103,6 +105,7 @@ export interface CustomerProfileData {
     serviceDate: Date | string
     nextServiceDueDate?: Date | string | null
     serviceType: ServiceType
+    status: string
     description?: string | null
     totalCost: number
     branch: {
@@ -114,6 +117,8 @@ export interface CustomerProfileData {
       id: string
       chassisNumber: string
       batterySerialNumber?: string | null
+      freeServiceEntitlement: number
+      freeServicesUsed: number
       vehicleModel: {
         brand: string
         modelName: string
@@ -124,10 +129,47 @@ export interface CustomerProfileData {
 
 interface CustomerProfileProps {
   customer: CustomerProfileData
+  canManageFreeServiceEntitlement: boolean
 }
 
-export function CustomerProfile({ customer }: CustomerProfileProps) {
+export function CustomerProfile({
+  customer,
+  canManageFreeServiceEntitlement,
+}: CustomerProfileProps) {
   const [activeTab, setActiveTab] = useState<string>("purchases")
+  const [entitlementDrafts, setEntitlementDrafts] = useState<Record<string, string>>({})
+  const [savingEntitlementFor, setSavingEntitlementFor] = useState<string | null>(null)
+  const router = useRouter()
+
+  const customerVehicles = Array.from(
+    new Map(
+      customer.sales.flatMap((sale) => sale.items.map((item) => [item.vehicle.id, item.vehicle] as const)),
+    ).values(),
+  )
+
+  const handleSaveEntitlement = async (vehicleId: string, currentEntitlement: number) => {
+    const rawValue = entitlementDrafts[vehicleId] ?? String(currentEntitlement)
+    const value = Number(rawValue)
+    if (!Number.isInteger(value) || value < 0) {
+      toast.error("Enter a non-negative whole-number entitlement.")
+      return
+    }
+
+    setSavingEntitlementFor(vehicleId)
+    try {
+      const result = await setVehicleFreeServiceEntitlement(vehicleId, value)
+      if (!result.success) {
+        toast.error(result.error || "Failed to save the free-service entitlement.")
+        return
+      }
+      toast.success("Free-service entitlement updated.")
+      router.refresh()
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to save the free-service entitlement.")
+    } finally {
+      setSavingEntitlementFor(null)
+    }
+  }
 
   const getInitials = (name: string) => {
     return name
@@ -429,11 +471,152 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
           <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Bike className="size-4 text-emerald-600" />
+                Free-Service Balances by Vehicle
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Only completed free maintenance services use this balance. Paid and warranty jobs do not.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+              {customerVehicles.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No purchased vehicles are linked to this customer.</p>
+              ) : (
+                customerVehicles.map((vehicle) => {
+                  const remaining = Math.max(
+                    0,
+                    vehicle.freeServiceEntitlement - vehicle.freeServicesUsed,
+                  )
+                  const draft = entitlementDrafts[vehicle.id] ?? String(vehicle.freeServiceEntitlement)
+
+                  return (
+                    <div key={vehicle.id} className="rounded-xl border border-border/60 bg-background p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">
+                            {vehicle.vehicleModel.brand} {vehicle.vehicleModel.modelName}
+                          </p>
+                          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                            VIN: {vehicle.chassisNumber}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 border-emerald-500/30 bg-emerald-500/10 font-bold text-emerald-700 dark:text-emerald-400"
+                        >
+                          {remaining} remaining
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {vehicle.freeServicesUsed} used of {vehicle.freeServiceEntitlement} included
+                      </p>
+                      {canManageFreeServiceEntitlement && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <label htmlFor={`free-entitlement-${vehicle.id}`} className="text-xs font-medium">
+                            Total entitlement
+                          </label>
+                          <Input
+                            id={`free-entitlement-${vehicle.id}`}
+                            type="number"
+                            min={vehicle.freeServicesUsed}
+                            step="1"
+                            value={draft}
+                            onChange={(event) =>
+                              setEntitlementDrafts((current) => ({
+                                ...current,
+                                [vehicle.id]: event.target.value,
+                              }))
+                            }
+                            className="h-8 w-20 text-xs"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={savingEntitlementFor === vehicle.id}
+                            onClick={() =>
+                              void handleSaveEntitlement(vehicle.id, vehicle.freeServiceEntitlement)
+                            }
+                            className="h-8 text-xs"
+                          >
+                            {savingEntitlementFor === vehicle.id ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Clock className="size-4 text-primary" />
+                Vehicle Service Timeline
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Chronological history clearly distinguishes paid maintenance, free maintenance, and warranty claims.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              {customer.serviceRecords.length === 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  No service records logged for this customer yet.
+                </p>
+              ) : (
+                <div className="relative space-y-4 border-l border-border ml-2 pl-5">
+                  {customer.serviceRecords.map((record) => (
+                    <div key={record.id} className="relative rounded-lg border border-border/60 bg-background p-3">
+                      <span className="absolute -left-[27px] top-4 size-3 rounded-full border-2 border-background bg-primary" />
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {renderServiceTypeBadge(record.serviceType)}
+                          {record.status !== "COMPLETED" && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {record.status.replaceAll("_", " ")}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {new Date(record.serviceDate).toLocaleDateString("en-LK", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-bold text-foreground">
+                        {record.vehicle.vehicleModel.brand} {record.vehicle.vehicleModel.modelName}
+                      </p>
+                      <p className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
+                        VIN: {record.vehicle.chassisNumber}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {record.description || "No work description recorded."}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="text-muted-foreground">{record.branch.name}</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {formatLKR(record.totalCost)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Wrench className="size-4 text-primary" />
                 After-Sales Maintenance & Warranty Logs
               </CardTitle>
               <CardDescription className="text-xs">
-                History of services performed on this customer's electric bikes
+                History of services performed on this customer&apos;s electric bikes
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -455,7 +638,7 @@ export function CustomerProfile({ customer }: CustomerProfileProps) {
                     {customer.serviceRecords.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="h-28 text-center text-xs text-muted-foreground">
-                          No service records logged for this customer's EV bikes yet.
+                          No service records logged for this customer&apos;s EV bikes yet.
                         </TableCell>
                       </TableRow>
                     ) : (

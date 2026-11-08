@@ -1,7 +1,11 @@
 import { notFound, redirect } from "next/navigation"
+import { UserRole } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
 import { getCustomerProfile } from "@/app/actions/customers"
-import { CustomerProfile } from "@/components/customers/customer-profile"
+import {
+  CustomerProfile,
+  type CustomerProfileData,
+} from "@/components/customers/customer-profile"
 
 export const instant = false
 
@@ -35,5 +39,10 @@ export default async function CustomerDetailPage({ params }: CustomerProfilePage
     notFound()
   }
 
-  return <CustomerProfile customer={res.data as any} />
+  return (
+    <CustomerProfile
+      customer={res.data as CustomerProfileData}
+      canManageFreeServiceEntitlement={session.user.role === UserRole.OrgAdmin}
+    />
+  )
 }

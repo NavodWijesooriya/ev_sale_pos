@@ -3,6 +3,8 @@
 import * as React from "react"
 import { useState, useMemo } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import {
   Table,
   TableBody,
@@ -35,15 +37,19 @@ import {
   Building,
   Printer,
   FileText,
+  Ban,
+  Trash2,
 } from "lucide-react"
 import { ServiceType } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
+import { deleteServiceJob, voidServiceJob } from "@/app/actions/services"
 
 export interface ServiceRecordRow {
   id: string
   serviceDate: Date | string
   nextServiceDueDate?: Date | string | null
   serviceType: ServiceType
+  status: string
   description?: string | null
   totalCost: number
   customer: {
@@ -78,6 +84,44 @@ interface ServiceHistoryTableProps {
 export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("ALL")
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const router = useRouter()
+
+  const handleVoid = async (record: ServiceRecordRow) => {
+    if (!window.confirm("Void this completed job? Free-service usage and parts stock will be restored.")) return
+    setProcessingId(record.id)
+    try {
+      const result = await voidServiceJob(record.id)
+      if (!result.success) {
+        toast.error(result.error || "Failed to void service job.")
+        return
+      }
+      toast.success(result.message || "Service job voided.")
+      router.refresh()
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to void service job.")
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleDelete = async (record: ServiceRecordRow) => {
+    if (!window.confirm("Permanently delete this service job? This cannot be undone.")) return
+    setProcessingId(record.id)
+    try {
+      const result = await deleteServiceJob(record.id)
+      if (!result.success) {
+        toast.error(result.error || "Failed to delete service job.")
+        return
+      }
+      toast.success(result.message || "Service job deleted.")
+      router.refresh()
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to delete service job.")
+    } finally {
+      setProcessingId(null)
+    }
+  }
 
   // Filter records
   const filteredRecords = useMemo(() => {
@@ -371,7 +415,14 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
 
                       {/* Service Type */}
                       <TableCell className="align-top py-3.5">
-                        {renderServiceTypeBadge(r.serviceType)}
+                        <div className="flex flex-col items-start gap-1">
+                          {renderServiceTypeBadge(r.serviceType)}
+                          {r.status !== "COMPLETED" && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {r.status.replaceAll("_", " ")}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
 
                       {/* Description */}
@@ -407,17 +458,43 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
 
                       {/* Action: Print Job Card */}
                       <TableCell className="align-top py-3.5 text-right whitespace-nowrap">
-                        <Link href={`/dashboard/services/${r.id}/job-card`}>
+                        <div className="flex justify-end gap-1">
+                          <Link href={`/dashboard/services/${r.id}/job-card`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
+                              title="Print Customer Service Job Card"
+                            >
+                              <Printer className="size-3.5" />
+                              Job Card
+                            </Button>
+                          </Link>
+                          {r.status === "COMPLETED" && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="size-8"
+                              disabled={processingId === r.id}
+                              onClick={() => void handleVoid(r)}
+                              title="Void service job and restore free-service usage"
+                              aria-label={`Void job ${r.id}`}
+                            >
+                              <Ban className="size-3.5" />
+                            </Button>
+                          )}
                           <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
-                            title="Print Customer Service Job Card"
+                            variant="destructive"
+                            size="icon"
+                            className="size-8"
+                            disabled={processingId === r.id}
+                            onClick={() => void handleDelete(r)}
+                            title="Delete service job"
+                            aria-label={`Delete job ${r.id}`}
                           >
-                            <Printer className="size-3.5" />
-                            Print Job Card
+                            <Trash2 className="size-3.5" />
                           </Button>
-                        </Link>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

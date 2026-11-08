@@ -167,6 +167,8 @@ model Vehicle {
   color               String?
   status              VehicleStatus @default(InStock)
   purchasePrice       Float
+  freeServiceEntitlement Int         @default(0)
+  freeServicesUsed       Int         @default(0)
   motorPower          String? // e.g., "2000W"
   batteryCapacity     String? // e.g., "60V 32Ah"
   rangePerCharge      String? // e.g., "120km"

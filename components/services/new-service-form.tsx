@@ -46,7 +46,10 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { completeServiceJob } from "@/app/actions/services"
+import {
+  completeServiceJob,
+  getVehicleFreeServiceStatus,
+} from "@/app/actions/services"
 import { ServiceType } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 
@@ -57,6 +60,8 @@ export interface SoldVehicleItem {
   batterySerialNumber?: string | null
   warrantyPeriod?: string | null
   color?: string | null
+  freeServiceEntitlement: number
+  freeServicesUsed: number
   branchId: string
   branch: {
     id: string
@@ -139,7 +144,13 @@ export function NewServiceForm({
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
     branches[0]?.id || ""
   )
-  const [serviceType, setServiceType] = useState<ServiceType>(ServiceType.Free)
+  const [serviceType, setServiceType] = useState<ServiceType>(ServiceType.Paid)
+  const [freeServiceStatus, setFreeServiceStatus] = useState<{
+    freeServiceEntitlement: number
+    freeServicesUsed: number
+    remaining: number
+  } | null>(null)
+  const [isLoadingFreeServiceStatus, setIsLoadingFreeServiceStatus] = useState(false)
   const [description, setDescription] = useState("")
   const [totalCost, setTotalCost] = useState<number | "">("")
   const [nextServiceDueDate, setNextServiceDueDate] = useState("")
@@ -151,6 +162,34 @@ export function NewServiceForm({
   const selectedVehicle = useMemo(() => {
     return vehicles.find((v) => v.id === selectedVehicleId) || null
   }, [vehicles, selectedVehicleId])
+
+  React.useEffect(() => {
+    let active = true
+    if (!selectedVehicleId) return
+    getVehicleFreeServiceStatus(selectedVehicleId)
+      .then((result) => {
+        if (!active) return
+        if (result.success && result.data) {
+          setFreeServiceStatus(result.data)
+        } else {
+          setFreeServiceStatus(null)
+          toast.error(result.error || "Unable to check remaining free services.")
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setFreeServiceStatus(null)
+          toast.error((error as Error).message || "Unable to check remaining free services.")
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingFreeServiceStatus(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [selectedVehicleId])
 
   const selectedPartDetails = useMemo(
     () =>
@@ -196,6 +235,12 @@ export function NewServiceForm({
   // When vehicle selected, auto-select its branch
   const handleSelectVehicle = (v: SoldVehicleItem) => {
     setSelectedVehicleId(v.id)
+    setFreeServiceStatus(null)
+    setIsLoadingFreeServiceStatus(true)
+    if (serviceType === ServiceType.Free) {
+      setServiceType(ServiceType.Paid)
+      setTotalCost("")
+    }
     if (v.branchId) {
       setSelectedBranchId(v.branchId)
     }
@@ -207,6 +252,16 @@ export function NewServiceForm({
 
   // Handle service type change
   const handleServiceTypeChange = (type: ServiceType) => {
+    if (
+      type === ServiceType.Free &&
+      (!selectedVehicle ||
+        isLoadingFreeServiceStatus ||
+        freeServiceStatus === null ||
+        freeServiceStatus.remaining <= 0)
+    ) {
+      toast.error("No free maintenance services remain for this vehicle.")
+      return
+    }
     setServiceType(type)
     if (type === ServiceType.Free || type === ServiceType.Warranty) {
       setTotalCost(0)
@@ -219,6 +274,9 @@ export function NewServiceForm({
   const handleReset = () => {
     setSelectedVehicleId("")
     setVehicleSearchQuery("")
+    setFreeServiceStatus(null)
+    setIsLoadingFreeServiceStatus(false)
+    setServiceType(ServiceType.Paid)
     setServiceType(ServiceType.Free)
     setDescription("")
     setTotalCost("")
@@ -256,6 +314,13 @@ export function NewServiceForm({
 
     if (!selectedVehicle) {
       toast.error("Please select a sold vehicle for service.")
+      return
+    }
+    if (
+      serviceType === ServiceType.Free &&
+      (!freeServiceStatus || freeServiceStatus.remaining <= 0)
+    ) {
+      toast.error("No free maintenance services remain for this vehicle.")
       return
     }
 
@@ -430,6 +495,21 @@ export function NewServiceForm({
                       <span className="font-mono">Contact: {linkedCustomer.phone}</span>
                     </div>
                   )}
+
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs"
+                  >
+                    <span className="font-semibold text-foreground">Remaining Free Services</span>
+                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                      {isLoadingFreeServiceStatus
+                        ? "Checking..."
+                        : freeServiceStatus
+                          ? `${freeServiceStatus.remaining} of ${freeServiceStatus.freeServiceEntitlement}`
+                          : "Unavailable"}
+                    </span>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -458,14 +538,14 @@ export function NewServiceForm({
                   {[
                     {
                       id: ServiceType.Free,
-                      label: "Free Service",
-                      desc: "Routine Inspection / Periodic Check",
+                      label: "Free Maintenance Service",
+                      desc: "Uses one included free service",
                       color: "border-emerald-500 text-emerald-600 bg-emerald-500/5",
                     },
                     {
                       id: ServiceType.Warranty,
                       label: "Warranty Claim",
-                      desc: "Battery, Motor, or Parts Replacement",
+                      desc: "Warranty / accident repair; does not use a free service",
                       color: "border-blue-500 text-blue-600 bg-blue-500/5",
                     },
                     {
@@ -475,10 +555,19 @@ export function NewServiceForm({
                       color: "border-slate-500 text-slate-600 bg-slate-500/5",
                     },
                   ].map((st) => (
-                    <div
+                    <button
+                      type="button"
                       key={st.id}
                       onClick={() => handleServiceTypeChange(st.id)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                      disabled={
+                        st.id === ServiceType.Free &&
+                        (!selectedVehicle ||
+                          isLoadingFreeServiceStatus ||
+                          freeServiceStatus === null ||
+                          freeServiceStatus.remaining <= 0)
+                      }
+                      aria-pressed={serviceType === st.id}
+                      className={`p-3 rounded-xl border text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                         serviceType === st.id
                           ? `${st.color} ring-1 ring-primary shadow-xs`
                           : "border-border/60 hover:bg-muted/40"
@@ -486,7 +575,7 @@ export function NewServiceForm({
                     >
                       <p className="font-bold text-xs text-foreground">{st.label}</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{st.desc}</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
