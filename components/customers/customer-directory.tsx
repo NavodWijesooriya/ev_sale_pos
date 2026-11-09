@@ -39,18 +39,21 @@ import {
 } from "lucide-react"
 import { CustomerSummaryItem } from "@/app/actions/customers"
 import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
+import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog"
 import { formatLKR } from "@/lib/currency"
-import { CustomerCategory } from "@prisma/client"
+import { CustomerType } from "@prisma/client"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface CustomerDirectoryProps {
   customers: CustomerSummaryItem[]
   dealershipName: string
+  customerType?: CustomerType
 }
 
 export function CustomerDirectory({
   customers,
   dealershipName,
+  customerType,
 }: CustomerDirectoryProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("all")
@@ -62,8 +65,9 @@ export function CustomerDirectory({
       (c) => {
         const matchesCategory =
           activeCategory === "all" ||
-          (activeCategory === "direct" && c.category === CustomerCategory.DIRECT) ||
-          (activeCategory === "crm" && c.category === CustomerCategory.CRM)
+          (activeCategory === "sale" && c.customerType === CustomerType.SALE) ||
+          (activeCategory === "crm" && c.customerType === CustomerType.CRM)
+        const matchesCustomerType = !customerType || c.customerType === customerType
         const matchesSearch =
           !q ||
           c.name.toLowerCase().includes(q) ||
@@ -72,16 +76,18 @@ export function CustomerDirectory({
           (c.email && c.email.toLowerCase().includes(q)) ||
           (c.address && c.address.toLowerCase().includes(q))
 
-        return matchesCategory && matchesSearch
+        return matchesCustomerType && matchesCategory && matchesSearch
       },
     )
-  }, [activeCategory, customers, searchQuery])
+  }, [activeCategory, customerType, customers, searchQuery])
 
   const totalCustomers = customers.length
-  const directCustomers = customers.filter(
-    (customer) => customer.category === CustomerCategory.DIRECT,
+  const saleCustomers = customers.filter(
+    (customer) => customer.customerType === CustomerType.SALE,
   ).length
-  const crmCustomers = customers.length - directCustomers
+  const crmCustomers = customers.filter(
+    (customer) => customer.customerType === CustomerType.CRM,
+  ).length
   const totalVehiclesPurchased = customers.reduce(
     (sum, c) => sum + c.totalPurchases,
     0
@@ -108,7 +114,7 @@ export function CustomerDirectory({
 
     const rows = filteredCustomers.map((c) => [
       `"${c.id}"`,
-      c.category === CustomerCategory.DIRECT ? "Direct Customer" : "CRM Lead / Customer",
+      c.customerType === CustomerType.SALE ? "Sale Customer" : "CRM Lead",
       `"${c.name}"`,
       `"${c.phone}"`,
       `"${c.nic || ""}"`,
@@ -146,7 +152,11 @@ export function CustomerDirectory({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Customer Management
+              {customerType === CustomerType.CRM
+                ? "CRM Customers"
+                : customerType === CustomerType.SALE
+                  ? "Sale Customers"
+                  : "Customer Management"}
             </h1>
             <Badge variant="outline" className="text-xs font-semibold bg-blue-500/10 text-blue-600 border-blue-500/20">
               Dealership CRM
@@ -159,7 +169,7 @@ export function CustomerDirectory({
         </div>
 
         <div className="flex items-center gap-2">
-          <AddCustomerDialog />
+          {!customerType && <AddCustomerDialog />}
           <Button
             variant="outline"
             size="sm"
@@ -268,23 +278,25 @@ export function CustomerDirectory({
             </div>
           </div>
 
-          <Tabs
-            value={activeCategory}
-            onValueChange={setActiveCategory}
-            className="mt-4"
-          >
-            <TabsList className="grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto">
-              <TabsTrigger value="all" className="gap-1.5 px-3 py-2 text-xs">
-                All Customers <span className="text-muted-foreground">({totalCustomers})</span>
-              </TabsTrigger>
-              <TabsTrigger value="direct" className="gap-1.5 px-3 py-2 text-xs">
-                Direct Customers <span className="text-muted-foreground">({directCustomers})</span>
-              </TabsTrigger>
-              <TabsTrigger value="crm" className="gap-1.5 px-3 py-2 text-xs">
-                CRM Leads/Customers <span className="text-muted-foreground">({crmCustomers})</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {!customerType && (
+            <Tabs
+              value={activeCategory}
+              onValueChange={setActiveCategory}
+              className="mt-4"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto">
+                <TabsTrigger value="all" className="gap-1.5 px-3 py-2 text-xs">
+                  All Customers <span className="text-muted-foreground">({totalCustomers})</span>
+                </TabsTrigger>
+                <TabsTrigger value="sale" className="gap-1.5 px-3 py-2 text-xs">
+                  Sale Customers <span className="text-muted-foreground">({saleCustomers})</span>
+                </TabsTrigger>
+                <TabsTrigger value="crm" className="gap-1.5 px-3 py-2 text-xs">
+                  CRM Leads <span className="text-muted-foreground">({crmCustomers})</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
 
           {/* Search bar */}
           <div className="relative mt-3">
@@ -352,16 +364,12 @@ export function CustomerDirectory({
                         <Badge
                           variant="outline"
                           className={
-                            c.category === CustomerCategory.DIRECT
+                            c.customerType === CustomerType.SALE
                               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                               : "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
                           }
                         >
-                          {c.category === CustomerCategory.DIRECT
-                            ? "Direct"
-                            : c.totalPurchases > 0
-                              ? "CRM Customer"
-                              : "CRM Lead"}
+                          {c.customerType === CustomerType.SALE ? "Sale Customer" : "CRM Lead"}
                         </Badge>
                       </TableCell>
 
@@ -401,16 +409,19 @@ export function CustomerDirectory({
 
                       {/* Action */}
                       <TableCell className="align-middle py-3.5 text-right whitespace-nowrap">
-                        <Link href={`/dashboard/customers/${c.id}`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
-                          >
-                            View Profile
-                            <ArrowRight className="size-3.5" />
-                          </Button>
-                        </Link>
+                        <div className="flex justify-end gap-2">
+                          <EditCustomerDialog customer={c} compact />
+                          <Link href={`/dashboard/customers/${c.id}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
+                            >
+                              View Profile
+                              <ArrowRight className="size-3.5" />
+                            </Button>
+                          </Link>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

@@ -34,23 +34,35 @@ import {
   Wrench,
   Clock,
   CheckCircle2,
-  ShieldCheck,
   FileCheck2,
   Printer,
   Receipt,
 } from "lucide-react"
-import { CustomerCategory, PaymentMethod, ServiceType, DMTStatus } from "@prisma/client"
+import { CustomerType, PaymentMethod, ServiceType, DMTStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 import { setVehicleFreeServiceEntitlement } from "@/app/actions/services"
+import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog"
 
 export interface CustomerProfileData {
   id: string
-  category: CustomerCategory
+  customerType: CustomerType
   name: string
   phone: string
   email?: string | null
   nic?: string | null
   address?: string | null
+  title?: string | null
+  city?: string | null
+  interestedModel?: string | null
+  quantity: number
+  testRide: boolean
+  leadSource?: string | null
+  socialMediaPlatform?: string | null
+  websiteSource?: string | null
+  firstCallNote?: string | null
+  secondCallNote?: string | null
+  thirdCallNote?: string | null
+  fourthCallNote?: string | null
   totalSpent: number
   sales: Array<{
     id: string
@@ -224,6 +236,7 @@ export function CustomerProfile({
             Back to Customer Directory
           </Button>
         </Link>
+        <EditCustomerDialog customer={customer} />
       </div>
 
       {/* Customer Header Dossier Card */}
@@ -239,12 +252,15 @@ export function CustomerProfile({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2.5">
                   <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-                    {customer.name}
+                    {customer.title ? `${customer.title} ${customer.name}` : customer.name}
                   </h1>
-                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                    {customer.category === CustomerCategory.DIRECT
-                      ? "Direct Customer"
-                      : "CRM Lead / Customer"}
+                  <Badge
+                    variant="outline"
+                    className={customer.customerType === CustomerType.SALE
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      : "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"}
+                  >
+                    {customer.customerType === CustomerType.SALE ? "Sale Customer" : "CRM Lead"}
                   </Badge>
                 </div>
 
@@ -310,6 +326,96 @@ export function CustomerProfile({
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+        <Card className="overflow-hidden border-border/60 shadow-sm">
+          <CardHeader className="border-b border-border/50 bg-gradient-to-br from-primary/10 via-background to-background">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bike className="size-4 text-primary" />
+              Vehicle Interest
+            </CardTitle>
+            <CardDescription>Requested vehicle and test-ride details</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 p-5">
+            <div className="col-span-2 rounded-xl border border-border/60 bg-muted/30 p-4">
+              <p className="text-xs font-medium text-muted-foreground">Interested model</p>
+              <p className="mt-1 text-lg font-bold text-foreground">
+                {customer.interestedModel || "Not specified"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 p-4">
+              <p className="text-xs font-medium text-muted-foreground">Quantity</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{customer.quantity}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 p-4">
+              <p className="text-xs font-medium text-muted-foreground">Test ride</p>
+              <Badge
+                variant="outline"
+                className={customer.testRide
+                  ? "mt-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                  : "mt-2"}
+              >
+                {customer.testRide ? "Completed" : "Not completed"}
+              </Badge>
+            </div>
+            <div className="col-span-2 grid gap-3 rounded-xl bg-muted/30 p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Lead source</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {customer.leadSource || "Not specified"}
+                  {customer.socialMediaPlatform ? ` · ${customer.socialMediaPlatform}` : ""}
+                  {customer.websiteSource ? ` · ${customer.websiteSource}` : ""}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">City</p>
+                <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
+                  <MapPin className="size-3.5 text-primary" />
+                  {customer.city || "Not specified"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="size-4 text-primary" />
+              Follow-up Call Notes
+            </CardTitle>
+            <CardDescription>Conversation history and next steps</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
+            {([
+              { label: "First call", note: customer.firstCallNote },
+              { label: "Second call", note: customer.secondCallNote },
+              { label: "Third call", note: customer.thirdCallNote },
+              { label: "Fourth call", note: customer.fourthCallNote },
+            ]).map(({ label, note }, index) => (
+              <div key={label} className="relative rounded-xl border border-border/60 bg-card p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{label}</p>
+                  {note ? (
+                    <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="size-3" />
+                      Logged
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Pending</Badge>
+                  )}
+                </div>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                  {note || "No notes recorded yet."}
+                </p>
+                {index < 3 && (
+                  <span className="absolute -bottom-3 left-5 z-10 hidden h-3 border-l border-dashed border-border sm:block" />
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Main History Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">

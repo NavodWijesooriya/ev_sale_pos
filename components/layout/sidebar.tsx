@@ -10,6 +10,7 @@ import {
   Bike,
   Boxes,
   Building2,
+  ChevronDown,
   ChevronRight,
   HelpCircle,
   LayoutDashboard,
@@ -32,6 +33,7 @@ export interface NavItem {
   badge?: string
   description?: string
   roles?: string[]
+  children?: Array<{ title: string; href: string }>
 }
 
 export const navigationItems: NavItem[] = [
@@ -39,7 +41,16 @@ export const navigationItems: NavItem[] = [
   { title: "Branches", href: "/dashboard/settings/branches", icon: Building2, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
   { title: "EV Inventory", href: "/dashboard/inventory", icon: Bike, badge: "Stock", roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"] },
   { title: "Sales & POS", href: "/dashboard/sales", icon: Coins, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
-  { title: "Customers", href: "/dashboard/customers", icon: Users2, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
+  {
+    title: "Customers",
+    href: "/dashboard/customers",
+    icon: Users2,
+    roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"],
+    children: [
+      { title: "CRM Customers", href: "/dashboard/customers/crm" },
+      { title: "Sale Customers", href: "/dashboard/customers/sales" },
+    ],
+  },
   { title: "Services", href: "/dashboard/services", icon: Wrench, roles: ["OrgAdmin", "Technician"] },
   { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts", icon: Boxes, roles: ["OrgAdmin"] },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
@@ -65,6 +76,9 @@ export function SidebarContent({
   onNavigate,
 }: SidebarContentProps) {
   const pathname = usePathname()
+  const [customersExpanded, setCustomersExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/customers/")),
+  )
   const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
 
   return (
@@ -149,46 +163,109 @@ export function SidebarContent({
           <nav className="space-y-1">
             {visibleItems.map((item) => {
               const Icon = item.icon
-              const isActive = item.href === "/dashboard"
+              const isActive = item.children
+                ? Boolean(pathname?.startsWith("/dashboard/customers"))
+                : item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
                   ? Boolean(pathname?.startsWith(item.href) && !pathname.startsWith("/dashboard/services/spare-parts"))
                   : Boolean(pathname?.startsWith(item.href))
 
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  title={isCollapsed ? item.title : undefined}
-                  aria-current={isActive ? "page" : undefined}
-                  className={cn(
-                    "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-200",
-                    isCollapsed && "mx-auto size-10 justify-center px-0",
-                    isActive
-                      ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-sidebar-primary"
-                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
-                  )}
-                >
-                  <Icon className={cn(
-                    "size-[18px] shrink-0 transition-colors",
-                    isActive ? "text-sidebar-accent-foreground" : "text-muted-foreground group-hover:text-sidebar-foreground"
-                  )} />
-                  {!isCollapsed && (
-                    <>
-                      <span className="flex-1 truncate">{item.title}</span>
-                      {item.badge && (
-                        <span className={cn(
-                          "rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-tight",
-                          isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-background"
-                        )}>
-                          {item.badge}
-                        </span>
+                <div key={item.href}>
+                  {item.children ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isCollapsed) {
+                          setCustomersExpanded(true)
+                          onToggleCollapse?.()
+                        } else {
+                          setCustomersExpanded((expanded) => !expanded)
+                        }
+                      }}
+                      title={isCollapsed ? item.title : undefined}
+                      aria-expanded={customersExpanded}
+                      className={cn(
+                        "group relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200",
+                        isCollapsed && "mx-auto size-10 justify-center px-0",
+                        isActive
+                          ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-sidebar-primary"
+                          : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                       )}
-                      {isActive && <ChevronRight className="size-4 text-sidebar-accent-foreground/70" />}
-                    </>
+                    >
+                      <Icon className={cn(
+                        "size-[18px] shrink-0 transition-colors",
+                        isActive ? "text-sidebar-accent-foreground" : "text-muted-foreground group-hover:text-sidebar-foreground"
+                      )} />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1 truncate">{item.title}</span>
+                          {customersExpanded
+                            ? <ChevronDown className="size-4 text-muted-foreground" />
+                            : <ChevronRight className="size-4 text-muted-foreground" />}
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      title={isCollapsed ? item.title : undefined}
+                      aria-current={isActive ? "page" : undefined}
+                      className={cn(
+                        "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-200",
+                        isCollapsed && "mx-auto size-10 justify-center px-0",
+                        isActive
+                          ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-sidebar-primary"
+                          : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <Icon className={cn(
+                        "size-[18px] shrink-0 transition-colors",
+                        isActive ? "text-sidebar-accent-foreground" : "text-muted-foreground group-hover:text-sidebar-foreground"
+                      )} />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1 truncate">{item.title}</span>
+                          {item.badge && (
+                            <span className={cn(
+                              "rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-tight",
+                              isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-background"
+                            )}>
+                              {item.badge}
+                            </span>
+                          )}
+                          {isActive && <ChevronRight className="size-4 text-sidebar-accent-foreground/70" />}
+                        </>
+                      )}
+                    </Link>
                   )}
-                </Link>
+                  {!isCollapsed && item.children && customersExpanded && (
+                    <div className="ml-5 mt-1 space-y-1 border-l border-sidebar-border pl-3">
+                      {item.children.map((child) => {
+                        const isChildActive = pathname === child.href
+
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={onNavigate}
+                            aria-current={isChildActive ? "page" : undefined}
+                            className={cn(
+                              "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                              isChildActive
+                                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                            )}
+                          >
+                            {child.title}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </nav>

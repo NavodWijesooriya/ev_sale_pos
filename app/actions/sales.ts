@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
-import { VehicleStatus, PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
+import { VehicleStatus, PaymentMethod, FinanceStatus, DMTStatus, CustomerType } from "@prisma/client"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 
 /**
@@ -70,9 +70,11 @@ export async function getPOSInitialData() {
 
       // Existing customers for quick auto-complete
       prisma.customer.findMany({
-        where: { organizationId },
+        where: {
+          organizationId,
+          customerType: { in: [CustomerType.CRM, CustomerType.SALE] },
+        },
         orderBy: { name: "asc" },
-        take: 100,
       }),
 
       // Dealership branches
@@ -211,7 +213,16 @@ export async function processSale(input: ProcessSaleInput) {
         const existingCust = await tx.customer.findFirst({
           where: { id: customerId, organizationId },
         })
-        if (!existingCust) {
+        if (existingCust) {
+          const promotedCustomer = await tx.customer.update({
+            where: { id: existingCust.id },
+            data: {
+              customerType: CustomerType.SALE,
+              category: "DIRECT",
+            },
+          })
+          customerId = promotedCustomer.id
+        } else {
           customerId = undefined
         }
       }
@@ -237,6 +248,8 @@ export async function processSale(input: ProcessSaleInput) {
               email: input.customerEmail?.trim() || matchingCust.email,
               address: input.customerAddress?.trim() || matchingCust.address,
               nic: input.customerNic?.trim() || matchingCust.nic,
+              customerType: CustomerType.SALE,
+              category: "DIRECT",
             },
           })
           customerId = updatedCust.id
@@ -247,6 +260,7 @@ export async function processSale(input: ProcessSaleInput) {
             data: {
               organizationId,
               category: "DIRECT",
+              customerType: CustomerType.SALE,
               name: input.customerName.trim(),
               phone: input.customerPhone.trim(),
               email: input.customerEmail?.trim() || null,
@@ -360,6 +374,9 @@ export async function processSale(input: ProcessSaleInput) {
     revalidatePath("/dashboard/sales")
     revalidatePath("/dashboard/inventory")
     revalidatePath("/dashboard")
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/customers/crm")
+    revalidatePath("/dashboard/customers/sales")
 
     return {
       success: true,

@@ -160,21 +160,21 @@ model Vehicle {
   vehicleModelId String
   vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
 
-  chassisNumber       String        @unique
-  motorNumber         String?
-  batterySerialNumber String?       @unique // අලුතින් එකතු කළ කොටස
-  warrantyPeriod      String? // අලුතින් එකතු කළ කොටස (උදා: 3 Years)
-  color               String?
-  status              VehicleStatus @default(InStock)
-  purchasePrice       Float
-  freeServiceEntitlement Int         @default(0)
-  freeServicesUsed       Int         @default(0)
-  motorPower          String? // e.g., "2000W"
-  batteryCapacity     String? // e.g., "60V 32Ah"
-  rangePerCharge      String? // e.g., "120km"
-  topSpeed            String? // e.g., "55 km/h"
-  chargingTime        String? // e.g., "4-6 Hours"
-  createdAt           DateTime      @default(now())
+  chassisNumber          String        @unique
+  motorNumber            String?
+  batterySerialNumber    String?       @unique // අලුතින් එකතු කළ කොටස
+  warrantyPeriod         String? // අලුතින් එකතු කළ කොටස (උදා: 3 Years)
+  color                  String?
+  status                 VehicleStatus @default(InStock)
+  purchasePrice          Float
+  freeServiceEntitlement Int           @default(0)
+  freeServicesUsed       Int           @default(0)
+  motorPower             String? // e.g., "2000W"
+  batteryCapacity        String? // e.g., "60V 32Ah"
+  rangePerCharge         String? // e.g., "120km"
+  topSpeed               String? // e.g., "55 km/h"
+  chargingTime           String? // e.g., "4-6 Hours"
+  createdAt              DateTime      @default(now())
 
   grnItems       GRNItem[]
   saleItems      SaleItem[]
@@ -212,16 +212,29 @@ model GRNItem {
 // ==========================================
 
 model Customer {
-  id             String           @id @default(uuid())
-  organizationId String
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  category       CustomerCategory @default(CRM)
-  name           String
-  phone          String
-  email          String?
-  nic            String?
-  address        String?
-  crn            String?          @unique
+  id                  String           @id @default(uuid())
+  organizationId      String
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category            CustomerCategory @default(CRM)
+  customerType        CustomerType     @default(CRM)
+  name                String
+  phone               String
+  email               String?
+  nic                 String?
+  address             String?
+  crn                 String?          @unique
+  title               String?
+  city                String?
+  interestedModel     String?
+  quantity            Int              @default(1)
+  testRide            Boolean          @default(false)
+  leadSource          String?
+  socialMediaPlatform String?
+  websiteSource       String?
+  firstCallNote       String?          @db.Text
+  secondCallNote      String?          @db.Text
+  thirdCallNote       String?          @db.Text
+  fourthCallNote      String?          @db.Text
 
   sales          Sale[]
   serviceRecords ServiceRecord[]
@@ -231,6 +244,11 @@ model Customer {
 enum CustomerCategory {
   DIRECT
   CRM
+}
+
+enum CustomerType {
+  CRM
+  SALE
 }
 
 enum PaymentMethod {

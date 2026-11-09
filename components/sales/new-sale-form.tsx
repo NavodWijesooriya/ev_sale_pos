@@ -49,7 +49,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { processSale } from "@/app/actions/sales"
-import { PaymentMethod } from "@prisma/client"
+import { CustomerType, PaymentMethod } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 
 interface VehicleModelData {
@@ -82,6 +82,7 @@ export interface InStockVehicle {
 
 export interface CustomerData {
   id: string
+  customerType: CustomerType
   name: string
   phone: string
   email?: string | null
@@ -170,8 +171,16 @@ export function NewSaleForm({
         c.name.toLowerCase().includes(q) ||
         c.phone.toLowerCase().includes(q) ||
         (c.nic && c.nic.toLowerCase().includes(q))
-    )
+    ).slice(0, 8)
   }, [customers, customerSearchQuery])
+
+  const customerOptions = useMemo(() => {
+    const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId)
+    if (selectedCustomer && !filteredCustomers.some((customer) => customer.id === selectedCustomer.id)) {
+      return [selectedCustomer, ...filteredCustomers]
+    }
+    return filteredCustomers
+  }, [customers, filteredCustomers, selectedCustomerId])
 
   // Handle vehicle selection
   const handleSelectVehicle = (vId: string) => {
@@ -195,6 +204,7 @@ export function NewSaleForm({
   const handleSelectCustomer = (cId: string | null) => {
     const id = cId || "new"
     setSelectedCustomerId(id)
+    setCustomerSearchQuery("")
     if (id === "new") {
       setCustomerName("")
       setCustomerPhone("")
@@ -563,8 +573,15 @@ export function NewSaleForm({
               {customers.length > 0 && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">
-                    Search / Select Registered Customer
+                    Search Registered Customers
                   </Label>
+                  <Input
+                    value={customerSearchQuery}
+                    onChange={(event) => setCustomerSearchQuery(event.target.value)}
+                    placeholder="Search by name, phone, or NIC..."
+                    aria-label="Search registered customers"
+                    className="h-10"
+                  />
                   <Select
                     value={selectedCustomerId}
                     onValueChange={(val) => handleSelectCustomer(val)}
@@ -576,9 +593,10 @@ export function NewSaleForm({
                       <SelectItem value="new" className="font-semibold text-primary">
                         + Register New Customer
                       </SelectItem>
-                      {customers.map((c) => (
+                      {customerOptions.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.name} — {c.phone} {c.nic ? `(NIC: ${c.nic})` : ""}
+                          {c.name} — {c.phone} {c.nic ? `(NIC: ${c.nic})` : ""} ·{" "}
+                          {c.customerType === CustomerType.CRM ? "CRM lead" : "Sale customer"}
                         </SelectItem>
                       ))}
                     </SelectContent>
