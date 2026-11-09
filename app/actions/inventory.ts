@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { ChequeStatus, PaymentMethod, PaymentStatus, VehicleStatus } from "@prisma/client"
+import { generateNextGRNNumber, lockGRNNumberSequence } from "@/lib/grn-number"
 
 /**
  * Enforces session authentication and extracts the user's organizationId
@@ -113,7 +114,7 @@ export async function getVehicleModels() {
         _count: {
           select: {
             vehicles: {
-              where: { status: VehicleStatus.InStock },
+              where: { status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } },
             },
           },
         },
@@ -137,7 +138,9 @@ export async function createVehicleModel(input: CreateVehicleModelInput) {
       },
     })
 
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/settings/vehicle-models")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/sales")
     return { success: true, message: `EV Bike Model "${model.modelName}" added successfully!`, data: model }
   } catch (error) {
     console.error("createVehicleModel error:", error)
@@ -160,7 +163,9 @@ export async function updateVehicleModel(input: UpdateVehicleModelInput) {
       where: { id: input.id, organizationId },
     })
 
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/settings/vehicle-models")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/sales")
     return { success: true, message: `EV Bike Model "${updatedModel.modelName}" updated successfully!`, data: updatedModel }
   } catch (error) {
     console.error("updateVehicleModel error:", error)
@@ -188,7 +193,9 @@ export async function deleteVehicleModel(id: string) {
 
     const deleted = await prisma.vehicleModel.deleteMany({ where: { id, organizationId } })
     if (deleted.count !== 1) throw new Error("EV model could not be deleted because it no longer exists.")
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/settings/vehicle-models")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/sales")
     return { success: true, message: `EV Bike Model "${model.modelName}" deleted successfully!` }
   } catch (error) {
     console.error("deleteVehicleModel error:", error)
@@ -258,7 +265,6 @@ export async function createSupplier(input: CreateSupplierInput) {
       },
     })
 
-    revalidatePath("/dashboard/inventory")
     return {
       success: true,
       message: `Supplier "${supplier.name}" created successfully!`,
@@ -285,7 +291,6 @@ export async function updateSupplier(input: UpdateSupplierInput) {
       where: { id: input.id, organizationId },
     })
 
-    revalidatePath("/dashboard/inventory")
     return { success: true, message: `Supplier "${supplier.name}" updated successfully!`, data: supplier }
   } catch (error) {
     console.error("updateSupplier error:", error)
@@ -310,7 +315,6 @@ export async function deleteSupplier(id: string) {
 
     const deleted = await prisma.supplier.deleteMany({ where: { id, organizationId } })
     if (deleted.count !== 1) throw new Error("Supplier could not be deleted because it no longer exists.")
-    revalidatePath("/dashboard/inventory")
     return { success: true, message: `Supplier "${supplier.name}" deleted successfully!` }
   } catch (error) {
     console.error("deleteSupplier error:", error)
@@ -329,7 +333,7 @@ export async function getStockVehicles() {
     const vehicles = await prisma.vehicle.findMany({
       where: {
         organizationId,
-        status: VehicleStatus.InStock,
+        status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
       },
       include: {
         vehicleModel: true,
@@ -451,6 +455,9 @@ export async function createGRN(input: CreateGRNInput) {
     if (!input.items || input.items.length === 0) {
       throw new Error("At least one vehicle must be included in the GRN.")
     }
+    if (input.items.length > 99) {
+      throw new Error("A GRN cannot contain more than 99 vehicles.")
+    }
     if (input.paymentMethod !== PaymentMethod.Cash && input.paymentMethod !== PaymentMethod.CHEQUE) {
       throw new Error("Select Cash or Cheque as the payment method.")
     }
@@ -533,12 +540,11 @@ export async function createGRN(input: CreateGRNInput) {
           : PaymentStatus.PartiallyPaid
 
     // Generate readable GRN sequence number
-    const count = await prisma.gRN.count({ where: { organizationId } })
-    const padded = String(count + 1).padStart(4, "0")
-    const grnNumber = `GRN-${new Date().getFullYear()}-${padded}`
-
     // Run atomic Prisma Transaction
     const grnRecord = await prisma.$transaction(async (tx) => {
+      await lockGRNNumberSequence(tx)
+      const grnNumber = await generateNextGRNNumber(tx)
+
       // a) Create the GRN record
       const grn = await tx.gRN.create({
         data: {
@@ -570,6 +576,7 @@ export async function createGRN(input: CreateGRNInput) {
           data: {
             organizationId,
             branchId: input.branchId,
+            grnId: grn.id,
             vehicleModelId: item.vehicleModelId,
             chassisNumber: item.chassisNumber.trim().toUpperCase(),
             motorNumber: item.motorNumber?.trim() || null,
@@ -577,7 +584,7 @@ export async function createGRN(input: CreateGRNInput) {
             warrantyPeriod: item.warrantyPeriod?.trim() || "3 Years",
             color: item.color?.trim() || "Standard",
             purchasePrice: item.purchasePrice,
-            status: VehicleStatus.InStock,
+            status: VehicleStatus.AVAILABLE,
           },
         })
 
@@ -594,7 +601,9 @@ export async function createGRN(input: CreateGRNInput) {
       return grn
     })
 
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/grn/report")
+    revalidatePath("/dashboard/grn/stock")
     revalidatePath("/dashboard")
     revalidatePath("/site/[domain]", "page")
 

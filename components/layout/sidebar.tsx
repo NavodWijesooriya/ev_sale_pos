@@ -12,6 +12,7 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
   HelpCircle,
   LayoutDashboard,
   Palette,
@@ -39,7 +40,6 @@ export interface NavItem {
 export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Branches", href: "/dashboard/settings/branches", icon: Building2, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
-  { title: "EV Inventory", href: "/dashboard/inventory", icon: Bike, badge: "Stock", roles: ["OrgAdmin", "BranchManager", "SalesRep", "SuperAdmin"] },
   { title: "Sales & POS", href: "/dashboard/sales", icon: Coins, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
   {
     title: "Customers",
@@ -51,9 +51,21 @@ export const navigationItems: NavItem[] = [
       { title: "Sale Customers", href: "/dashboard/customers/sales" },
     ],
   },
+  {
+    title: "GRN Management",
+    href: "/dashboard/grn",
+    icon: ClipboardList,
+    roles: ["OrgAdmin", "BranchManager"],
+    children: [
+      { title: "Create GRN", href: "/dashboard/grn/create" },
+      { title: "GRN Report", href: "/dashboard/grn/report" },
+      { title: "Current Bike Stock", href: "/dashboard/grn/stock" },
+    ],
+  },
   { title: "Services", href: "/dashboard/services", icon: Wrench, roles: ["OrgAdmin", "Technician"] },
   { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts", icon: Boxes, roles: ["OrgAdmin"] },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
+  { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
   { title: "Team & Access", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },
@@ -78,6 +90,9 @@ export function SidebarContent({
   const pathname = usePathname()
   const [customersExpanded, setCustomersExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/customers/")),
+  )
+  const [grnExpanded, setGrnExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/grn/")),
   )
   const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
 
@@ -130,26 +145,12 @@ export function SidebarContent({
                 <span className="flex-1">New sale</span>
                 <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
-              <Link
-                href="/dashboard/inventory"
-                onClick={onNavigate}
-                className="group flex min-h-11 items-center gap-3 rounded-xl border border-border/70 bg-card px-3 text-sm font-medium transition-colors hover:border-primary/25 hover:bg-primary/5"
-              >
-                <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Boxes className="size-3.5" />
-                </span>
-                <span className="flex-1">Manage inventory</span>
-                <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              </Link>
             </div>
           </section>
         ) : (
           <div className="flex flex-col items-center gap-2 border-b border-sidebar-border pb-3">
             <Link href="/dashboard/sales" onClick={onNavigate} title="New sale" className="flex size-10 items-center justify-center rounded-xl text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <ShoppingCart className="size-4" />
-            </Link>
-            <Link href="/dashboard/inventory" onClick={onNavigate} title="Manage inventory" className="flex size-10 items-center justify-center rounded-xl text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-              <Boxes className="size-4" />
             </Link>
           </div>
         )}
@@ -164,7 +165,7 @@ export function SidebarContent({
             {visibleItems.map((item) => {
               const Icon = item.icon
               const isActive = item.children
-                ? Boolean(pathname?.startsWith("/dashboard/customers"))
+                ? Boolean(item.children.some((child) => pathname?.startsWith(child.href)))
                 : item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
@@ -178,14 +179,17 @@ export function SidebarContent({
                       type="button"
                       onClick={() => {
                         if (isCollapsed) {
-                          setCustomersExpanded(true)
+                          if (item.title === "Customers") setCustomersExpanded(true)
+                          if (item.title === "GRN Management") setGrnExpanded(true)
                           onToggleCollapse?.()
+                        } else if (item.title === "GRN Management") {
+                          setGrnExpanded((expanded) => !expanded)
                         } else {
                           setCustomersExpanded((expanded) => !expanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}
-                      aria-expanded={customersExpanded}
+                      aria-expanded={item.title === "GRN Management" ? grnExpanded : customersExpanded}
                       className={cn(
                         "group relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200",
                         isCollapsed && "mx-auto size-10 justify-center px-0",
@@ -201,7 +205,7 @@ export function SidebarContent({
                       {!isCollapsed && (
                         <>
                           <span className="flex-1 truncate">{item.title}</span>
-                          {customersExpanded
+                          {(item.title === "GRN Management" ? grnExpanded : customersExpanded)
                             ? <ChevronDown className="size-4 text-muted-foreground" />
                             : <ChevronRight className="size-4 text-muted-foreground" />}
                         </>
@@ -241,7 +245,7 @@ export function SidebarContent({
                       )}
                     </Link>
                   )}
-                  {!isCollapsed && item.children && customersExpanded && (
+                  {!isCollapsed && item.children && (item.title === "GRN Management" ? grnExpanded : customersExpanded) && (
                     <div className="ml-5 mt-1 space-y-1 border-l border-sidebar-border pl-3">
                       {item.children.map((child) => {
                         const isChildActive = pathname === child.href

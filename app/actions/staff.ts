@@ -126,7 +126,7 @@ export async function updateStaffCatalogPermission(enabled: boolean) {
     })
 
     revalidatePath("/dashboard/settings/users")
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/settings/vehicle-models")
     return {
       success: true,
       message: enabled

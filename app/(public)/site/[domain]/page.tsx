@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { VehicleStatus } from "@prisma/client"
 import { DealershipNotFoundView } from "@/components/storefront/not-found-view"
 import { StockModelItem } from "@/components/storefront/stock-grid"
 import { ModernStorefrontView } from "@/components/storefront/modern-storefront-view"
@@ -54,7 +55,7 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
         include: {
           vehicles: {
             where: {
-              status: "InStock",
+              status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
             },
             include: {
               branch: {

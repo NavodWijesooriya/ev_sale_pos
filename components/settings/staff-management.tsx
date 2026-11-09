@@ -347,7 +347,7 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
             Staff Catalog Permissions
           </CardTitle>
           <CardDescription className="text-xs">
-            Control whether Branch Managers at your dealership can add, edit, or delete EV models and suppliers.
+            Control whether Branch Managers at your dealership can manage vehicle models and default catalog prices.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -364,7 +364,7 @@ export function StaffManagement({ initialData }: StaffManagementProps) {
             />
             <span className="space-y-1">
               <span className="block text-sm font-medium">
-                Allow staff to manage EV models and suppliers
+                Allow Branch Managers to manage vehicle models
               </span>
               <span
                 id="staff-catalog-permission-description"

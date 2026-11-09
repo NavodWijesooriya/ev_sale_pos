@@ -120,7 +120,8 @@ export async function createBranch(input: CreateBranchInput) {
 
     revalidatePath("/dashboard/settings/branches")
     revalidatePath("/dashboard/branches")
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/grn/stock")
     revalidatePath("/dashboard/settings/users")
     revalidatePath("/dashboard/sales")
 
@@ -220,7 +221,8 @@ export async function updateBranch(input: UpdateBranchInput) {
 
     revalidatePath("/dashboard/settings/branches")
     revalidatePath("/dashboard/branches")
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/grn/stock")
     revalidatePath("/dashboard/settings/users")
     revalidatePath("/dashboard/sales")
 
@@ -305,7 +307,8 @@ export async function deleteBranch(id: string) {
 
     revalidatePath("/dashboard/settings/branches")
     revalidatePath("/dashboard/branches")
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/grn/create")
+    revalidatePath("/dashboard/grn/stock")
     revalidatePath("/dashboard/settings/users")
     revalidatePath("/dashboard/sales")
 
@@ -321,4 +324,3 @@ export async function deleteBranch(id: string) {
     }
   }
 }
-

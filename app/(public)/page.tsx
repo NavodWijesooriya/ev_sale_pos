@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { VehicleStatus } from "@prisma/client"
 import { StockModelItem } from "@/components/storefront/stock-grid"
 import { ModernStorefrontView } from "@/components/storefront/modern-storefront-view"
 import { getPublicAtherModelName } from "@/lib/public-storefront"
@@ -25,7 +26,7 @@ export default async function PublicLandingPage() {
         include: {
           vehicles: {
             where: {
-              status: "InStock",
+              status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
             },
             include: {
               branch: {

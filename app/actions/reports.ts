@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { VehicleStatus } from "@prisma/client"
 
 /**
  * Ensures session authentication and extracts organizationId
@@ -270,7 +271,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
   const inStockVehiclesRaw = await prisma.vehicle.findMany({
     where: {
       organizationId,
-      status: "InStock",
+      status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
     },
     include: {
       vehicleModel: {
@@ -715,7 +716,7 @@ export async function getAnalyticsData(
   const currentAvailableStock = await prisma.vehicle.count({
     where: {
       organizationId,
-      status: "InStock",
+      status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
     },
   })
 
@@ -969,4 +970,3 @@ export async function getAnalyticsData(
     exportableSales,
   }
 }
-

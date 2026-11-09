@@ -187,14 +187,14 @@ export function HelpCenterView({
           ),
         },
         {
-          question: "How do I control staff access to EV models and suppliers?",
+          question: "How do I control staff access to vehicle models?",
           answer: (
             <div className="space-y-3 text-xs leading-relaxed">
               <p>
                 Dealership Owners (<code>OrgAdmin</code>) can enable or restrict catalog management from <strong>Team &amp; Access</strong> in the dashboard settings.
               </p>
               <p className="text-muted-foreground">
-                When enabled, Branch Managers can add, edit, and delete EV models and suppliers in the dealership&apos;s shared catalog. Other staff can still view catalog records but cannot change them. Disabling the permission immediately restores owner-only management.
+                When enabled, Branch Managers can add, edit, and delete vehicle models and their default catalog prices. Other staff can still view catalog records but cannot change them. Disabling the permission immediately restores owner-only management.
               </p>
             </div>
           ),
@@ -205,23 +205,23 @@ export function HelpCenterView({
       id: "inventory",
       title: "Adding EV Bikes & Goods Received Notes (GRN)",
       icon: Bike,
-      badge: "Inventory & Stock",
+      badge: "GRN & Stock",
       badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
       description: "Define bike models with motor/battery specs, upload imagery, and intake physical stock via GRN.",
-      actionLink: "/dashboard/inventory",
-      actionText: "Open Inventory",
+      actionLink: "/dashboard/settings/vehicle-models",
+      actionText: "Manage Vehicle Models",
       faqs: [
         {
           question: "How do I add a new EV Bike Model with Motor Power, Battery Capacity, and Range?",
           answer: (
             <div className="space-y-3 text-xs leading-relaxed">
               <p>
-                The Dealership Owner manages the dealership&apos;s shared <strong>EV Bike Model</strong> catalog. Branch Managers can also manage models and suppliers when the owner enables that permission in <strong>Team &amp; Access</strong>. This ensures consistent specifications across all physical units:
+                The Dealership Owner manages the dealership&apos;s shared <strong>EV Bike Model</strong> catalog. Branch Managers can also manage models when the owner enables that permission in <strong>Team &amp; Access</strong>. This ensures consistent specifications across all physical units:
               </p>
               <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
                 <p className="font-semibold text-foreground">Catalog Setup Steps:</p>
                 <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
-                  <li>Navigate to <strong className="text-foreground">EV Bikes (GRN & Stock)</strong> &rarr; select the <strong className="text-foreground">EV Bike Models</strong> tab.</li>
+                  <li>Navigate to <strong className="text-foreground">Settings</strong> &rarr; <strong className="text-foreground">Vehicle Models</strong>.</li>
                   <li>Click <strong className="text-foreground">+ Add EV Bike Model</strong>.</li>
                   <li>Enter the <strong>Brand / Make</strong> (e.g., <em>Volt Motors</em>, <em>Super Soco</em>) and <strong>Model Name</strong> (e.g., <em>Apex 2000W Scooter</em>).</li>
                   <li>Provide an optional <strong>Image URL</strong> (URL to a clean side-profile photo of the bike).</li>
@@ -255,24 +255,22 @@ export function HelpCenterView({
               <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
                 <p className="font-semibold text-foreground">Intake Workflow:</p>
                 <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
-                  <li>In <strong className="text-foreground">EV Bikes (GRN & Stock)</strong>, click <strong className="text-foreground">Create GRN (Intake Stock)</strong>.</li>
-                  <li>Select the <strong>Supplier</strong> and destination <strong>Branch Showroom</strong>.</li>
-                  <li>Enter the supplier invoice / GRN reference number.</li>
+                  <li>Open <strong className="text-foreground">GRN Management</strong> &rarr; <strong className="text-foreground">Create GRN</strong>.</li>
+                  <li>Select the destination <strong>Showroom</strong>, delivery date, and any transport or order references.</li>
                   <li>
                     Add items: For each physical bike arriving on the shipment:
                     <ul className="list-disc list-inside pl-4 mt-1 space-y-0.5">
                       <li>Select the <strong>Bike Model</strong>.</li>
                       <li>Type or scan the <strong>Chassis Number (VIN)</strong>.</li>
                       <li>Enter the <strong>Electric Motor Number</strong>.</li>
-                      <li>Enter the <strong>Battery Pack Serial Number</strong>.</li>
-                      <li>Select the bike color and enter the procurement unit cost.</li>
+                      <li>Enter the <strong>Charging Serial Number</strong> and select the bike color.</li>
                     </ul>
                   </li>
-                  <li>Click <strong>Submit GRN & Intake Units</strong>.</li>
+                  <li>Click <strong>Create GRN</strong> to add the delivery and its bikes to stock.</li>
                 </ol>
               </div>
               <p className="text-muted-foreground">
-                The bikes will immediately appear in your <strong>Stock Tab</strong> with status <code>InStock</code> and be displayed on your public storefront for customer discovery.
+                The bikes will immediately appear under <strong>GRN Management</strong> &rarr; <strong>Current Bike Stock</strong> with available status.
               </p>
             </div>
           ),

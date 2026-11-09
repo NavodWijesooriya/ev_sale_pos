@@ -145,6 +145,7 @@ model VehicleModel {
 }
 
 enum VehicleStatus {
+  AVAILABLE
   InStock
   Sold
   InTransit
@@ -157,15 +158,19 @@ model Vehicle {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branchId       String
   branch         Branch       @relation(fields: [branchId], references: [id])
+  grnId          String?
+  grn            GRN?         @relation(fields: [grnId], references: [id], onDelete: SetNull)
   vehicleModelId String
   vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
 
   chassisNumber          String        @unique
   motorNumber            String?
+  chargingSerialNumber   String?
   batterySerialNumber    String?       @unique // අලුතින් එකතු කළ කොටස
   warrantyPeriod         String? // අලුතින් එකතු කළ කොටස (උදා: 3 Years)
+  year                   Int?
   color                  String?
-  status                 VehicleStatus @default(InStock)
+  status                 VehicleStatus @default(AVAILABLE)
   purchasePrice          Float
   freeServiceEntitlement Int           @default(0)
   freeServicesUsed       Int           @default(0)
@@ -187,15 +192,22 @@ model GRN {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branchId       String
   branch         Branch       @relation(fields: [branchId], references: [id])
-  supplierId     String
-  supplier       Supplier     @relation(fields: [supplierId], references: [id])
+  supplierId     String?
+  supplier       Supplier?    @relation(fields: [supplierId], references: [id])
 
-  grnNumber    String
-  totalAmount  Float
-  receivedDate DateTime @default(now())
+  grnNumber          String   @unique
+  date               DateTime @default(now())
+  transportRefNumber String?
+  orderNumber        String?
+  transportCost      Float?
+  totalAmount        Float    @default(0)
+  receivedDate       DateTime @default(now())
 
   items    GRNItem[]
   payments Payment[]
+  vehicles Vehicle[]
+
+  @@index([organizationId, date])
 }
 
 model GRNItem {

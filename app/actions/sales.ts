@@ -57,7 +57,7 @@ export async function getPOSInitialData() {
       prisma.vehicle.findMany({
         where: {
           organizationId,
-          status: VehicleStatus.InStock,
+          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
         },
         include: {
           vehicleModel: true,
@@ -288,7 +288,7 @@ export async function processSale(input: ProcessSaleInput) {
         throw new Error("Vehicle not found in your dealership inventory.")
       }
 
-      if (vehicle.status !== VehicleStatus.InStock) {
+      if (vehicle.status !== VehicleStatus.AVAILABLE && vehicle.status !== VehicleStatus.InStock) {
         throw new Error(
           `Vehicle (${vehicle.chassisNumber}) cannot be sold. Current status is ${vehicle.status}.`
         )
@@ -372,7 +372,7 @@ export async function processSale(input: ProcessSaleInput) {
 
     // Revalidate affected pages
     revalidatePath("/dashboard/sales")
-    revalidatePath("/dashboard/inventory")
+    revalidatePath("/dashboard/grn/stock")
     revalidatePath("/dashboard")
     revalidatePath("/dashboard/customers")
     revalidatePath("/dashboard/customers/crm")

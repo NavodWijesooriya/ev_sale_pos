@@ -1,5 +1,6 @@
 import { getRegisteredDealerships } from "@/app/actions/dealership"
 import { prisma } from "@/lib/prisma"
+import { VehicleStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
 import { DealershipForm } from "@/components/super-admin/dealership-form"
 import { DealershipTable } from "@/components/super-admin/dealership-table"
@@ -29,7 +30,7 @@ export default async function SuperAdminPage() {
   const [organizations, salesAgg, activeVehiclesCount] = await Promise.all([
     getRegisteredDealerships(),
     prisma.sale.aggregate({ _sum: { totalAmount: true } }),
-    prisma.vehicle.count({ where: { status: "InStock" } }),
+    prisma.vehicle.count({ where: { status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } } }),
   ])
 
   const totalTenants = organizations.length

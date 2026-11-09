@@ -63,12 +63,12 @@ export interface VehicleModelRecord {
   }
 }
 
-interface ModelsTabProps {
+interface VehicleModelsProps {
   initialModels: VehicleModelRecord[]
   canManageCatalog: boolean
 }
 
-export function ModelsTab({ initialModels, canManageCatalog }: ModelsTabProps) {
+export function VehicleModels({ initialModels, canManageCatalog }: VehicleModelsProps) {
   const router = useRouter()
   const [models, setModels] = React.useState<VehicleModelRecord[]>(initialModels)
   const [search, setSearch] = React.useState("")

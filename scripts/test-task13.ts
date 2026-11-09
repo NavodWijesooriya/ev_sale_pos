@@ -89,23 +89,23 @@ async function runTask13Verification() {
   // Cashier View
   const cashierNav = filterForRole("Cashier")
   console.log("  Cashier Visible Navigation:", cashierNav)
-  if (cashierNav.includes("Reports") || cashierNav.includes("Inventory (GRN & Stock)") || cashierNav.includes("Staff Management")) {
+  if (cashierNav.includes("Reports") || cashierNav.includes("GRN Management") || cashierNav.includes("Vehicle Models") || cashierNav.includes("Team & Access")) {
     throw new Error("Cashier view leaked restricted tabs!")
   }
-  console.log("  ✔ Cashier is restricted from Reports, Inventory, Branches, and Staff Management")
+  console.log("  ✔ Cashier is restricted from Reports, GRN, Vehicle Models, and Team & Access")
 
   // Technician View
   const techNav = filterForRole("Technician")
   console.log("  Technician Visible Navigation:", techNav)
-  if (techNav.includes("Reports") || techNav.includes("Inventory (GRN & Stock)") || techNav.includes("Sales (Cash & Lease)")) {
+  if (techNav.includes("Reports") || techNav.includes("GRN Management") || techNav.includes("Sales & POS")) {
     throw new Error("Technician view leaked restricted tabs!")
   }
-  console.log("  ✔ Technician only sees Dashboard & Services (hidden from POS, Inventory, Reports)")
+  console.log("  ✔ Technician only sees Dashboard & Services (hidden from POS, GRN, Reports)")
 
   // OrgAdmin View
   const adminNav = filterForRole("OrgAdmin")
   console.log("  OrgAdmin Visible Navigation:", adminNav)
-  if (!adminNav.includes("Staff Management") || !adminNav.includes("Reports") || !adminNav.includes("Inventory (GRN & Stock)")) {
+  if (!adminNav.includes("Team & Access") || !adminNav.includes("Reports") || !adminNav.includes("GRN Management") || !adminNav.includes("Vehicle Models")) {
     throw new Error("OrgAdmin missing required tabs!")
   }
   console.log("  ✔ OrgAdmin has full access to all dealership modules including Staff Management")

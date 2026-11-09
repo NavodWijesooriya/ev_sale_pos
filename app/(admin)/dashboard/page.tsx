@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { VehicleStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { formatLKR } from "@/lib/currency"
@@ -63,7 +64,7 @@ export default async function DashboardPage() {
     prisma.vehicle.count({
       where: {
         ...(organizationId ? { organizationId } : {}),
-        status: "InStock",
+        status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
       },
     }),
     prisma.vehicle.count({
@@ -164,7 +165,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Link href="/dashboard/inventory">
+          <Link href="/dashboard/grn/stock">
             <Button size="sm" variant="outline" className="text-xs">
               <Bike className="mr-1.5 size-3.5" />
               Check Bike Stock ({inStockCount})
