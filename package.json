@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "postinstall": "node scripts/patch-html2canvas.js && (prisma skills sync || exit 0)"
-  },
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "eslint",
+  "postinstall": "node scripts/patch-html2canvas.js && prisma generate && (prisma skills sync || exit 0)"
+},
+
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@prisma/client": "^6.19.3",
