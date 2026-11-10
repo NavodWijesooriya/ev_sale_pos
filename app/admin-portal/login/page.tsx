@@ -94,26 +94,6 @@ function SuperAdminLoginForm() {
           />
         </div>
 
-        <div className="flex flex-col gap-3 rounded-xl border border-[#e6ebe6] bg-[#f7f9f7] p-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#547c63] shadow-sm">
-              <KeyRound className="size-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-[#34443a]">Demo access</p>
-              <p className="mt-0.5 break-all text-xs text-[#77827b]">Platform administrator</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={fillDemoCredentials}
-            disabled={isLoading}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#dce5dd] bg-white px-3 text-xs font-medium text-[#42664f] transition-colors hover:bg-[#edf3ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#57806a]/30 disabled:opacity-50"
-          >
-            Fill demo account
-            <ArrowRight className="size-3.5" />
-          </button>
-        </div>
 
         <Button
           type="submit"

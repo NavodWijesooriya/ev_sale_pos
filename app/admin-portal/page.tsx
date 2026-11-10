@@ -22,7 +22,7 @@ export default async function SuperAdminDashboardPage() {
 
   const platformUser = await prisma.platformUser.findUnique({
     where: { email: user.email.toLowerCase().trim() },
-    select: { name: true, role: true },
+    select: { role: true },
   })
 
   if (platformUser?.role !== "PlatformAdmin") {
@@ -77,11 +77,6 @@ export default async function SuperAdminDashboardPage() {
 
   return (
     <SuperAdminView
-      user={{
-        name: platformUser.name,
-        email: user.email,
-        role: platformUser.role,
-      }}
       kpis={{
         totalOrganizations,
         activeVehicles,

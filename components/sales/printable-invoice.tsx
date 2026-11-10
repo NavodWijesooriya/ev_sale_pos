@@ -12,6 +12,10 @@ import { PaymentMethod, FinanceStatus } from "@prisma/client"
 import { Button } from "@/components/ui/button"
 import { formatLKR } from "@/lib/currency"
 import {
+  extendedWarrantyPrice,
+  saleWarrantyOptions,
+} from "@/lib/validations/new-sale"
+import {
   downloadDocumentPdf,
   printDocumentA4,
 } from "@/lib/download-document-pdf"
@@ -23,7 +27,11 @@ export interface InvoiceSaleData {
   totalAmount: number
   discount?: number
   additionalCharges?: number
-  paymentMethod: PaymentMethod
+  warrantyOption?: string | null
+  advancePayment?: {
+    amount: number
+  } | null
+  paymentMethod: PaymentMethod | string | null
   status: string
   organization: {
     id: string
@@ -98,6 +106,12 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
   const itemSubtotal = sale.items.reduce((sum, item) => sum + item.price, 0)
   const discount = sale.discount ?? 0
   const additionalCharges = sale.additionalCharges ?? 0
+  const warrantyCharge =
+    sale.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
+  const advanceDeduction =
+    sale.advancePayment && sale.advancePayment.amount > 0
+      ? sale.advancePayment.amount
+      : 0
   const isFinance =
     sale.paymentMethod === PaymentMethod.Finance ||
     sale.paymentMethod === PaymentMethod.SplitPayment
@@ -183,6 +197,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-end",
+            flexWrap: "wrap",
             gap: "12px",
           }}
         >
@@ -869,6 +884,21 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                 <span>Subtotal</span>
                 <strong style={{ color: "#0f172a" }}>{formatLKR(itemSubtotal)}</strong>
               </div>
+              {warrantyCharge > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: "#475569",
+                  }}
+                >
+                  <span>Extended Warranty</span>
+                  <strong style={{ color: "#0f172a" }}>
+                    {formatLKR(warrantyCharge)}
+                  </strong>
+                </div>
+              )}
               {additionalCharges > 0 && (
                 <div
                   style={{
@@ -882,6 +912,19 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   <strong style={{ color: "#0f172a" }}>
                     {formatLKR(additionalCharges)}
                   </strong>
+                </div>
+              )}
+              {advanceDeduction > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: "#64748b",
+                  }}
+                >
+                  <span>Advance Deducted</span>
+                  <strong>− {formatLKR(advanceDeduction)}</strong>
                 </div>
               )}
               {discount > 0 && (
@@ -950,7 +993,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
             </div>
           </section>
 
-          {/* WARRANTY & CONDITIONS BOX */}
+          {/* WARRANTY DETAILS */}
           <section
             aria-labelledby="invoice-warranty-title"
             style={{
@@ -982,7 +1025,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     color: "#047857",
                   }}
                 >
-                  Official Dealership Warranty
+                  Warranty Selection
                 </p>
                 <h3
                   id="invoice-warranty-title"
@@ -993,7 +1036,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     color: "#0f172a",
                   }}
                 >
-                  Warranty Coverage &amp; Service Conditions
+                  Warranty Details
                 </h3>
               </div>
               <span
@@ -1055,11 +1098,6 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     <div>
                       Motor No: {item.vehicle.motorNumber || "Factory Fitted"}
                     </div>
-                    <div style={{ color: "#047857", fontWeight: 600 }}>
-                      Warranty Period:{" "}
-                      {item.vehicle.warrantyPeriod ||
-                        "Standard Manufacturer Term (2 Years / 20,000 KM)"}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1074,34 +1112,34 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     textTransform: "uppercase",
                   }}
                 >
-                  Terms &amp; Obligations:
+                  Selected warranty:
                 </p>
-                <ul
+                <div
                   style={{
-                    margin: 0,
-                    paddingLeft: "16px",
-                    fontSize: "10px",
-                    color: "#475569",
-                    lineHeight: 1.45,
+                    padding: "12px",
+                    border: "1px solid #a7f3d0",
+                    borderRadius: "6px",
+                    backgroundColor: "#ecfdf5",
+                    color: "#065f46",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    lineHeight: 1.5,
                   }}
                 >
-                  <li style={{ marginBottom: "3px" }}>
-                    Warranty starts on the date of sale and applies exclusively to the
-                    chassis, motor, and battery serial numbers listed above.
-                  </li>
-                  <li style={{ marginBottom: "3px" }}>
-                    Routine maintenance must be carried out only at authorized service
-                    centers in adherence with the manufacturer service manual.
-                  </li>
-                  <li style={{ marginBottom: "3px" }}>
-                    Modifications, unauthorized electrical alterations, water
-                    submersion, or accidental damage void the battery and electrical warranty.
-                  </li>
-                  <li>
-                    Please present this original invoice document and vehicle logbook
-                    when requesting warranty service or inspection.
-                  </li>
-                </ul>
+                  {sale.warrantyOption || "No warranty option recorded"}
+                </div>
+                <p
+                  style={{
+                    margin: "10px 0 0",
+                    paddingTop: "8px",
+                    borderTop: "1px solid #e2e8f0",
+                    color: "#334155",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Motor Warranty: 3 Years or 30,000 km
+                </p>
               </div>
             </div>
           </section>

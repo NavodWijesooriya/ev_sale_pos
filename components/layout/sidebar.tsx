@@ -34,13 +34,36 @@ export interface NavItem {
   badge?: string
   description?: string
   roles?: string[]
-  children?: Array<{ title: string; href: string }>
+  children?: NavChild[]
+}
+
+interface NavChild {
+  title: string
+  href?: string
+  children?: NavChild[]
 }
 
 export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Branches", href: "/dashboard/settings/branches", icon: Building2, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
-  { title: "Sales & POS", href: "/dashboard/sales", icon: Coins, roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"] },
+  {
+    title: "Sales Management",
+    href: "/dashboard/sales/new",
+    icon: Coins,
+    roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"],
+    children: [
+      { title: "New Sale (POS)", href: "/dashboard/sales/new" },
+      { title: "Sales History", href: "/dashboard/sales/history" },
+      {
+        title: "Advance Payments",
+        children: [
+          { title: "Manage Advances", href: "/dashboard/sales/advances" },
+          { title: "Advance Reports", href: "/dashboard/sales/advances/reports" },
+          { title: "Advance Transfers", href: "/dashboard/sales/advances/transfers" },
+        ],
+      },
+    ],
+  },
   {
     title: "Customers",
     href: "/dashboard/customers",
@@ -94,7 +117,27 @@ export function SidebarContent({
   const [grnExpanded, setGrnExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/grn/")),
   )
+  const [salesExpanded, setSalesExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/sales/")),
+  )
+  const [advancesExpanded, setAdvancesExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/sales/advances")),
+  )
   const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
+  const isExpanded = (title: string) => {
+    if (title === "Customers") return customersExpanded
+    if (title === "GRN Management") return grnExpanded
+    if (title === "Sales Management") return salesExpanded
+    return false
+  }
+  const hasActiveChild = (children: NavChild[]): boolean =>
+    children.some((child) =>
+      child.href
+        ? Boolean(pathname?.startsWith(child.href))
+        : child.children
+          ? hasActiveChild(child.children)
+          : false,
+    )
 
   return (
     <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -135,7 +178,7 @@ export function SidebarContent({
             </h2>
             <div className="space-y-1.5">
               <Link
-                href="/dashboard/sales"
+                href="/dashboard/sales/new"
                 onClick={onNavigate}
                 className="group flex min-h-11 items-center gap-3 rounded-xl border border-border/70 bg-card px-3 text-sm font-medium transition-colors hover:border-primary/25 hover:bg-primary/5"
               >
@@ -149,7 +192,7 @@ export function SidebarContent({
           </section>
         ) : (
           <div className="flex flex-col items-center gap-2 border-b border-sidebar-border pb-3">
-            <Link href="/dashboard/sales" onClick={onNavigate} title="New sale" className="flex size-10 items-center justify-center rounded-xl text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+            <Link href="/dashboard/sales/new" onClick={onNavigate} title="New sale" className="flex size-10 items-center justify-center rounded-xl text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <ShoppingCart className="size-4" />
             </Link>
           </div>
@@ -165,7 +208,7 @@ export function SidebarContent({
             {visibleItems.map((item) => {
               const Icon = item.icon
               const isActive = item.children
-                ? Boolean(item.children.some((child) => pathname?.startsWith(child.href)))
+                ? hasActiveChild(item.children)
                 : item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
@@ -181,15 +224,18 @@ export function SidebarContent({
                         if (isCollapsed) {
                           if (item.title === "Customers") setCustomersExpanded(true)
                           if (item.title === "GRN Management") setGrnExpanded(true)
+                          if (item.title === "Sales Management") setSalesExpanded(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
+                        } else if (item.title === "Sales Management") {
+                          setSalesExpanded((expanded) => !expanded)
                         } else {
                           setCustomersExpanded((expanded) => !expanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}
-                      aria-expanded={item.title === "GRN Management" ? grnExpanded : customersExpanded}
+                      aria-expanded={isExpanded(item.title)}
                       className={cn(
                         "group relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200",
                         isCollapsed && "mx-auto size-10 justify-center px-0",
@@ -205,7 +251,7 @@ export function SidebarContent({
                       {!isCollapsed && (
                         <>
                           <span className="flex-1 truncate">{item.title}</span>
-                          {(item.title === "GRN Management" ? grnExpanded : customersExpanded)
+                          {isExpanded(item.title)
                             ? <ChevronDown className="size-4 text-muted-foreground" />
                             : <ChevronRight className="size-4 text-muted-foreground" />}
                         </>
@@ -245,26 +291,72 @@ export function SidebarContent({
                       )}
                     </Link>
                   )}
-                  {!isCollapsed && item.children && (item.title === "GRN Management" ? grnExpanded : customersExpanded) && (
+                  {!isCollapsed && item.children && isExpanded(item.title) && (
                     <div className="ml-5 mt-1 space-y-1 border-l border-sidebar-border pl-3">
                       {item.children.map((child) => {
-                        const isChildActive = pathname === child.href
+                        const isChildActive = child.href
+                          ? pathname?.startsWith(child.href)
+                          : child.children
+                            ? hasActiveChild(child.children)
+                            : false
 
                         return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            onClick={onNavigate}
-                            aria-current={isChildActive ? "page" : undefined}
-                            className={cn(
-                              "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                              isChildActive
-                                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                          <div key={child.href ?? child.title}>
+                            {child.children ? (
+                              <button
+                                type="button"
+                                onClick={() => setAdvancesExpanded((expanded) => !expanded)}
+                                aria-expanded={advancesExpanded}
+                                className={cn(
+                                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
+                                  isChildActive
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                )}
+                              >
+                                {child.title}
+                                {advancesExpanded
+                                  ? <ChevronDown className="size-3.5 text-muted-foreground" />
+                                  : <ChevronRight className="size-3.5 text-muted-foreground" />}
+                              </button>
+                            ) : child.href ? (
+                              <Link
+                                href={child.href}
+                                onClick={onNavigate}
+                                aria-current={pathname === child.href ? "page" : undefined}
+                                className={cn(
+                                  "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                  isChildActive
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                )}
+                              >
+                                {child.title}
+                              </Link>
+                            ) : null}
+                            {!isCollapsed && child.children && advancesExpanded && (
+                              <div className="ml-3 mt-1 space-y-1 border-l border-sidebar-border pl-2">
+                                {child.children.map((nestedChild) => (
+                                  nestedChild.href ? (
+                                    <Link
+                                      key={nestedChild.href}
+                                      href={nestedChild.href}
+                                      onClick={onNavigate}
+                                      aria-current={pathname === nestedChild.href ? "page" : undefined}
+                                      className={cn(
+                                        "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                        pathname?.startsWith(nestedChild.href)
+                                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                          : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                      )}
+                                    >
+                                      {nestedChild.title}
+                                    </Link>
+                                  ) : null
+                                ))}
+                              </div>
                             )}
-                          >
-                            {child.title}
-                          </Link>
+                          </div>
                         )
                       })}
                     </div>

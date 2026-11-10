@@ -2,9 +2,6 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
-import { toast } from "sonner"
 import {
   Card,
   CardContent,
@@ -24,13 +21,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  ShieldCheck,
   Building2,
   Bike,
   Coins,
   Users,
   Search,
-  LogOut,
   Sparkles,
   CheckCircle2,
   AlertCircle,
@@ -58,11 +53,6 @@ export interface OrganizationRow {
 }
 
 interface SuperAdminViewProps {
-  user: {
-    name?: string | null
-    email?: string | null
-    role?: string
-  }
   kpis: {
     totalOrganizations: number
     activeVehicles: number
@@ -74,12 +64,9 @@ interface SuperAdminViewProps {
 }
 
 export function SuperAdminView({
-  user,
   kpis,
   organizations,
 }: SuperAdminViewProps) {
-  const router = useRouter()
-  const supabase = createClient()
   const [searchTerm, setSearchTerm] = React.useState("")
   const [planFilter, setPlanFilter] = React.useState<string>("all")
   const [orgList, setOrgList] = React.useState<OrganizationRow[]>(organizations)
@@ -166,65 +153,9 @@ export function SuperAdminView({
     )
   }
 
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error("Failed to sign out:", error)
-      toast.error("Unable to sign out. Please try again.")
-      return
-    }
-
-    router.replace("/admin-portal/login")
-    router.refresh()
-  }
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Platform Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b bg-card/90 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5 lg:px-8">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20">
-            <ShieldCheck className="size-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">
-                Ev Sale Pos • Super Admin Control Center
-              </span>
-              <Badge
-                variant="outline"
-                className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold"
-              >
-                PlatformAdmin
-              </Badge>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Multi-Tenant EV Dealership Cloud Infrastructure
-            </p>
-          </div>
-        </div>
-
-        {/* User Profile & Sign Out */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-foreground">{user?.name || "Platform Admin"}</div>
-            <div className="text-[11px] text-muted-foreground font-mono">{user?.email}</div>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSignOut}
-            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
+      <main className="mx-auto w-full max-w-[1600px] flex-1 space-y-7 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
         {/* Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b">
           <div>
@@ -262,9 +193,9 @@ export function SuperAdminView({
         </div>
 
         {/* 3 Core KPI Cards (Requested) + 1 Platform Health Card */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* KPI 1: Total Registered Organizations */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
+          <Card className="relative overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Total Dealerships
@@ -284,7 +215,7 @@ export function SuperAdminView({
           </Card>
 
           {/* KPI 2: Total Active Vehicles (across all tenants) */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
+          <Card className="relative overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Active EV Bikes
@@ -305,7 +236,7 @@ export function SuperAdminView({
           </Card>
 
           {/* KPI 3: Total Sales Value (across all tenants) */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
+          <Card className="relative overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Total Sales Value
@@ -325,7 +256,7 @@ export function SuperAdminView({
           </Card>
 
           {/* KPI 4: Total Platform Users */}
-          <Card className="relative overflow-hidden border-border/80 shadow-xs transition-colors hover:border-primary/30">
+          <Card className="relative overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Tenant Workforce
@@ -346,7 +277,7 @@ export function SuperAdminView({
         </div>
 
         {/* Organizations Data Table Card */}
-        <Card className="shadow-xs border-border/80">
+        <Card id="organizations" className="scroll-mt-20 overflow-hidden rounded-2xl border-border/70 shadow-sm">
           <CardHeader className="pb-3 border-b">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
@@ -361,7 +292,7 @@ export function SuperAdminView({
 
               {/* Right actions: Plan Filter + Add Dealership Button */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div id="plans" className="flex flex-wrap items-center gap-1.5">
                   {[
                     { id: "all", label: "All Plans" },
                     { id: "enterprise", label: "Enterprise" },
@@ -499,6 +430,23 @@ export function SuperAdminView({
           )}
         </CardContent>
         </Card>
+
+        <section
+          id="platform-settings"
+          className="scroll-mt-20 rounded-2xl border border-dashed bg-card/60 px-5 py-4"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold">Platform Settings</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Platform-wide configuration controls will be available here.
+              </p>
+            </div>
+            <Badge variant="outline" className="w-fit text-[10px] uppercase tracking-wide">
+              Coming soon
+            </Badge>
+          </div>
+        </section>
       </main>
 
       {/* Create Dealership Dialog */}
@@ -511,7 +459,7 @@ export function SuperAdminView({
       />
 
       {/* Footer */}
-      <footer className="border-t py-4 px-6 text-center text-[11px] text-muted-foreground">
+      <footer className="border-t bg-background/70 py-4 px-6 text-center text-[11px] text-muted-foreground">
         Ev Sale Pos Multi-Tenant Platform • Control Center v1.0
       </footer>
     </div>

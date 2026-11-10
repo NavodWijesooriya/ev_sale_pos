@@ -98,10 +98,7 @@ function LoginForm() {
             <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#547c63] shadow-sm">
               <KeyRound className="size-4" />
             </span>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-[#34443a]">Demo access</p>
-              <p className="mt-0.5 break-all text-xs text-[#77827b]">admin@voltpos.com</p>
-            </div>
+           
           </div>
           <button
             type="button"

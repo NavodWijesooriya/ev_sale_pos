@@ -1,10 +1,24 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { randomUUID } from "node:crypto"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
-import { VehicleStatus, PaymentMethod, FinanceStatus, DMTStatus, CustomerType } from "@prisma/client"
+import {
+  AdvancePaymentStatus,
+  VehicleStatus,
+  PaymentMethod,
+  FinanceStatus,
+  DMTStatus,
+  CustomerType,
+} from "@prisma/client"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
+import {
+  createNewSaleSchema,
+  extendedWarrantyPrice,
+  saleWarrantyOptions,
+  type CreateNewSaleInput,
+} from "@/lib/validations/new-sale"
 
 /**
  * Enforces session authentication and extracts the user's organizationId and userId
@@ -43,6 +57,167 @@ export interface ProcessSaleInput {
   totalFinanceAmount?: number
   downPaymentPaid?: number
   dealerCommission?: number
+}
+
+export interface PendingCustomerAdvance {
+  id: string
+  amount: number
+}
+
+export async function getPendingCustomerAdvance(
+  customerId: string,
+): Promise<PendingCustomerAdvance | null> {
+  const { organizationId } = await requireAuthOrg()
+  const advance = await prisma.advancePayment.findFirst({
+    where: {
+      customerId,
+      organizationId,
+      status: AdvancePaymentStatus.PENDING,
+    },
+    select: { id: true, amount: true },
+    orderBy: [{ advanceDate: "desc" }, { id: "desc" }],
+  })
+
+  return advance
+}
+
+export async function createNewSale(
+  input: CreateNewSaleInput,
+): Promise<{ success: true; saleId: string; invoiceNumber: string } | { success: false; error: string }> {
+  try {
+    const { organizationId, userId } = await requireAuthOrg()
+    const parsedInput = createNewSaleSchema.safeParse(input)
+    if (!parsedInput.success) {
+      return {
+        success: false,
+        error: parsedInput.error.issues[0]?.message ?? "Enter valid sale details.",
+      }
+    }
+
+    const data = parsedInput.data
+    const advancePaymentId = data.advancePaymentId?.trim() || null
+    const result = await prisma.$transaction(async (tx) => {
+      const [customer, vehicle] = await Promise.all([
+        tx.customer.findFirst({
+          where: { id: data.customerId, organizationId },
+          select: { id: true },
+        }),
+        tx.vehicle.findFirst({
+          where: {
+            id: data.vehicleId,
+            organizationId,
+            status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+          },
+          include: { vehicleModel: true },
+        }),
+      ])
+
+      if (!customer) throw new Error("The selected customer was not found.")
+      if (!vehicle) throw new Error("This vehicle is no longer available. Refresh stock and choose another vehicle.")
+
+      const subtotal = vehicle.vehicleModel.defaultPrice
+      let advanceAmount = 0
+      if (advancePaymentId) {
+        const advance = await tx.advancePayment.findFirst({
+          where: {
+            id: advancePaymentId,
+            customerId: customer.id,
+            organizationId,
+            status: AdvancePaymentStatus.PENDING,
+          },
+          select: { id: true, amount: true },
+        })
+        if (!advance) throw new Error("The selected customer advance is no longer pending.")
+
+        const updatedAdvance = await tx.advancePayment.updateMany({
+          where: {
+            id: advance.id,
+            customerId: customer.id,
+            organizationId,
+            status: AdvancePaymentStatus.PENDING,
+          },
+          data: { status: AdvancePaymentStatus.USED },
+        })
+        if (updatedAdvance.count !== 1) {
+          throw new Error("The selected advance was already used by another sale.")
+        }
+        advanceAmount = advance.amount
+      }
+
+      const reservedVehicle = await tx.vehicle.updateMany({
+        where: {
+          id: vehicle.id,
+          organizationId,
+          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+        },
+        data: { status: VehicleStatus.Sold },
+      })
+      if (reservedVehicle.count !== 1) {
+        throw new Error("This vehicle was just sold or reserved. Refresh stock and try again.")
+      }
+
+      const invoiceNumber = `INV-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`
+      const warrantyCharge =
+        data.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
+      const sale = await tx.sale.create({
+        data: {
+          organizationId,
+          branchId: vehicle.branchId,
+          customerId: customer.id,
+          userId,
+          vehicleId: vehicle.id,
+          invoiceNumber,
+          totalAmount: Math.max(0, subtotal + warrantyCharge - advanceAmount),
+          paymentMethod: data.paymentMethod,
+          warrantyOption: data.warrantyOption,
+          saleDate: new Date(),
+          status: "Completed",
+          freeItems: data.freeItems,
+          freeServices: data.freeServices,
+          advancePaymentId,
+          items: {
+            create: {
+              vehicleId: vehicle.id,
+              price: subtotal,
+            },
+          },
+          dmtRegistration: {
+            create: {
+              status: DMTStatus.Pending,
+              hasMTA2: false,
+              hasNIC: false,
+              hasPhotos: false,
+              hasTIN: false,
+            },
+          },
+        },
+        select: { id: true, invoiceNumber: true },
+      })
+
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: { customerType: CustomerType.SALE, category: "DIRECT" },
+      })
+
+      return { saleId: sale.id, invoiceNumber: sale.invoiceNumber }
+    }, { maxWait: 5000, timeout: 20000 })
+
+    revalidatePath("/dashboard/sales")
+    revalidatePath("/dashboard/sales/new")
+    revalidatePath("/dashboard/sales/history")
+    revalidatePath("/dashboard/grn/stock")
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/customers/sales")
+    revalidatePath("/dashboard/sales/advances")
+
+    return { success: true, ...result }
+  } catch (error) {
+    console.error("createNewSale error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unable to complete this sale.",
+    }
+  }
 }
 
 /**
@@ -114,6 +289,11 @@ export async function getSalesHistory() {
       orderBy: { saleDate: "desc" },
       include: {
         customer: true,
+        vehicle: {
+          include: {
+            vehicleModel: true,
+          },
+        },
         soldBy: {
           select: {
             id: true,
@@ -140,6 +320,9 @@ export async function getSalesHistory() {
         },
         financeDetail: true,
         dmtRegistration: true,
+        advancePayment: {
+          select: { amount: true },
+        },
       },
     })
 

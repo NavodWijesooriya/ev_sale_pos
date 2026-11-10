@@ -1,3 +1,4 @@
+import { connection } from "next/server"
 import { redirect } from "next/navigation"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { prisma } from "@/lib/prisma"
@@ -15,6 +16,7 @@ export default async function AdminDashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  await connection()
   const supabase = await createClient()
   const {
     data: { user },

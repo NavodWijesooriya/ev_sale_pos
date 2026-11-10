@@ -46,6 +46,7 @@ export interface SaleRecordItem {
   totalAmount: number
   discount?: number
   additionalCharges?: number
+  warrantyOption?: string | null
   paymentMethod: PaymentMethod
   status: string
   customer: {

@@ -1,3 +1,4 @@
+import { connection } from "next/server"
 import { notFound, redirect } from "next/navigation"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -17,6 +18,7 @@ interface InvoicePageProps {
 }
 
 export default async function InvoicePage({ params }: InvoicePageProps) {
+  await connection()
   const session = await getAuthSession()
 
   if (!session?.user?.organizationId) {
@@ -89,6 +91,11 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
         },
       },
       financeDetail: true,
+      advancePayment: {
+        select: {
+          amount: true,
+        },
+      },
     },
   })
 
@@ -97,5 +104,5 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
     notFound()
   }
 
-  return <PrintableInvoice sale={sale as any} />
+  return <PrintableInvoice sale={sale} />
 }
