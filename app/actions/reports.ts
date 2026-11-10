@@ -866,7 +866,7 @@ export async function getAnalyticsData(
   })
 
   const paymentMethodDistribution = paymentMethodAggregate.map((p) => ({
-    method: p.paymentMethod,
+    method: p.paymentMethod ?? "N/A",
     count: p._count.id,
     revenue: p._sum.totalAmount || 0,
   }))
@@ -899,7 +899,7 @@ export async function getAnalyticsData(
       .map((i) => `${i.vehicle.vehicleModel.brand} ${i.vehicle.vehicleModel.modelName}`)
       .join(", ") || "Vehicle",
     branchName: s.branch.name,
-    paymentMethod: s.paymentMethod,
+    paymentMethod: s.paymentMethod ?? "N/A",
     status: s.status,
     totalAmount: s.totalAmount,
   }))
@@ -942,7 +942,7 @@ export async function getAnalyticsData(
     chassisNumbers: s.items.map((i) => i.vehicle.chassisNumber).join("; "),
     branch: s.branch.name,
     soldBy: s.soldBy.name,
-    paymentMethod: s.paymentMethod,
+    paymentMethod: s.paymentMethod ?? "N/A",
     status: s.status,
     additionalCharges: s.additionalCharges,
     discount: s.discount,

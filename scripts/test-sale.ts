@@ -96,6 +96,8 @@ async function main() {
         branchId: vehicleToSell.branchId,
         customerId: customer.id,
         userId: user.id,
+        invoiceNumber: `INV-TEST-${Date.now()}`,
+        vehicleId: vehicleToSell.id,
         totalAmount: salePrice,
         paymentMethod: PaymentMethod.SplitPayment,
         status: "Completed",

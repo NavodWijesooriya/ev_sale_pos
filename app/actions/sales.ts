@@ -481,6 +481,7 @@ export async function processSale(input: ProcessSaleInput) {
       const discount = Math.max(0, Number(input.discount) || 0)
       const additionalCharges = Math.max(0, Number(input.additionalCharges) || 0)
       const calculatedTotal = Math.max(0, (input.salePrice + additionalCharges) - discount)
+      const invoiceNumber = `INV-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`
 
       // Step C: Create Sale record
       const sale = await tx.sale.create({
@@ -489,6 +490,8 @@ export async function processSale(input: ProcessSaleInput) {
           branchId: vehicle.branchId,
           customerId,
           userId,
+          invoiceNumber,
+          vehicleId: vehicle.id,
           totalAmount: calculatedTotal,
           discount,
           additionalCharges,

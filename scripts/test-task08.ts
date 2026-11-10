@@ -111,6 +111,8 @@ async function main() {
         branchId: branch.id,
         customerId: customer.id,
         userId: user.id,
+        invoiceNumber: `INV-TEST-${Date.now()}`,
+        vehicleId: newVehicle.id,
         totalAmount: expectedTotal,
         discount,
         additionalCharges,
