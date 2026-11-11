@@ -1,3 +1,4 @@
+import { connection } from "next/server"
 import { redirect } from "next/navigation"
 import { VehicleStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
@@ -24,6 +25,7 @@ import Link from "next/link"
 export const instant = false
 
 export default async function DashboardPage() {
+  await connection()
   const supabase = await createClient()
   const {
     data: { user },

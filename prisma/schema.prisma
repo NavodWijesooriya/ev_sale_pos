@@ -51,20 +51,22 @@ model Organization {
   staffCanManageCatalog Boolean            @default(false)
   createdAt             DateTime           @default(now())
 
-  users          User[]
-  branches       Branch[]
-  suppliers      Supplier[]
-  vehicleModels  VehicleModel[]
-  vehicles       Vehicle[]
-  grns           GRN[]
-  customers      Customer[]
-  sales          Sale[]
-  advancePayments AdvancePayment[]
-  serviceRecords ServiceRecord[]
-  testRides      TestRide[]
-  spareParts     SparePart[]
-  serviceJobs    ServiceJob[]
-  customDomain   String?         @unique
+  users              User[]
+  branches           Branch[]
+  suppliers          Supplier[]
+  vehicleModels      VehicleModel[]
+  vehicles           Vehicle[]
+  grns               GRN[]
+  customers          Customer[]
+  sales              Sale[]
+  financeCompanies   FinanceCompany[]
+  insuranceCompanies InsuranceCompany[]
+  advancePayments    AdvancePayment[]
+  serviceRecords     ServiceRecord[]
+  testRides          TestRide[]
+  spareParts         SparePart[]
+  serviceJobs        ServiceJob[]
+  customDomain       String?            @unique
 }
 
 enum UserRole {
@@ -88,9 +90,9 @@ model User {
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
 
-  sales            Sale[]          @relation("SoldBy")
+  sales            Sale[]           @relation("SoldBy")
   advancePayments  AdvancePayment[]
-  assignedServices ServiceRecord[] @relation("AssignedTechnician")
+  assignedServices ServiceRecord[]  @relation("AssignedTechnician")
 }
 
 model Branch {
@@ -102,13 +104,13 @@ model Branch {
   contactNumber  String?
   createdAt      DateTime     @default(now())
 
-  users          User[]
-  vehicles       Vehicle[]
-  grns           GRN[]
-  sales          Sale[]
+  users           User[]
+  vehicles        Vehicle[]
+  grns            GRN[]
+  sales           Sale[]
   advancePayments AdvancePayment[]
-  serviceRecords ServiceRecord[]
-  testRides      TestRide[]
+  serviceRecords  ServiceRecord[]
+  testRides       TestRide[]
 }
 
 // ==========================================
@@ -186,7 +188,7 @@ model Vehicle {
 
   grnItems       GRNItem[]
   saleItems      SaleItem[]
-  sales          Sale[]        @relation("SaleVehicle")
+  sales          Sale[]          @relation("SaleVehicle")
   serviceRecords ServiceRecord[]
 }
 
@@ -252,11 +254,11 @@ model Customer {
   thirdCallNote       String?          @db.Text
   fourthCallNote      String?          @db.Text
 
-  sales          Sale[]
-  advancePayments AdvancePayment[]
+  sales                    Sale[]
+  advancePayments          AdvancePayment[]
   advanceTransfersReceived AdvanceTransfer[] @relation("AdvanceTransferToCustomer")
-  serviceRecords ServiceRecord[]
-  testRides      TestRide[]
+  serviceRecords           ServiceRecord[]
+  testRides                TestRide[]
 }
 
 enum CustomerCategory {
@@ -320,26 +322,87 @@ model Sale {
   userId         String
   soldBy         User         @relation("SoldBy", fields: [userId], references: [id])
 
-  saleDate          DateTime      @default(now())
-  invoiceNumber     String          @unique
-  vehicleId         String
-  vehicle           Vehicle       @relation("SaleVehicle", fields: [vehicleId], references: [id])
-  advancePaymentId  String?       @unique
-  advancePayment    AdvancePayment? @relation(fields: [advancePaymentId], references: [id])
-  totalAmount       Float
-  discount          Float         @default(0) // අලුතින් එකතු කළ කොටස
-  additionalCharges Float         @default(0) // අලුතින් එකතු කළ කොටස
-  deliveryDate      DateTime? // අලුතින් එකතු කළ කොටස
-  paymentMethod     String?
-  warrantyOption    String?
-  status            String        @default("Completed")
-  freeItems         String[]      @default([])
-  freeServices      Int           @default(0)
+  saleDate            DateTime          @default(now())
+  invoiceNumber       String            @unique
+  vehicleId           String
+  vehicle             Vehicle           @relation("SaleVehicle", fields: [vehicleId], references: [id])
+  advancePaymentId    String?           @unique
+  advancePayment      AdvancePayment?   @relation(fields: [advancePaymentId], references: [id])
+  financeCompanyId    String?
+  financeCompany      FinanceCompany?   @relation("SaleFinanceCompany", fields: [financeCompanyId], references: [id], onDelete: SetNull)
+  insuranceCompanyId  String?
+  insuranceCompany    InsuranceCompany? @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
+  totalAmount         Float
+  discount            Float             @default(0) // අලුතින් එකතු කළ කොටස
+  additionalCharges   Float             @default(0) // අලුතින් එකතු කළ කොටස
+  financeCommission   Float?
+  insuranceCommission Float?
+  deliveryDate        DateTime? // අලුතින් එකතු කළ කොටස
+  paymentMethod       String?
+  warrantyOption      String?
+  status              String            @default("Completed")
+  freeItems           String[]          @default([])
+  freeServices        Int               @default(0)
 
   items           SaleItem[]
   financeDetail   FinanceDetail?
   dmtRegistration DMTRegistration? // අලුතින් එකතු කළ කොටස
   payments        Payment[]
+
+  @@index([organizationId, financeCompanyId])
+  @@index([organizationId, insuranceCompanyId])
+}
+
+model FinanceCompany {
+  id                    String       @id @default(uuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                  String
+  contactNo             String
+  defaultCommissionRate Float?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  sales    Sale[]           @relation("SaleFinanceCompany")
+  officers FinanceOfficer[]
+
+  @@unique([organizationId, name])
+}
+
+model FinanceOfficer {
+  id               String         @id @default(uuid())
+  name             String
+  contactNo        String
+  financeCompanyId String
+  financeCompany   FinanceCompany @relation(fields: [financeCompanyId], references: [id], onDelete: Cascade)
+
+  @@index([financeCompanyId])
+}
+
+model InsuranceCompany {
+  id                    String       @id @default(uuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                  String
+  contactNo             String
+  defaultCommissionRate Float?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  sales    Sale[]             @relation("SaleInsuranceCompany")
+  officers InsuranceOfficer[]
+
+  @@unique([organizationId, name])
+}
+
+model InsuranceOfficer {
+  id                 String           @id @default(uuid())
+  name               String
+  contactNo          String
+  insuranceCompanyId String
+  insuranceCompany   InsuranceCompany @relation(fields: [insuranceCompanyId], references: [id], onDelete: Cascade)
+
+  @@index([insuranceCompanyId])
 }
 
 model AdvancePayment {

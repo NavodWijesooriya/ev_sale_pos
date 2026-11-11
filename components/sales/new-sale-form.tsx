@@ -11,7 +11,9 @@ import {
   CircleDollarSign,
   LoaderCircle,
   Search,
+  ShieldCheck,
   UserRound,
+  Landmark,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm, useWatch } from "react-hook-form"
@@ -79,10 +81,18 @@ export interface CustomerData {
   address?: string | null
 }
 
+export interface FinanceInsuranceOption {
+  id: string
+  name: string
+  defaultCommissionRate: number | null
+}
+
 interface NewSaleFormProps {
   vehicles: InStockVehicle[]
   customers: CustomerData[]
   branches?: BranchData[]
+  financeCompanies?: FinanceInsuranceOption[]
+  insuranceCompanies?: FinanceInsuranceOption[]
   recentSales?: Array<{
     id: string
     customerName: string
@@ -102,11 +112,17 @@ const defaultValues: CreateNewSaleInput = {
   freeItems: [],
   freeServices: 3,
   advancePaymentId: "",
+  financeCompanyId: "",
+  insuranceCompanyId: "",
+  financeCommission: null,
+  insuranceCommission: null,
 }
 
 export function NewSaleForm({
   vehicles,
   customers,
+  financeCompanies = [],
+  insuranceCompanies = [],
   onSaleComplete,
 }: NewSaleFormProps) {
   const router = useRouter()
@@ -128,8 +144,14 @@ export function NewSaleForm({
   const vehicleId = useWatch({ control: form.control, name: "vehicleId" })
   const advancePaymentId = useWatch({ control: form.control, name: "advancePaymentId" })
   const warrantyOption = useWatch({ control: form.control, name: "warrantyOption" })
+  const financeCompanyId = useWatch({ control: form.control, name: "financeCompanyId" })
+  const insuranceCompanyId = useWatch({ control: form.control, name: "insuranceCompanyId" })
+
   const selectedCustomer = customers.find((customer) => customer.id === customerId)
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === vehicleId)
+  const selectedFinanceCompany = financeCompanies.find((c) => c.id === financeCompanyId)
+  const selectedInsuranceCompany = insuranceCompanies.find((c) => c.id === insuranceCompanyId)
+
   const subtotal = selectedVehicle?.vehicleModel.defaultPrice ?? 0
   const warrantyCharge =
     warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
@@ -224,7 +246,7 @@ export function NewSaleForm({
                   <UserRound className="size-5" />
                 </span>
                 <div>
-                  <CardTitle>Customer & vehicle</CardTitle>
+                  <CardTitle>Customer &amp; vehicle</CardTitle>
                   <CardDescription>Select a registered customer and available EV.</CardDescription>
                 </div>
               </div>
@@ -470,6 +492,151 @@ export function NewSaleForm({
               </div>
             </CardContent>
           </Card>
+
+          {/* Finance & Insurance Details */}
+          {(financeCompanies.length > 0 || insuranceCompanies.length > 0) && (
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Landmark className="size-5" />
+                  </span>
+                  <div>
+                    <CardTitle>Finance &amp; Insurance <span className="ml-1 text-xs font-normal text-muted-foreground">(Internal)</span></CardTitle>
+                    <CardDescription>Record finance/insurance details for commission tracking.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-6 md:grid-cols-2">
+                {/* Finance Company */}
+                {financeCompanies.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sale-finance-company" className="flex items-center gap-1.5">
+                        <Landmark className="size-3.5 text-muted-foreground" />
+                        Finance Company
+                      </Label>
+                      <Controller
+                        name="financeCompanyId"
+                        control={form.control}
+                        render={({ field }) => (
+                          <Select
+                            value={field.value ?? ""}
+                            onValueChange={(value) => {
+                              field.onChange(value === "__none__" ? "" : value)
+                              // Auto-fill default commission rate
+                              const company = financeCompanies.find((c) => c.id === value)
+                              if (company?.defaultCommissionRate != null) {
+                                form.setValue("financeCommission", company.defaultCommissionRate, { shouldDirty: true })
+                              } else if (value === "__none__") {
+                                form.setValue("financeCommission", null)
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="sale-finance-company" className="w-full">
+                              <SelectValue placeholder="None — Cash/Self-funded" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">None — Cash/Self-funded</SelectItem>
+                              {financeCompanies.map((company) => (
+                                <SelectItem key={company.id} value={company.id}>
+                                  {company.name}
+                                  {company.defaultCommissionRate != null
+                                    ? ` (${company.defaultCommissionRate}%)`
+                                    : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    {selectedFinanceCompany && (
+                      <div className="space-y-2">
+                        <Label htmlFor="sale-finance-commission">Finance Commission (Rs.)</Label>
+                        <Input
+                          id="sale-finance-commission"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          placeholder="Enter commission amount"
+                          {...form.register("financeCommission", { valueAsNumber: true })}
+                        />
+                        {selectedFinanceCompany.defaultCommissionRate != null && (
+                          <p className="text-xs text-muted-foreground">
+                            Default rate: {selectedFinanceCompany.defaultCommissionRate}%
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Insurance Company */}
+                {insuranceCompanies.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sale-insurance-company" className="flex items-center gap-1.5">
+                        <ShieldCheck className="size-3.5 text-muted-foreground" />
+                        Insurance Company
+                      </Label>
+                      <Controller
+                        name="insuranceCompanyId"
+                        control={form.control}
+                        render={({ field }) => (
+                          <Select
+                            value={field.value ?? ""}
+                            onValueChange={(value) => {
+                              field.onChange(value === "__none__" ? "" : value)
+                              const company = insuranceCompanies.find((c) => c.id === value)
+                              if (company?.defaultCommissionRate != null) {
+                                form.setValue("insuranceCommission", company.defaultCommissionRate, { shouldDirty: true })
+                              } else if (value === "__none__") {
+                                form.setValue("insuranceCommission", null)
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="sale-insurance-company" className="w-full">
+                              <SelectValue placeholder="None — No insurance" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">None — No insurance</SelectItem>
+                              {insuranceCompanies.map((company) => (
+                                <SelectItem key={company.id} value={company.id}>
+                                  {company.name}
+                                  {company.defaultCommissionRate != null
+                                    ? ` (${company.defaultCommissionRate}%)`
+                                    : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    {selectedInsuranceCompany && (
+                      <div className="space-y-2">
+                        <Label htmlFor="sale-insurance-commission">Insurance Commission (Rs.)</Label>
+                        <Input
+                          id="sale-insurance-commission"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          placeholder="Enter commission amount"
+                          {...form.register("insuranceCommission", { valueAsNumber: true })}
+                        />
+                        {selectedInsuranceCompany.defaultCommissionRate != null && (
+                          <p className="text-xs text-muted-foreground">
+                            Default rate: {selectedInsuranceCompany.defaultCommissionRate}%
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
@@ -522,6 +689,22 @@ export function NewSaleForm({
                 )}
                 {!isLoadingAdvance && customerId && !pendingAdvance && (
                   <p className="text-xs text-muted-foreground">No pending advance found for this customer.</p>
+                )}
+                {selectedFinanceCompany && (
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">Finance</span>
+                    <span className="max-w-[120px] truncate text-right text-xs font-medium text-blue-600 dark:text-blue-400">
+                      {selectedFinanceCompany.name}
+                    </span>
+                  </div>
+                )}
+                {selectedInsuranceCompany && (
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">Insurance</span>
+                    <span className="max-w-[120px] truncate text-right text-xs font-medium text-blue-600 dark:text-blue-400">
+                      {selectedInsuranceCompany.name}
+                    </span>
+                  </div>
                 )}
                 <Separator />
                 <div className="flex items-end justify-between gap-3">

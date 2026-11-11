@@ -96,8 +96,10 @@ export async function createNewSale(
 
     const data = parsedInput.data
     const advancePaymentId = data.advancePaymentId?.trim() || null
+    const financeCompanyId = data.financeCompanyId?.trim() || null
+    const insuranceCompanyId = data.insuranceCompanyId?.trim() || null
     const result = await prisma.$transaction(async (tx) => {
-      const [customer, vehicle] = await Promise.all([
+      const [customer, vehicle, financeCompany, insuranceCompany] = await Promise.all([
         tx.customer.findFirst({
           where: { id: data.customerId, organizationId },
           select: { id: true },
@@ -110,10 +112,28 @@ export async function createNewSale(
           },
           include: { vehicleModel: true },
         }),
+        financeCompanyId
+          ? tx.financeCompany.findFirst({
+              where: { id: financeCompanyId, organizationId },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
+        insuranceCompanyId
+          ? tx.insuranceCompany.findFirst({
+              where: { id: insuranceCompanyId, organizationId },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
       ])
 
       if (!customer) throw new Error("The selected customer was not found.")
       if (!vehicle) throw new Error("This vehicle is no longer available. Refresh stock and choose another vehicle.")
+      if (financeCompanyId && !financeCompany) {
+        throw new Error("The selected finance company was not found.")
+      }
+      if (insuranceCompanyId && !insuranceCompany) {
+        throw new Error("The selected insurance company was not found.")
+      }
 
       const subtotal = vehicle.vehicleModel.defaultPrice
       let advanceAmount = 0
@@ -175,6 +195,10 @@ export async function createNewSale(
           freeItems: data.freeItems,
           freeServices: data.freeServices,
           advancePaymentId,
+          financeCompanyId,
+          insuranceCompanyId,
+          financeCommission: financeCompanyId ? data.financeCommission ?? null : null,
+          insuranceCommission: insuranceCompanyId ? data.insuranceCommission ?? null : null,
           items: {
             create: {
               vehicleId: vehicle.id,

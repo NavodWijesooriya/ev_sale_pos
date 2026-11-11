@@ -1,3 +1,4 @@
+import { connection } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 
@@ -15,17 +16,22 @@ export interface AuthSession {
 }
 
 export async function getAuthSession(): Promise<AuthSession | null> {
+  await connection()
   const supabase = await createClient()
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser()
 
-  if (error) {
+  if (error && error.name !== "AuthSessionMissingError") {
     throw error
   }
 
-  const email = user?.email?.toLowerCase().trim()
+  if (!user) {
+    return null
+  }
+
+  const email = user.email?.toLowerCase().trim()
   if (!email) {
     return null
   }

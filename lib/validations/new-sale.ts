@@ -25,6 +25,10 @@ export const createNewSaleSchema = z.object({
   freeItems: z.array(z.enum(FREE_SALE_ITEMS)).max(FREE_SALE_ITEMS.length),
   freeServices: z.number().int().min(0),
   advancePaymentId: z.string().trim().optional().or(z.literal("")),
+  financeCompanyId: z.string().trim().optional().or(z.literal("")),
+  insuranceCompanyId: z.string().trim().optional().or(z.literal("")),
+  financeCommission: z.number().min(0).optional().nullable(),
+  insuranceCommission: z.number().min(0).optional().nullable(),
 })
 
 export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>

@@ -1,8 +1,11 @@
+import { connection } from "next/server"
 import { redirect } from "next/navigation"
 import { getPOSInitialData } from "@/app/actions/sales"
+import { getFinanceCompanies, getInsuranceCompanies } from "@/app/actions/finance"
 import {
   type CustomerData,
   type InStockVehicle,
+  type FinanceInsuranceOption,
   NewSaleForm,
 } from "@/components/sales/new-sale-form"
 import { getAuthSession } from "@/lib/auth"
@@ -15,12 +18,18 @@ export const metadata = {
 }
 
 export default async function NewSalePage() {
+  await connection()
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     redirect("/login?callbackUrl=/dashboard/sales/new")
   }
 
-  const result = await getPOSInitialData()
+  const [result, financeCompanies, insuranceCompanies] = await Promise.all([
+    getPOSInitialData(),
+    getFinanceCompanies(),
+    getInsuranceCompanies(),
+  ])
+
   if (!result.success) {
     throw new Error(result.error || "Unable to load point-of-sale data.")
   }
@@ -59,6 +68,18 @@ export default async function NewSalePage() {
     address: customer.address,
   }))
 
+  const financeOptions: FinanceInsuranceOption[] = financeCompanies.map((c) => ({
+    id: c.id,
+    name: c.name,
+    defaultCommissionRate: c.defaultCommissionRate,
+  }))
+
+  const insuranceOptions: FinanceInsuranceOption[] = insuranceCompanies.map((c) => ({
+    id: c.id,
+    name: c.name,
+    defaultCommissionRate: c.defaultCommissionRate,
+  }))
+
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <header className="space-y-1 border-b pb-5">
@@ -74,6 +95,8 @@ export default async function NewSalePage() {
         vehicles={vehicles}
         customers={customers}
         branches={result.data.branches.map(({ id, name, location }) => ({ id, name, location }))}
+        financeCompanies={financeOptions}
+        insuranceCompanies={insuranceOptions}
       />
     </div>
   )

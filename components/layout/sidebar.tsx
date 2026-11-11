@@ -15,6 +15,7 @@ import {
   ClipboardList,
   HelpCircle,
   LayoutDashboard,
+  Landmark,
   Palette,
   PanelLeft,
   PanelLeftClose,
@@ -62,6 +63,17 @@ export const navigationItems: NavItem[] = [
           { title: "Advance Transfers", href: "/dashboard/sales/advances/transfers" },
         ],
       },
+    ],
+  },
+  {
+    title: "Finance Management",
+    href: "/dashboard/finance/companies",
+    icon: Landmark,
+    roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
+    children: [
+      { title: "Finance Companies", href: "/dashboard/finance/companies" },
+      { title: "Insurance Companies", href: "/dashboard/finance/insurance" },
+      { title: "Commission Reports", href: "/dashboard/finance/commissions" },
     ],
   },
   {
@@ -123,11 +135,15 @@ export function SidebarContent({
   const [advancesExpanded, setAdvancesExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/sales/advances")),
   )
+  const [financeExpanded, setFinanceExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/finance/")),
+  )
   const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
   const isExpanded = (title: string) => {
     if (title === "Customers") return customersExpanded
     if (title === "GRN Management") return grnExpanded
     if (title === "Sales Management") return salesExpanded
+    if (title === "Finance Management") return financeExpanded
     return false
   }
   const hasActiveChild = (children: NavChild[]): boolean =>
@@ -225,12 +241,15 @@ export function SidebarContent({
                           if (item.title === "Customers") setCustomersExpanded(true)
                           if (item.title === "GRN Management") setGrnExpanded(true)
                           if (item.title === "Sales Management") setSalesExpanded(true)
+                          if (item.title === "Finance Management") setFinanceExpanded(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
                         } else if (item.title === "Sales Management") {
                           setSalesExpanded((expanded) => !expanded)
-                        } else {
+                        } else if (item.title === "Finance Management") {
+                          setFinanceExpanded((expanded) => !expanded)
+                        } else if (item.title === "Customers") {
                           setCustomersExpanded((expanded) => !expanded)
                         }
                       }}
