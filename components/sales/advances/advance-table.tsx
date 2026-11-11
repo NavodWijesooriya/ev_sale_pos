@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { MoreHorizontal, Pencil, Search, Undo2 } from "lucide-react"
+import { MoreHorizontal, Plus, Search, Undo2, Receipt, Bike, Calendar } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -11,8 +11,9 @@ import type {
   AdvancePaymentBranchOption,
   AdvancePaymentCustomerOption,
   AdvancePaymentRecord,
+  AvailableVehicleOption,
 } from "@/app/actions/advances"
-import { NewAdvanceDialog } from "@/components/sales/advances/new-advance-dialog"
+import { AdvanceFormDialog } from "@/components/sales/advance-form-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -55,23 +56,12 @@ interface AdvanceTableProps {
   advances: AdvancePaymentRecord[]
   customers: AdvancePaymentCustomerOption[]
   branches: AdvancePaymentBranchOption[]
+  vehicles: AvailableVehicleOption[]
 }
 
-type StatusFilter = "ALL" | AdvancePaymentRecord["status"]
+type StatusFilter = "ALL" | "PENDING" | "USED" | "REFUNDED" | "TRANSFERRED"
 
-function getStatusStyle(status: AdvancePaymentRecord["status"]) {
-  switch (status) {
-    case "PENDING":
-      return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-    case "USED":
-      return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-    case "REFUNDED":
-    case "TRANSFERRED":
-      return "border-slate-400/30 bg-slate-500/10 text-slate-600 dark:text-slate-300"
-  }
-}
-
-function RefundAdvanceDialog({
+function RefundDialog({
   advance,
   open,
   onOpenChange,
@@ -96,29 +86,22 @@ function RefundAdvanceDialog({
         return
       }
 
-      toast.success("Advance payment refunded.")
+      toast.success(`Advance payment for ${advance.customerName} has been refunded.`)
       onOpenChange(false)
       router.refresh()
     } catch (error) {
-      console.error("Advance refund failed:", error)
-      toast.error("Unable to refund this advance. Please try again.")
+      console.error("Refund failed:", error)
+      toast.error("Unable to refund this advance payment.")
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (form.formState.isSubmitting) return
-        if (nextOpen) form.reset({ paymentMethod: "Cash" })
-        onOpenChange(nextOpen)
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Refund advance payment</DialogTitle>
+          <DialogTitle>Refund Advance Payment</DialogTitle>
           <DialogDescription>
-            Refund the full amount of {formatLKR(advance?.amount)} to {advance?.customerName}.
+            Refund the full amount of {formatLKR(advance?.amount ?? 0)} to {advance?.customerName}.
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
@@ -158,7 +141,7 @@ function RefundAdvanceDialog({
               Cancel
             </Button>
             <Button type="submit" variant="destructive" disabled={form.formState.isSubmitting || !advance}>
-              {form.formState.isSubmitting ? "Refunding..." : "Confirm Refund"}
+              Confirm refund
             </Button>
           </div>
         </form>
@@ -167,10 +150,23 @@ function RefundAdvanceDialog({
   )
 }
 
-export function AdvanceTable({ advances, customers, branches }: AdvanceTableProps) {
+function StatusBadge({ status }: { status: string }) {
+  if (status === "PENDING") {
+    return <Badge variant="outline" className="border-amber-500/30 text-amber-600 bg-amber-500/10">Pending</Badge>
+  }
+  if (status === "USED") {
+    return <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-500/10">Used</Badge>
+  }
+  if (status === "REFUNDED") {
+    return <Badge variant="secondary">Refunded</Badge>
+  }
+  return <Badge variant="outline">{status}</Badge>
+}
+
+export function AdvanceTable({ advances, customers, branches, vehicles }: AdvanceTableProps) {
   const [search, setSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL")
-  const [editingAdvance, setEditingAdvance] = React.useState<AdvancePaymentRecord | null>(null)
+  const [isAddOpen, setIsAddOpen] = React.useState(false)
   const [refundingAdvance, setRefundingAdvance] = React.useState<AdvancePaymentRecord | null>(null)
 
   const filteredAdvances = React.useMemo(() => {
@@ -181,30 +177,33 @@ export function AdvanceTable({ advances, customers, branches }: AdvanceTableProp
         !query ||
         advance.customerName.toLocaleLowerCase().includes(query) ||
         advance.nicNumber.toLocaleLowerCase().includes(query) ||
-        advance.bikeModel.toLocaleLowerCase().includes(query)
+        advance.bikeModel.toLocaleLowerCase().includes(query) ||
+        (advance.chassisNumber && advance.chassisNumber.toLocaleLowerCase().includes(query)) ||
+        (advance.paymentMethod && advance.paymentMethod.toLocaleLowerCase().includes(query))
       return matchesStatus && matchesQuery
     })
   }, [advances, search, statusFilter])
 
   return (
     <div className="space-y-4">
+      {/* Search and Action Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row">
           <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               aria-label="Search advance payments"
-              placeholder="Search customer, NIC, or bike model..."
+              placeholder="Search customer, chassis no, model..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="pl-9"
+              className="pl-9 bg-background"
             />
           </div>
           <Select
             value={statusFilter}
             onValueChange={(value) => setStatusFilter((value ?? "ALL") as StatusFilter)}
           >
-            <SelectTrigger aria-label="Filter by status" className="w-full sm:w-44">
+            <SelectTrigger aria-label="Filter by status" className="w-full sm:w-44 bg-background">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -216,107 +215,120 @@ export function AdvanceTable({ advances, customers, branches }: AdvanceTableProp
             </SelectContent>
           </Select>
         </div>
-        <NewAdvanceDialog customers={customers} branches={branches} />
+
+        {/* Primary Action Button */}
+        <Button onClick={() => setIsAddOpen(true)} className="gap-2 shrink-0 shadow-xs">
+          <Plus className="size-4" />
+          <span>Add Advance</span>
+        </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-card">
+      {/* Main DataTable */}
+      <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead>Customer Name</TableHead>
-              <TableHead>NIC</TableHead>
-              <TableHead>Bike Model</TableHead>
+              <TableHead className="w-32">Date</TableHead>
+              <TableHead className="w-[24%]">Customer Name</TableHead>
+              <TableHead className="w-[26%]">Vehicle Chassis No</TableHead>
+              <TableHead className="w-[16%]">Payment Method</TableHead>
+              <TableHead className="w-24">Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="w-12 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAdvances.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
-                  {advances.length === 0
-                    ? "No advance payments have been recorded yet."
-                    : "No advance payments match your search or status filter."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredAdvances.map((advance) => (
-                <TableRow key={advance.id}>
-                  <TableCell className="font-medium">{advance.customerName}</TableCell>
-                  <TableCell>{advance.nicNumber}</TableCell>
-                  <TableCell>{advance.bikeModel}</TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">
+            {filteredAdvances.map((advance) => {
+              const displayDate = new Date(advance.advanceDate).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+
+              return (
+                <TableRow key={advance.id} className="hover:bg-muted/30">
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {displayDate}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium text-sm text-foreground">{advance.customerName}</div>
+                    {advance.nicNumber && advance.nicNumber !== "N/A" && (
+                      <div className="text-xs text-muted-foreground font-mono">NIC: {advance.nicNumber}</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {advance.chassisNumber ? (
+                      <div>
+                        <div className="font-mono text-xs font-semibold text-foreground">
+                          {advance.chassisNumber}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">{advance.bikeModel}</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-xs font-medium text-foreground">{advance.bikeModel}</div>
+                        <div className="text-[11px] text-muted-foreground">General Advance</div>
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs font-medium text-foreground">
+                      {advance.paymentMethod || advance.paymentDetails || "Cash"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={advance.status} />
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-sm tabular-nums text-foreground">
                     {formatLKR(advance.amount)}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(advance.advanceDate).toLocaleDateString("en-LK", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      timeZone: "UTC",
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getStatusStyle(advance.status)}>
-                      {advance.status}
-                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
-                          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${advance.customerName}`} />
+                          <Button variant="ghost" size="icon" className="size-8" aria-label="Open menu">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
                         }
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
+                      />
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           disabled={advance.status !== "PENDING"}
-                          onClick={() => setEditingAdvance(advance)}
+                          onClick={() => setRefundingAdvance(advance)}
                         >
-                          <Pencil />
-                          Edit
+                          <Undo2 className="size-4 text-muted-foreground" />
+                          <span>Refund Advance</span>
                         </DropdownMenuItem>
-                        {advance.status === "PENDING" && (
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setRefundingAdvance(advance)}
-                          >
-                            <Undo2 />
-                            Refund
-                          </DropdownMenuItem>
-                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))
+              )
+            })}
+            {filteredAdvances.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="h-32 text-center text-sm text-muted-foreground">
+                  No advance payments found matching your filter criteria.
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
-      <NewAdvanceDialog
-        key={editingAdvance?.id ?? "no-edit"}
-        customers={customers}
-        branches={branches}
-        advance={editingAdvance ?? undefined}
-        open={Boolean(editingAdvance)}
-        onOpenChange={(open) => {
-          if (!open) setEditingAdvance(null)
-        }}
-        hideTrigger
+      {/* Unified Add Advance Dialog */}
+      <AdvanceFormDialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        initialCustomers={customers}
+        vehicles={vehicles}
       />
-      <RefundAdvanceDialog
-        key={refundingAdvance?.id ?? "no-refund"}
+
+      {/* Refund Modal */}
+      <RefundDialog
         advance={refundingAdvance}
         open={Boolean(refundingAdvance)}
-        onOpenChange={(open) => {
-          if (!open) setRefundingAdvance(null)
-        }}
+        onOpenChange={(open) => !open && setRefundingAdvance(null)}
       />
     </div>
   )

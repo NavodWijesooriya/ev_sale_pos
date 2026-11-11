@@ -31,8 +31,13 @@ export interface AdvancePaymentRecord {
   customerName: string
   nicNumber: string
   bikeModel: string
+  vehicleId?: string | null
+  chassisNumber?: string | null
   amount: number
   advanceDate: string
+  createdAt?: string
+  paymentMethod?: string | null
+  notes?: string | null
   branchId: string
   paymentDetails: string
   status: AdvancePaymentStatus
@@ -245,18 +250,26 @@ export async function getAdvancePayments(): Promise<AdvancePaymentRecord[]> {
   const { organizationId } = await requireOrganizationUser()
   const advances = await prisma.advancePayment.findMany({
     where: { organizationId },
-    include: { customer: { select: { name: true } } },
+    include: {
+      customer: { select: { name: true } },
+      vehicle: { select: { chassisNumber: true } },
+    },
     orderBy: [{ advanceDate: "desc" }, { id: "desc" }],
   })
 
-  return advances.map((advance) => ({
+  return advances.map((advance: any) => ({
     id: advance.id,
     customerId: advance.customerId,
-    customerName: advance.customer.name,
+    customerName: advance.customer?.name || "Unknown Customer",
     nicNumber: advance.nicNumber,
     bikeModel: advance.bikeModel,
+    vehicleId: advance.vehicleId || null,
+    chassisNumber: advance.vehicle?.chassisNumber || null,
     amount: advance.amount,
     advanceDate: advance.advanceDate.toISOString(),
+    createdAt: advance.createdAt ? advance.createdAt.toISOString() : advance.advanceDate.toISOString(),
+    paymentMethod: advance.paymentMethod || null,
+    notes: advance.notes || null,
     branchId: advance.branchId,
     paymentDetails: advance.paymentDetails,
     status: advance.status,
@@ -537,5 +550,180 @@ export async function refundAdvancePayment(
   } catch (error) {
     console.error("refundAdvancePayment error:", error)
     return { success: false, error: "Unable to refund the advance payment. Please try again." }
+  }
+}
+
+export interface AvailableVehicleOption {
+  id: string
+  chassisNumber: string
+  color: string | null
+  purchasePrice: number
+  motorNumber?: string | null
+  batterySerialNumber?: string | null
+  branchId: string
+  branchName: string
+  vehicleModel: {
+    id: string
+    brand: string
+    modelName: string
+    defaultPrice: number
+  }
+}
+
+export async function getAvailableVehicles(): Promise<AvailableVehicleOption[]> {
+  const { organizationId } = await requireOrganizationUser()
+
+  const vehicles = await prisma.vehicle.findMany({
+    where: {
+      organizationId,
+      status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+    },
+    include: {
+      vehicleModel: {
+        select: {
+          id: true,
+          brand: true,
+          modelName: true,
+          defaultPrice: true,
+        },
+      },
+      branch: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  return vehicles.map((v) => ({
+    id: v.id,
+    chassisNumber: v.chassisNumber,
+    color: v.color,
+    purchasePrice: v.purchasePrice,
+    motorNumber: v.motorNumber,
+    batterySerialNumber: v.batterySerialNumber,
+    branchId: v.branchId,
+    branchName: v.branch.name,
+    vehicleModel: {
+      id: v.vehicleModel.id,
+      brand: v.vehicleModel.brand,
+      modelName: v.vehicleModel.modelName,
+      defaultPrice: v.vehicleModel.defaultPrice,
+    },
+  }))
+}
+
+export async function getCustomers() {
+  const { organizationId } = await requireOrganizationUser()
+
+  return prisma.customer.findMany({
+    where: { organizationId },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      nic: true,
+      customerType: true,
+    },
+    orderBy: { name: "asc" },
+  })
+}
+
+export interface RecordAdvancePaymentInput {
+  customerId: string
+  vehicleId?: string | null
+  amount: number
+  paymentMethod: string
+  notes?: string | null
+  branchId?: string | null
+}
+
+export async function recordAdvancePayment(data: RecordAdvancePaymentInput) {
+  try {
+    const { organizationId, userId } = await requireOrganizationUser()
+
+    const customerId = data.customerId?.trim()
+    if (!customerId) {
+      return { success: false, error: "Please select a customer." }
+    }
+
+    if (!data.amount || data.amount <= 0) {
+      return { success: false, error: "Advance amount must be greater than zero." }
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, organizationId },
+      select: { id: true, name: true, nic: true },
+    })
+
+    if (!customer) {
+      return { success: false, error: "Customer not found." }
+    }
+
+    let bikeModel = "General Advance"
+    let selectedBranchId = data.branchId || null
+    let vehicleId = data.vehicleId?.trim() || null
+
+    if (vehicleId) {
+      const vehicle = await prisma.vehicle.findFirst({
+        where: { id: vehicleId, organizationId },
+        include: { vehicleModel: true },
+      })
+      if (vehicle) {
+        bikeModel = `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName}`
+        if (!selectedBranchId) {
+          selectedBranchId = vehicle.branchId
+        }
+      } else {
+        vehicleId = null
+      }
+    }
+
+    if (!selectedBranchId) {
+      const defaultBranch = await prisma.branch.findFirst({
+        where: { organizationId },
+        select: { id: true },
+      })
+      if (!defaultBranch) {
+        return { success: false, error: "No branch found in this dealership organization." }
+      }
+      selectedBranchId = defaultBranch.id
+    }
+
+    const paymentMethod = data.paymentMethod?.trim() || "Cash"
+    const notes = data.notes?.trim() || null
+
+    const advance = await (prisma.advancePayment as any).create({
+      data: {
+        organizationId,
+        customerId: customer.id,
+        vehicleId: vehicleId || null,
+        nicNumber: customer.nic || "N/A",
+        bikeModel,
+        amount: Number(data.amount),
+        paymentMethod,
+        paymentDetails: notes ? `${paymentMethod} - ${notes}` : paymentMethod,
+        notes,
+        branchId: selectedBranchId,
+        staffId: userId,
+        status: AdvancePaymentStatus.PENDING,
+      },
+    })
+
+    revalidatePath("/dashboard/sales/advances")
+    revalidatePath("/dashboard/sales/new")
+
+    return {
+      success: true,
+      advanceId: advance.id,
+    }
+  } catch (error) {
+    console.error("recordAdvancePayment error:", error)
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to record advance payment.",
+    }
   }
 }

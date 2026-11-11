@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 import { useState, useMemo } from "react"
@@ -36,6 +36,7 @@ import {
   TrendingUp,
   MapPin,
   Calendar,
+  Wallet,
 } from "lucide-react"
 import { CustomerSummaryItem } from "@/app/actions/customers"
 import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
@@ -94,6 +95,8 @@ export function CustomerDirectory({
   )
   const totalLifetimeValue = customers.reduce((sum, c) => sum + c.totalSpent, 0)
   const activeServiceClients = customers.filter((c) => c.totalServices > 0).length
+  const advanceCustomers = customers.filter((c) => c.advancePaymentCount > 0 && c.totalPurchases === 0).length
+  const totalAdvancePaidAll = customers.reduce((sum, c) => sum + c.totalAdvancePaid, 0)
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -110,6 +113,7 @@ export function CustomerDirectory({
       "Total Vehicles Purchased",
       "Total Services",
       "Total Spent (LKR)",
+      "Advance Payments",
     ]
 
     const rows = filteredCustomers.map((c) => [
@@ -123,6 +127,8 @@ export function CustomerDirectory({
       c.totalPurchases,
       c.totalServices,
       c.totalSpent,
+      c.totalAdvancePaid,
+      c.advancePaymentCount,
     ])
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
@@ -328,7 +334,7 @@ export function CustomerDirectory({
               <TableBody>
                 {filteredCustomers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-1">
                         <Users2 className="size-8 text-muted-foreground/40 mb-1" />
                         <p className="font-semibold text-sm">No customers found</p>
@@ -406,6 +412,22 @@ export function CustomerDirectory({
                       <TableCell className="align-middle py-3.5 text-right font-mono font-bold text-sm text-foreground">
                         {formatLKR(c.totalSpent)}
                       </TableCell>
+
+                      {/* Tags — Advance Customer badge */}
+                      <TableCell className="align-middle py-3.5">
+                        {c.advancePaymentCount > 0 && c.totalPurchases === 0 ? (
+                          <Badge
+                            variant="secondary"
+                            className="gap-1 border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400 text-[11px] font-semibold"
+                          >
+                            <Wallet className="size-3" />
+                            Advance Customer
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+
 
                       {/* Action */}
                       <TableCell className="align-middle py-3.5 text-right whitespace-nowrap">

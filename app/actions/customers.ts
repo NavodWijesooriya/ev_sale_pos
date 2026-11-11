@@ -44,6 +44,10 @@ export interface CustomerSummaryItem {
   totalPurchases: number
   totalServices: number
   lastActivityDate?: Date | string | null
+  /** Sum of all advance payment amounts linked to this customer */
+  totalAdvancePaid: number
+  /** Number of advance payment records linked to this customer */
+  advancePaymentCount: number
 }
 
 const COMMON_CUSTOMER_CITIES = [
@@ -107,6 +111,11 @@ export async function getCustomers(customerType?: CustomerType) {
           orderBy: { serviceDate: "desc" },
           take: 1,
         },
+        advancePayments: {
+          select: {
+            amount: true,
+          },
+        },
         _count: {
           select: {
             sales: true,
@@ -156,6 +165,8 @@ export async function getCustomers(customerType?: CustomerType) {
         totalPurchases: c._count.sales,
         totalServices: c._count.serviceRecords,
         lastActivityDate: lastActivity,
+        totalAdvancePaid: c.advancePayments.reduce((sum, adv) => sum + adv.amount, 0),
+        advancePaymentCount: c.advancePayments.length,
       }
     })
 
@@ -411,6 +422,80 @@ export async function getCustomerProfile(customerId: string) {
       success: false,
       error: (error as Error).message,
       data: null,
+    }
+  }
+}
+
+export interface CreateCustomerOnTheFlyInput {
+  name: string
+  phone: string
+  nic?: string | null
+  address?: string | null
+}
+
+export async function createCustomerOnTheFly(data: CreateCustomerOnTheFlyInput) {
+  try {
+    const { organizationId } = await requireAuthOrg()
+
+    const name = data.name?.trim()
+    const phone = data.phone?.trim()
+    const nic = data.nic?.trim() || null
+    const address = data.address?.trim() || null
+
+    if (!name || name.length < 2) {
+      return { success: false, error: "Customer name must be at least 2 characters." }
+    }
+
+    if (!phone || phone.length < 7) {
+      return { success: false, error: "Please enter a valid phone number." }
+    }
+
+    const existing = await prisma.customer.findFirst({
+      where: {
+        organizationId,
+        phone,
+      },
+      select: { id: true, name: true, phone: true, nic: true },
+    })
+
+    if (existing) {
+      return {
+        success: true,
+        customer: existing,
+        alreadyExisted: true,
+      }
+    }
+
+    const newCustomer = await prisma.customer.create({
+      data: {
+        organizationId,
+        name,
+        phone,
+        nic,
+        address,
+        category: CustomerCategory.CRM,
+        customerType: CustomerType.CRM,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        nic: true,
+      },
+    })
+
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/sales/advances")
+
+    return {
+      success: true,
+      customer: newCustomer,
+    }
+  } catch (error) {
+    console.error("createCustomerOnTheFly error:", error)
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to create customer.",
     }
   }
 }

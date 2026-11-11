@@ -416,3 +416,132 @@ export async function updateStaffAccess(userId: string, role: string, isActive: 
     return { success: false, error: err.message || "Failed to update staff access." }
   }
 }
+
+import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js"
+
+export interface AddNewStaffInput {
+  name: string
+  email: string
+  password: string
+  role: string
+  branchId?: string | null
+}
+
+export async function addNewStaff(data: AddNewStaffInput) {
+  try {
+    const { organizationId } = await requireOrgAdmin()
+
+    const name = data.name?.trim()
+    const email = data.email?.toLowerCase().trim()
+    const password = data.password?.trim()
+    const rawRole = data.role?.trim() || "STAFF"
+    const branchId = data.branchId || null
+
+    if (!name || name.length < 2) {
+      return { success: false, error: "Staff member name must be at least 2 characters." }
+    }
+
+    if (!email || !email.includes("@")) {
+      return { success: false, error: "Please enter a valid email address." }
+    }
+
+    if (!password || password.length < 6) {
+      return { success: false, error: "Password must be at least 6 characters." }
+    }
+
+    let validatedRole: UserRole
+    const normalizedRole = rawRole.toUpperCase()
+    if (normalizedRole === "ADMIN" || normalizedRole === "ORGADMIN") {
+      validatedRole = UserRole.OrgAdmin
+    } else if (normalizedRole === "MANAGER" || normalizedRole === "BRANCHMANAGER") {
+      validatedRole = UserRole.BranchManager
+    } else if (normalizedRole === "CASHIER") {
+      validatedRole = UserRole.Cashier
+    } else if (normalizedRole === "STAFF" || normalizedRole === "SALESREP" || normalizedRole === "SALES") {
+      validatedRole = UserRole.SalesRep
+    } else if (normalizedRole === "TECHNICIAN") {
+      validatedRole = UserRole.Technician
+    } else if (Object.values(UserRole).includes(rawRole as UserRole)) {
+      validatedRole = rawRole as UserRole
+    } else {
+      validatedRole = UserRole.SalesRep
+    }
+
+    // Check if user exists in Prisma
+    const existing = await prisma.user.findUnique({
+      where: { email },
+    })
+    if (existing) {
+      return { success: false, error: "A user account with this email address already exists." }
+    }
+
+    // Try creating user in Supabase Auth via admin client if service role key is available
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (supabaseUrl && serviceRoleKey) {
+      try {
+        const supabaseAdmin = createSupabaseAdminClient(supabaseUrl, serviceRoleKey, {
+          auth: {
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+            persistSession: false,
+          },
+        })
+
+        const { error: sbError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            name,
+            role: validatedRole,
+            organizationId,
+          },
+        })
+
+        if (sbError && !sbError.message.toLowerCase().includes("already registered")) {
+          console.warn("Supabase auth user creation warning:", sbError.message)
+        }
+      } catch (sbErr) {
+        console.warn("Supabase admin auth creation skipped or failed:", sbErr)
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10)
+
+    const newUser = await prisma.user.create({
+      data: {
+        organizationId,
+        name,
+        email,
+        passwordHash,
+        role: validatedRole,
+        branchId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    })
+
+    revalidatePath("/dashboard/settings/users")
+    revalidatePath("/dashboard/staff")
+
+    return {
+      success: true,
+      user: {
+        ...newUser,
+        createdAt: newUser.createdAt.toISOString(),
+      },
+    }
+  } catch (err: any) {
+    console.error("addNewStaff error:", err)
+    return { success: false, error: err.message || "Failed to create staff member." }
+  }
+}
