@@ -101,6 +101,7 @@ export const navigationItems: NavItem[] = [
   { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts", icon: Boxes, roles: ["OrgAdmin"] },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
   { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
+  { title: "Staff Management", href: "/dashboard/staff", icon: Users2, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Team & Access", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },

@@ -337,3 +337,82 @@ export async function toggleStaffStatus(userId: string, isActive: boolean) {
     return { success: false, error: err.message || "Failed to toggle staff status." }
   }
 }
+
+/**
+ * Direct function to get staff list for Staff Management
+ */
+export async function getStaffList() {
+  const data = await getStaffInitialData()
+  return data.users
+}
+
+/**
+ * Direct function to update a staff user's role and active access status
+ */
+export async function updateStaffAccess(userId: string, role: string, isActive: boolean) {
+  try {
+    const { organizationId, currentUserId } = await requireOrgAdmin()
+
+    const targetUser = await prisma.user.findFirst({
+      where: { id: userId, organizationId },
+    })
+
+    if (!targetUser) {
+      return { success: false, error: "Staff member not found." }
+    }
+
+    // Role mapping / validation (supporting OrgAdmin, BranchManager, SalesRep, Cashier, Technician and aliases)
+    let validatedRole: UserRole
+    const normalizedRole = role.toUpperCase().trim()
+
+    if (normalizedRole === "ADMIN" || normalizedRole === "ORGADMIN") {
+      validatedRole = UserRole.OrgAdmin
+    } else if (normalizedRole === "MANAGER" || normalizedRole === "BRANCHMANAGER") {
+      validatedRole = UserRole.BranchManager
+    } else if (normalizedRole === "CASHIER") {
+      validatedRole = UserRole.Cashier
+    } else if (normalizedRole === "STAFF" || normalizedRole === "SALESREP" || normalizedRole === "SALES") {
+      validatedRole = UserRole.SalesRep
+    } else if (normalizedRole === "TECHNICIAN") {
+      validatedRole = UserRole.Technician
+    } else if (Object.values(UserRole).includes(role as UserRole)) {
+      validatedRole = role as UserRole
+    } else {
+      return { success: false, error: `Invalid role "${role}". Supported: OrgAdmin, BranchManager, SalesRep, Cashier, Technician.` }
+    }
+
+    // Prevent changing your own role or deactivating your own account
+    if (targetUser.id === currentUserId) {
+      if (validatedRole !== targetUser.role) {
+        return { success: false, error: "You cannot change your own administrator role." }
+      }
+      if (!isActive) {
+        return { success: false, error: "You cannot disable your own administrator account." }
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        role: validatedRole,
+        isActive,
+      },
+    })
+
+    revalidatePath("/dashboard/staff")
+    revalidatePath("/dashboard/settings/users")
+    return {
+      success: true,
+      user: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        isActive: updated.isActive,
+      },
+    }
+  } catch (err: any) {
+    console.error("updateStaffAccess error:", err)
+    return { success: false, error: err.message || "Failed to update staff access." }
+  }
+}
