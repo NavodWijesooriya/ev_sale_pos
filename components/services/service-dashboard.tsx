@@ -39,6 +39,7 @@ interface ServiceDashboardProps {
   branches: BranchOption[]
   customers: CustomerOption[]
   spareParts: SparePartOption[]
+  models?: Array<{ id: string; brand: string; modelName: string }>
   initialRecords: ServiceRecordRow[]
   dealershipName: string
   canViewHistory: boolean
@@ -49,6 +50,7 @@ export function ServiceDashboard({
   branches,
   customers,
   spareParts,
+  models = [],
   initialRecords,
   dealershipName,
   canViewHistory,
@@ -238,6 +240,7 @@ export function ServiceDashboard({
             branches={branches}
             customers={customers}
             spareParts={spareParts}
+            models={models}
             recentRecords={recentRecords}
             onSuccess={handleServiceSuccess}
           />

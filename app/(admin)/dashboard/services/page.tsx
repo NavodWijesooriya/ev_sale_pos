@@ -36,6 +36,7 @@ export default async function ServicesPage() {
   const branches = initDataRes.data?.branches || []
   const customers = initDataRes.data?.customers || []
   const spareParts = initDataRes.data?.spareParts || []
+  const models = initDataRes.data?.models || []
   const initialRecords = recordsRes.data || []
 
   return (
@@ -44,6 +45,7 @@ export default async function ServicesPage() {
       branches={branches as BranchOption[]}
       customers={customers as CustomerOption[]}
       spareParts={spareParts as SparePartOption[]}
+      models={models}
       initialRecords={initialRecords as ServiceRecordRow[]}
       dealershipName={session.user.organizationName || "Dealership"}
       canViewHistory={session.user.role === UserRole.OrgAdmin}

@@ -31,7 +31,7 @@ export async function getAvailableSpareParts() {
 
   const data = await prisma.sparePart.findMany({
     where: { organizationId, stockQuantity: { gt: 0 } },
-    select: { id: true, name: true, sku: true, price: true, stockQuantity: true },
+    select: { id: true, name: true, sku: true, partNumber: true, price: true, stockQuantity: true },
     orderBy: { name: "asc" },
   })
   return { success: true as const, data }
@@ -58,6 +58,7 @@ export async function getSpareParts() {
 export async function createSparePart(input: {
   name: string
   sku: string
+  partNumber?: string | null
   price: number
   stockQuantity: number
 }) {
@@ -78,6 +79,7 @@ export async function createSparePart(input: {
         organizationId,
         name,
         sku,
+        partNumber: input.partNumber?.trim() || null,
         price: input.price,
         stockQuantity: input.stockQuantity,
       },
@@ -98,6 +100,7 @@ export async function updateSparePart(input: {
   id: string
   name: string
   sku: string
+  partNumber?: string | null
   price: number
 }) {
   try {
@@ -110,7 +113,7 @@ export async function updateSparePart(input: {
     }
     const result = await prisma.sparePart.updateMany({
       where: { id: input.id, organizationId },
-      data: { name: input.name.trim(), sku: input.sku.trim(), price: input.price },
+      data: { name: input.name.trim(), sku: input.sku.trim(), partNumber: input.partNumber?.trim() || null, price: input.price },
     })
     if (result.count === 0) throw new Error("Spare part not found.")
     revalidatePath("/dashboard/services/spare-parts")

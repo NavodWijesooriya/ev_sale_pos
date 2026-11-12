@@ -27,6 +27,7 @@ import {
   Trash2,
   Gauge,
   X,
+  Plus,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -50,8 +51,17 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   completeServiceJob,
   getVehicleFreeServiceStatus,
+  registerExternalVehicle,
 } from "@/app/actions/services"
 import { ServiceType } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
@@ -117,6 +127,7 @@ interface NewServiceFormProps {
   branches: BranchOption[]
   customers: CustomerOption[]
   spareParts: SparePartOption[]
+  models?: Array<{ id: string; brand: string; modelName: string }>
   recentRecords?: Array<{
     id: string
     customerName: string
@@ -134,6 +145,7 @@ export function NewServiceForm({
   branches,
   customers,
   spareParts,
+  models = [],
   recentRecords = [],
   onSuccess,
 }: NewServiceFormProps) {
@@ -143,6 +155,23 @@ export function NewServiceForm({
   // Search & Vehicle Selection
   const [vehicleSearchQuery, setVehicleSearchQuery] = useState("")
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("")
+  const [vehiclesList, setVehiclesList] = useState<SoldVehicleItem[]>(vehicles)
+
+  // Sync vehicles when props update
+  React.useEffect(() => {
+    setVehiclesList(vehicles)
+  }, [vehicles])
+
+  // External vehicle dialog states
+  const [isExternalOpen, setIsExternalOpen] = useState(false)
+  const [extChassis, setExtChassis] = useState("")
+  const [extModelId, setExtModelId] = useState(models[0]?.id || "")
+  const [extBranchId, setExtBranchId] = useState(branches[0]?.id || "")
+  const [extCustomerId, setExtCustomerId] = useState(customers[0]?.id || "")
+  const [extMotor, setExtMotor] = useState("")
+  const [extBattery, setExtBattery] = useState("")
+  const [extColor, setExtColor] = useState("")
+  const [isRegisteringExt, setIsRegisteringExt] = useState(false)
 
   // Form Fields
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
@@ -167,8 +196,8 @@ export function NewServiceForm({
 
   // Find currently selected vehicle
   const selectedVehicle = useMemo(() => {
-    return vehicles.find((v) => v.id === selectedVehicleId) || null
-  }, [vehicles, selectedVehicleId])
+    return vehiclesList.find((v) => v.id === selectedVehicleId) || null
+  }, [vehiclesList, selectedVehicleId])
 
   React.useEffect(() => {
     let active = true
@@ -219,9 +248,9 @@ export function NewServiceForm({
 
   // Filtered sold vehicles
   const filteredVehicles = useMemo(() => {
-    if (!vehicleSearchQuery.trim()) return vehicles.slice(0, 10)
+    if (!vehicleSearchQuery.trim()) return vehiclesList.slice(0, 10)
     const q = vehicleSearchQuery.toLowerCase()
-    return vehicles.filter((v) => {
+    return vehiclesList.filter((v) => {
       const matchVin = v.chassisNumber.toLowerCase().includes(q)
       const matchMotor = v.motorNumber?.toLowerCase().includes(q)
       const matchBattery = v.batterySerialNumber?.toLowerCase().includes(q)
@@ -237,7 +266,7 @@ export function NewServiceForm({
 
       return matchVin || matchMotor || matchBattery || matchModel || matchCustomer
     })
-  }, [vehicles, vehicleSearchQuery])
+  }, [vehiclesList, vehicleSearchQuery])
 
   // When vehicle selected, auto-select its branch
   const handleSelectVehicle = (v: SoldVehicleItem) => {
@@ -316,6 +345,46 @@ export function NewServiceForm({
     setPartQuantity(1)
   }
 
+  const handleRegisterExternal = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!extChassis.trim()) {
+      toast.error("Please enter the vehicle Chassis Number / VIN.")
+      return
+    }
+    if (!extModelId) {
+      toast.error("Please select a vehicle model.")
+      return
+    }
+    try {
+      setIsRegisteringExt(true)
+      const res = await registerExternalVehicle({
+        chassisNumber: extChassis.trim(),
+        vehicleModelId: extModelId,
+        branchId: extBranchId || branches[0]?.id || "",
+        customerId: extCustomerId || customers[0]?.id || "",
+        motorNumber: extMotor.trim() || null,
+        batterySerialNumber: extBattery.trim() || null,
+        color: extColor.trim() || null,
+      })
+      if (res.success && res.data) {
+        toast.success(res.message || "External vehicle registered and selected!")
+        const newV = res.data as SoldVehicleItem
+        setVehiclesList((prev) => [newV, ...prev.filter((v) => v.id !== newV.id)])
+        handleSelectVehicle(newV)
+        setIsExternalOpen(false)
+        setExtChassis("")
+        setExtMotor("")
+        setExtBattery("")
+        setExtColor("")
+      } else {
+        toast.error(res.error || "Failed to register external vehicle.")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An unexpected error occurred.")
+    } finally {
+      setIsRegisteringExt(false)
+    }
+  }
   // Submit service job
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -394,13 +463,25 @@ export function NewServiceForm({
                     </CardDescription>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold">
-                  {vehicles.length} Sold Bikes Active
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsExternalOpen(true)}
+                    className="gap-1.5 text-xs font-semibold h-8 border-primary/30 text-primary hover:bg-primary/10 shadow-none"
+                  >
+                    <Plus className="size-3.5" />
+                    External Bike
+                  </Button>
+                  <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold">
+                    {vehiclesList.length} Active Bikes
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {vehicles.length === 0 ? (
+              {vehiclesList.length === 0 ? (
                 <div className="p-8 text-center rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5">
                   <Clock className="h-8 w-8 text-amber-500 mx-auto mb-2 opacity-80" />
                   <p className="font-semibold text-foreground text-sm">No Sold EV Bikes Registered</p>
@@ -1011,6 +1092,151 @@ export function NewServiceForm({
           </Card>
         </div>
       </div>
+      {/* Dialog for registering external vehicle */}
+      <Dialog open={isExternalOpen} onOpenChange={setIsExternalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Bike className="size-5 text-primary" />
+              Register External Bike for Service
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Enter vehicle and customer details for bikes not sold through this dealership.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRegisterExternal} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="ext-chassis" className="text-xs font-semibold">
+                Chassis Number / VIN <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="ext-chassis"
+                placeholder="e.g. EVBIKE20261112"
+                value={extChassis}
+                onChange={(e) => setExtChassis(e.target.value.toUpperCase())}
+                required
+                className="h-10 text-xs font-mono uppercase"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ext-model" className="text-xs font-semibold">
+                  Model <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="ext-model"
+                  value={extModelId}
+                  onChange={(e) => setExtModelId(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-xs"
+                  required
+                >
+                  <option value="">Select model...</option>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.brand} {m.modelName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ext-branch" className="text-xs font-semibold">
+                  Workshop Branch <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="ext-branch"
+                  value={extBranchId}
+                  onChange={(e) => setExtBranchId(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-xs"
+                  required
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ext-customer" className="text-xs font-semibold">
+                Customer / Owner <span className="text-destructive">*</span>
+              </Label>
+              <select
+                id="ext-customer"
+                value={extCustomerId}
+                onChange={(e) => setExtCustomerId(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-xs"
+                required
+              >
+                <option value="">Select existing customer...</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.phone})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ext-motor" className="text-xs">Motor #</Label>
+                <Input
+                  id="ext-motor"
+                  placeholder="Optional"
+                  value={extMotor}
+                  onChange={(e) => setExtMotor(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ext-battery" className="text-xs">Battery S/N</Label>
+                <Input
+                  id="ext-battery"
+                  placeholder="Optional"
+                  value={extBattery}
+                  onChange={(e) => setExtBattery(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ext-color" className="text-xs">Color</Label>
+                <Input
+                  id="ext-color"
+                  placeholder="e.g. Red"
+                  value={extColor}
+                  onChange={(e) => setExtColor(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExternalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isRegisteringExt}
+                className="gap-1.5"
+              >
+                {isRegisteringExt ? "Registering..." : "Register & Select"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

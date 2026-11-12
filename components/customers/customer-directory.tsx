@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import { useState, useMemo } from "react"
@@ -328,6 +328,8 @@ export function CustomerDirectory({
                   <TableHead className="font-semibold text-xs">Email Address</TableHead>
                   <TableHead className="font-semibold text-xs text-center">Bikes Owned</TableHead>
                   <TableHead className="font-semibold text-xs text-right">Lifetime Spent</TableHead>
+                  <TableHead className="font-semibold text-xs">Advance Status</TableHead>
+                  <TableHead className="font-semibold text-xs text-right">Advance Paid</TableHead>
                   <TableHead className="font-semibold text-xs text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -425,6 +427,17 @@ export function CustomerDirectory({
                           </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Total Advance Paid */}
+                      <TableCell className="align-middle py-3.5 text-right font-mono text-xs text-foreground">
+                        {c.totalPurchases === 0 && c.totalAdvancePaid > 0 ? (
+                          <span className="font-semibold text-violet-600 dark:text-violet-400">
+                            {formatLKR(c.totalAdvancePaid)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
 

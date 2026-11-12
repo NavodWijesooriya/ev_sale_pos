@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
@@ -101,7 +101,7 @@ export async function getServiceInitialData() {
     const branchScope =
       user.role === UserRole.Technician ? { branchId: user.branchId! } : {}
 
-    const [soldVehicles, branches, customers, spareParts] = await Promise.all([
+    const [soldVehicles, branches, customers, spareParts, models] = await Promise.all([
       // Sold vehicles only
       prisma.vehicle.findMany({
         where: {
@@ -146,6 +146,13 @@ export async function getServiceInitialData() {
         select: { id: true, name: true, sku: true, price: true, stockQuantity: true },
         orderBy: { name: "asc" },
       }),
+
+      // Vehicle Models for external bike registration
+      prisma.vehicleModel.findMany({
+        where: { organizationId },
+        select: { id: true, brand: true, modelName: true },
+        orderBy: { brand: "asc" },
+      }),
     ])
 
     return {
@@ -155,6 +162,7 @@ export async function getServiceInitialData() {
         branches,
         customers,
         spareParts,
+        models,
       },
     }
   } catch (error) {
@@ -162,8 +170,101 @@ export async function getServiceInitialData() {
     return {
       success: false,
       error: (error as Error).message,
-      data: { vehicles: [], branches: [], customers: [], spareParts: [] },
+      data: { vehicles: [], branches: [], customers: [], spareParts: [], models: [] },
     }
+  }
+}
+
+export interface RegisterExternalVehicleInput {
+  chassisNumber: string
+  vehicleModelId: string
+  branchId: string
+  customerId: string
+  motorNumber?: string | null
+  batterySerialNumber?: string | null
+  color?: string | null
+}
+
+/**
+ * Registers an external EV bike (bought outside or non-inventory) for workshop servicing
+ */
+export async function registerExternalVehicle(input: RegisterExternalVehicleInput) {
+  try {
+    const { organizationId } = await requireServiceAccess()
+
+    if (!input.chassisNumber?.trim()) {
+      return { success: false, error: "Chassis Number / VIN is required." }
+    }
+    if (!input.vehicleModelId?.trim()) {
+      return { success: false, error: "Please select the vehicle model." }
+    }
+    if (!input.branchId?.trim()) {
+      return { success: false, error: "Please select a workshop branch." }
+    }
+    if (!input.customerId?.trim()) {
+      return { success: false, error: "Please select the bike owner / customer." }
+    }
+
+    const cleanChassis = input.chassisNumber.trim().toUpperCase()
+
+    // Check if vehicle exists
+    const existing = await prisma.vehicle.findUnique({
+      where: { chassisNumber: cleanChassis },
+      include: {
+        vehicleModel: true,
+        branch: true,
+        saleItems: {
+          include: { sale: { include: { customer: true } } },
+          take: 1,
+        },
+      },
+    })
+
+    if (existing) {
+      if (existing.organizationId !== organizationId) {
+        return { success: false, error: "This chassis number is already registered under another dealership organization." }
+      }
+      return {
+        success: true,
+        message: "Existing vehicle found and selected for service.",
+        data: existing,
+      }
+    }
+
+    // Create the vehicle in the organization with Sold status
+    const newVehicle = await prisma.vehicle.create({
+      data: {
+        organizationId,
+        branchId: input.branchId,
+        vehicleModelId: input.vehicleModelId,
+        chassisNumber: cleanChassis,
+        motorNumber: input.motorNumber?.trim() || null,
+        batterySerialNumber: input.batterySerialNumber?.trim() || null,
+        color: input.color?.trim() || null,
+        status: VehicleStatus.Sold,
+        purchasePrice: 0,
+        freeServiceEntitlement: 0,
+        freeServicesUsed: 0,
+      },
+      include: {
+        vehicleModel: true,
+        branch: true,
+        saleItems: {
+          include: { sale: { include: { customer: true } } },
+          take: 1,
+        },
+      },
+    })
+
+    revalidatePath("/dashboard/services")
+    return {
+      success: true,
+      message: `External vehicle ${cleanChassis} registered successfully.`,
+      data: newVehicle,
+    }
+  } catch (error: any) {
+    console.error("registerExternalVehicle error:", error)
+    return { success: false, error: error.message || "Failed to register external vehicle." }
   }
 }
 
