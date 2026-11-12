@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useState, useMemo } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   Wrench,
@@ -24,6 +25,8 @@ import {
   ExternalLink,
   PackagePlus,
   Trash2,
+  Gauge,
+  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -134,6 +137,7 @@ export function NewServiceForm({
   recentRecords = [],
   onSuccess,
 }: NewServiceFormProps) {
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Search & Vehicle Selection
@@ -153,7 +157,10 @@ export function NewServiceForm({
   const [isLoadingFreeServiceStatus, setIsLoadingFreeServiceStatus] = useState(false)
   const [description, setDescription] = useState("")
   const [totalCost, setTotalCost] = useState<number | "">("")
-  const [nextServiceDueDate, setNextServiceDueDate] = useState("")
+  const [inMileage, setInMileage] = useState("")
+  const [nextServiceMileage, setNextServiceMileage] = useState("")
+  const [inDate, setInDate] = useState(new Date().toISOString().split("T")[0])
+  const [outDate, setOutDate] = useState("")
   const [selectedParts, setSelectedParts] = useState<Array<{ sparePartId: string; quantity: number }>>([])
   const [partToAdd, setPartToAdd] = useState("")
   const [partQuantity, setPartQuantity] = useState(1)
@@ -244,10 +251,8 @@ export function NewServiceForm({
     if (v.branchId) {
       setSelectedBranchId(v.branchId)
     }
-    // Suggest default next service due date (6 months from today)
-    const nextDate = new Date()
-    nextDate.setMonth(nextDate.getMonth() + 6)
-    setNextServiceDueDate(nextDate.toISOString().split("T")[0])
+    // Set default inDate to today
+    setInDate(new Date().toISOString().split("T")[0])
   }
 
   // Handle service type change
@@ -280,7 +285,10 @@ export function NewServiceForm({
     setServiceType(ServiceType.Free)
     setDescription("")
     setTotalCost("")
-    setNextServiceDueDate("")
+    setInMileage("")
+    setNextServiceMileage("")
+    setInDate(new Date().toISOString().split("T")[0])
+    setOutDate("")
     setSelectedParts([])
     setPartToAdd("")
     setPartQuantity(1)
@@ -345,12 +353,16 @@ export function NewServiceForm({
         description: description.trim(),
         totalCost: typeof totalCost === "number" ? totalCost : 0,
         parts: selectedParts,
-        nextServiceDueDate: nextServiceDueDate ? new Date(nextServiceDueDate) : null,
+        inMileage: inMileage.trim() || null,
+        nextServiceMileage: nextServiceMileage.trim() || null,
+        inDate: inDate ? new Date(inDate) : new Date(),
+        outDate: outDate ? new Date(outDate) : null,
       })
 
       if (res.success) {
         toast.success(res.message || "Service job recorded successfully!")
         handleReset()
+        router.refresh()
         if (onSuccess) onSuccess(res.data?.id)
       } else {
         toast.error(res.error || "Failed to log service record.")
@@ -581,38 +593,113 @@ export function NewServiceForm({
               </div>
 
               {/* Servicing Workshop Branch */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="branchSelect" className="text-xs font-semibold">
-                    Workshop Branch <span className="text-destructive">*</span>
-                  </Label>
-                  <Select value={selectedBranchId} onValueChange={(val) => setSelectedBranchId(val || "")}>
-                    <SelectTrigger id="branchSelect" className="h-10 text-xs">
-                      <SelectValue placeholder="Select workshop branch..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id} className="text-xs">
-                          {b.name} {b.location ? `(${b.location})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="branchSelect" className="text-xs font-semibold">
+                  Workshop Branch <span className="text-destructive">*</span>
+                </Label>
+                <Select value={selectedBranchId} onValueChange={(val) => setSelectedBranchId(val || "")}>
+                  <SelectTrigger id="branchSelect" className="h-10 text-xs">
+                    <SelectValue placeholder="Select workshop branch..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id} className="text-xs">
+                        {b.name} {b.location ? `(${b.location})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              {/* Service Dates & Mileage Tracking (2-Column Grid) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                {/* In Date (Arrival Date) */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="nextDate" className="text-xs font-semibold">
-                    Next Recommended Service Due Date
+                  <Label htmlFor="inDate" className="text-xs font-semibold flex items-center gap-1.5">
+                    <Calendar className="size-3.5 text-primary" />
+                    In Date (Arrival Date) <span className="text-destructive">*</span>
                   </Label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="nextDate"
+                      id="inDate"
                       type="date"
-                      value={nextServiceDueDate}
-                      onChange={(e) => setNextServiceDueDate(e.target.value)}
-                      className="pl-9 h-10 text-xs"
+                      value={inDate}
+                      onChange={(e) => setInDate(e.target.value)}
+                      required
+                      className="h-10 text-xs bg-background"
                     />
+                  </div>
+                </div>
+
+                {/* Out Date (Departure Date) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="outDate" className="text-xs font-semibold flex items-center gap-1.5">
+                      <Calendar className="size-3.5 text-muted-foreground" />
+                      Out Date (Departure Date)
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground font-normal">Optional</span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="outDate"
+                      type="date"
+                      value={outDate}
+                      onChange={(e) => setOutDate(e.target.value)}
+                      className="h-10 text-xs pr-8 bg-background"
+                    />
+                    {outDate && (
+                      <button
+                        type="button"
+                        onClick={() => setOutDate("")}
+                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground p-0.5 rounded-full"
+                        title="Clear departure date"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Current Mileage (In Mileage) */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="inMileage" className="text-xs font-semibold flex items-center gap-1.5">
+                    <Gauge className="size-3.5 text-primary" />
+                    Current Mileage (In Mileage)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="inMileage"
+                      type="text"
+                      placeholder="e.g. 5,000"
+                      value={inMileage}
+                      onChange={(e) => setInMileage(e.target.value)}
+                      className="pr-10 h-10 text-xs font-mono bg-background"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
+                      km
+                    </span>
+                  </div>
+                </div>
+
+                {/* Next Service Mileage */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="nextServiceMileage" className="text-xs font-semibold flex items-center gap-1.5">
+                    <Gauge className="size-3.5 text-blue-500" />
+                    Next Service Mileage
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="nextServiceMileage"
+                      type="text"
+                      placeholder="e.g. 10,000"
+                      value={nextServiceMileage}
+                      onChange={(e) => setNextServiceMileage(e.target.value)}
+                      className="pr-10 h-10 text-xs font-mono bg-background"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none font-medium">
+                      km
+                    </span>
                   </div>
                 </div>
               </div>
@@ -799,12 +886,28 @@ export function NewServiceForm({
                     {serviceType} Service
                   </Badge>
                 </div>
-                {nextServiceDueDate && (
+                {inMileage && (
                   <div className="flex justify-between py-1 text-muted-foreground">
-                    <span>Next Due Date:</span>
-                    <span className="font-semibold text-foreground">
-                      {nextServiceDueDate}
-                    </span>
+                    <span>In Mileage:</span>
+                    <span className="font-semibold text-foreground">{inMileage} km</span>
+                  </div>
+                )}
+                {nextServiceMileage && (
+                  <div className="flex justify-between py-1 text-muted-foreground">
+                    <span>Next at:</span>
+                    <span className="font-semibold text-foreground">{nextServiceMileage} km</span>
+                  </div>
+                )}
+                {inDate && (
+                  <div className="flex justify-between py-1 text-muted-foreground">
+                    <span>In Date:</span>
+                    <span className="font-semibold text-foreground">{inDate}</span>
+                  </div>
+                )}
+                {outDate && (
+                  <div className="flex justify-between py-1 text-muted-foreground">
+                    <span>Out Date:</span>
+                    <span className="font-semibold text-foreground">{outDate}</span>
                   </div>
                 )}
               </div>

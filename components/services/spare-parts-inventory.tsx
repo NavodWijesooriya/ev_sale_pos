@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -33,6 +33,8 @@ export function SparePartsInventory({ initialParts }: SparePartsInventoryProps) 
   const [parts, setParts] = React.useState(initialParts)
   const [name, setName] = React.useState("")
   const [sku, setSku] = React.useState("")
+  const [partNumber, setPartNumber] = React.useState("")
+  const [searchSku, setSearchSku] = React.useState("")
   const [price, setPrice] = React.useState("")
   const [stockQuantity, setStockQuantity] = React.useState("")
   const [isPending, startTransition] = React.useTransition()

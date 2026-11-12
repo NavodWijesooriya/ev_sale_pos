@@ -30,10 +30,8 @@ import {
   User,
   Bike,
   Wrench,
-  Clock,
   ShieldCheck,
   CheckCircle2,
-  AlertTriangle,
   Building,
   Printer,
   FileText,
@@ -47,7 +45,10 @@ import { deleteServiceJob, voidServiceJob } from "@/app/actions/services"
 export interface ServiceRecordRow {
   id: string
   serviceDate: Date | string
-  nextServiceDueDate?: Date | string | null
+  inDate?: Date | string | null
+  outDate?: Date | string | null
+  inMileage?: string | null
+  nextServiceMileage?: string | null
   serviceType: ServiceType
   status: string
   description?: string | null
@@ -184,52 +185,10 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
     }
   }
 
-  // Next Due Date status calculator
-  const renderDueDateStatus = (dueDate?: Date | string | null) => {
-    if (!dueDate) return <span className="text-muted-foreground text-xs">—</span>
-
-    const due = new Date(dueDate)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    due.setHours(0, 0, 0, 0)
-
-    const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    const formattedDate = due.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-
-    if (diffDays < 0) {
-      return (
-        <div className="flex flex-col">
-          <span className="font-semibold text-xs text-foreground">{formattedDate}</span>
-          <span className="text-[10px] font-bold text-destructive flex items-center gap-1">
-            <AlertTriangle className="size-2.5" />
-            Overdue ({Math.abs(diffDays)}d ago)
-          </span>
-        </div>
-      )
-    }
-
-    if (diffDays <= 30) {
-      return (
-        <div className="flex flex-col">
-          <span className="font-semibold text-xs text-foreground">{formattedDate}</span>
-          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-            <Clock className="size-2.5" />
-            Due in {diffDays} days
-          </span>
-        </div>
-      )
-    }
-
-    return (
-      <div className="flex flex-col">
-        <span className="font-semibold text-xs text-foreground">{formattedDate}</span>
-        <span className="text-[10px] text-muted-foreground">In {diffDays} days</span>
-      </div>
-    )
+  // Format a date for display
+  const formatDate = (date?: Date | string | null) => {
+    if (!date) return "—"
+    return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
   }
 
   // Export to CSV
@@ -246,7 +205,10 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
       "Vehicle Model",
       "Service Type",
       "Cost (LKR)",
-      "Next Due Date",
+      "In Mileage (km)",
+      "Next Service Mileage (km)",
+      "In Date",
+      "Out Date",
       "Description",
       "Branch",
     ]
@@ -261,7 +223,10 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
       `"${r.vehicle.vehicleModel.brand} ${r.vehicle.vehicleModel.modelName}"`,
       `"${r.serviceType}"`,
       `"${formatLKR(r.totalCost)}"`,
-      `"${r.nextServiceDueDate ? new Date(r.nextServiceDueDate).toLocaleDateString() : ""}"`,
+      `"${r.inMileage || ""}"`,
+      `"${r.nextServiceMileage || ""}"`,
+      `"${r.inDate ? new Date(r.inDate).toLocaleDateString() : ""}"`,
+      `"${r.outDate ? new Date(r.outDate).toLocaleDateString() : ""}"`,
       `"${(r.description || "").replace(/"/g, '""')}"`,
       `"${r.branch.name}"`,
     ])
@@ -345,7 +310,8 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
                 <TableHead className="font-semibold text-xs">Service Type</TableHead>
                 <TableHead className="font-semibold text-xs">Work Description</TableHead>
                 <TableHead className="font-semibold text-xs">Workshop Branch</TableHead>
-                <TableHead className="font-semibold text-xs">Next Due Date</TableHead>
+                <TableHead className="font-semibold text-xs">Mileage In / Next</TableHead>
+                <TableHead className="font-semibold text-xs">In Date / Out Date</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Cost</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Action</TableHead>
               </TableRow>
@@ -353,7 +319,7 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
             <TableBody>
               {filteredRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <Wrench className="size-8 text-muted-foreground/40 mb-1" />
                       <p className="font-semibold text-sm">No service records found</p>
@@ -440,9 +406,32 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
                         </span>
                       </TableCell>
 
-                      {/* Next Due Date */}
-                      <TableCell className="align-top py-3.5">
-                        {renderDueDateStatus(r.nextServiceDueDate)}
+                      {/* Mileage In / Next */}
+                      <TableCell className="align-top py-3.5 text-xs font-mono">
+                        <div>
+                          <span className="text-muted-foreground text-[10px] block">In:</span>
+                          <span className="font-semibold text-foreground">{r.inMileage ? `${r.inMileage} km` : "—"}</span>
+                        </div>
+                        {r.nextServiceMileage && (
+                          <div className="mt-1">
+                            <span className="text-muted-foreground text-[10px] block">Next:</span>
+                            <span className="font-medium text-blue-600 dark:text-blue-400">{r.nextServiceMileage} km</span>
+                          </div>
+                        )}
+                      </TableCell>
+
+                      {/* In Date / Out Date */}
+                      <TableCell className="align-top py-3.5 text-xs font-mono">
+                        <div>
+                          <span className="text-muted-foreground text-[10px] block">In:</span>
+                          <span className="text-foreground">{r.inDate ? formatDate(r.inDate) : formatDate(r.serviceDate)}</span>
+                        </div>
+                        {r.outDate && (
+                          <div className="mt-1">
+                            <span className="text-muted-foreground text-[10px] block">Out:</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">{formatDate(r.outDate)}</span>
+                          </div>
+                        )}
                       </TableCell>
 
                       {/* Cost */}

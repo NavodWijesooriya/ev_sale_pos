@@ -15,7 +15,10 @@ import { toast } from "sonner"
 export interface ServiceJobCardData {
   id: string
   serviceDate: Date | string
-  nextServiceDueDate?: Date | string | null
+  inDate?: Date | string | null
+  outDate?: Date | string | null
+  inMileage?: string | null
+  nextServiceMileage?: string | null
   serviceType: ServiceType
   description?: string | null
   totalCost: number
@@ -520,7 +523,7 @@ export function PrintableJobCard({ record }: PrintableJobCardProps) {
             >
               <h2 style={sectionHeadingStyle}>Next Recommended Service</h2>
               <p style={{ margin: 0, color: colors.ink, fontSize: "11pt", fontWeight: 800 }}>
-                {formatDocumentDate(record.nextServiceDueDate)}
+                {record.nextServiceMileage ? `${record.nextServiceMileage} km` : "As per schedule"}
               </p>
               <p style={{ margin: "1.5mm 0 0", color: colors.subtle, fontSize: "7pt" }}>
                 Please follow the vehicle manufacturer’s maintenance schedule.

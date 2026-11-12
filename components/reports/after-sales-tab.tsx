@@ -249,7 +249,7 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
                   <TableHead className="text-xs font-semibold text-center">Type</TableHead>
                   <TableHead className="text-xs font-semibold">Description / Work Done</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Cost</TableHead>
-                  <TableHead className="text-xs font-semibold text-center">Next Due</TableHead>
+                  <TableHead className="text-xs font-semibold text-center">Out Date</TableHead>
                   <TableHead className="text-xs font-semibold text-center">Job Card</TableHead>
                 </TableRow>
               </TableHeader>
@@ -291,8 +291,8 @@ export function AfterSalesTab({ data }: AfterSalesTabProps) {
                     </TableCell>
 
                     <TableCell className="text-xs font-mono text-muted-foreground text-center">
-                      {service.nextServiceDueDate ? (
-                        new Date(service.nextServiceDueDate).toLocaleDateString("en-US", {
+                      {service.outDate ? (
+                        new Date(service.outDate).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",

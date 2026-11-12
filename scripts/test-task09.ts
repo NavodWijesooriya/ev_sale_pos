@@ -69,14 +69,14 @@ async function main() {
       serviceType: ServiceType.Free,
       description: "First 5,000 km complimentary check. Inspected brake pads, tire pressure balanced, wiper fluid topped up.",
       totalCost: 0,
-      nextServiceDueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 6 months later
+      nextServiceMileage: "5000", // first service at 5,000 km
       serviceDate: new Date(),
     },
   })
 
   console.log(`✔ Free Service logged! ID: ${freeService.id}`)
   console.log(`  - Type: ${freeService.serviceType}, Cost: Rs. ${freeService.totalCost}`)
-  console.log(`  - Next Due: ${freeService.nextServiceDueDate?.toISOString().split("T")[0]}`)
+  console.log(`  - Next Service: ${freeService.nextServiceMileage || "N/A"} km`)
 
   // 3. Test 2: Log a Warranty Claim Service
   console.log(`\n--- Test 2: Logging Warranty Claim Service ---`)
@@ -89,7 +89,7 @@ async function main() {
       serviceType: ServiceType.Warranty,
       description: "Battery Management System (BMS) firmware recall update and DC fast-charge port solenoid replacement under warranty.",
       totalCost: 0,
-      nextServiceDueDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      nextServiceMileage: "10000",
       serviceDate: new Date(),
     },
   })
@@ -108,7 +108,7 @@ async function main() {
       serviceType: ServiceType.Paid,
       description: "Cabin HEPA filter replacement, AC evaporator disinfection, and alloy wheel balancing requested by customer.",
       totalCost: 185.50,
-      nextServiceDueDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+      nextServiceMileage: "5000",
       serviceDate: new Date(),
     },
   })

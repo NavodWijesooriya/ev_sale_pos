@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
@@ -54,7 +54,10 @@ export interface CreateServiceRecordInput {
   serviceType: ServiceType
   description: string
   totalCost: number
-  nextServiceDueDate?: string | Date | null
+  inMileage?: string | null
+  nextServiceMileage?: string | null
+  inDate?: string | Date | null
+  outDate?: string | Date | null
   parts?: Array<{ sparePartId: string; quantity: number }>
 }
 
@@ -305,10 +308,10 @@ export async function completeServiceJob(input: CreateServiceRecordInput) {
     if (!Number.isFinite(laborCost) || laborCost < 0) {
       throw new Error("Service labor cost must be zero or greater.")
     }
-    const nextDueDate = input.nextServiceDueDate ? new Date(input.nextServiceDueDate) : null
-    if (nextDueDate && Number.isNaN(nextDueDate.getTime())) {
-      throw new Error("Enter a valid next service due date.")
-    }
+    const inDate = input.inDate ? new Date(input.inDate) : new Date()
+    if (Number.isNaN(inDate.getTime())) throw new Error("Enter a valid In Date.")
+    const outDate = input.outDate ? new Date(input.outDate) : null
+    if (outDate && Number.isNaN(outDate.getTime())) throw new Error("Enter a valid Out Date.")
 
     const selectedParts = new Map<string, number>()
     for (const part of input.parts ?? []) {
@@ -411,7 +414,10 @@ export async function completeServiceJob(input: CreateServiceRecordInput) {
           serviceType: input.serviceType,
           description: input.description.trim(),
           totalCost,
-          nextServiceDueDate: nextDueDate,
+          inDate,
+          outDate,
+          inMileage: input.inMileage?.trim() || null,
+          nextServiceMileage: input.nextServiceMileage?.trim() || null,
           serviceDate: new Date(),
           status: "COMPLETED",
         },

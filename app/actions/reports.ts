@@ -77,7 +77,7 @@ export interface ServiceRecordItem {
   serviceType: "Free" | "Paid" | "Warranty"
   description: string
   totalCost: number
-  nextServiceDueDate?: string | null
+  outDate?: string | null
 }
 
 export interface AdvancedReportsData {
@@ -506,7 +506,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       serviceType: s.serviceType as "Free" | "Paid" | "Warranty",
       description: s.description || "General maintenance and checkup",
       totalCost: s.totalCost,
-      nextServiceDueDate: s.nextServiceDueDate ? s.nextServiceDueDate.toISOString() : null,
+      outDate: s.outDate ? s.outDate.toISOString() : null,
     }
   })
 

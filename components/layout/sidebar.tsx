@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 import Link from "next/link"
@@ -97,8 +97,16 @@ export const navigationItems: NavItem[] = [
       { title: "Current Bike Stock", href: "/dashboard/grn/stock" },
     ],
   },
-  { title: "Services", href: "/dashboard/services", icon: Wrench, roles: ["OrgAdmin", "Technician"] },
-  { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts", icon: Boxes, roles: ["OrgAdmin"] },
+  {
+    title: "Service Management",
+    href: "/dashboard/services",
+    icon: Wrench,
+    roles: ["OrgAdmin", "BranchManager", "Technician"],
+    children: [
+      { title: "Service", href: "/dashboard/services" },
+      { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts" },
+    ],
+  },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
   { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
   { title: "Staff Management", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
@@ -138,12 +146,16 @@ export function SidebarContent({
   const [financeExpanded, setFinanceExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/finance/")),
   )
+  const [serviceManagementExpanded, setServiceManagementExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/services")),
+  )
   const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
   const isExpanded = (title: string) => {
     if (title === "Customers") return customersExpanded
     if (title === "GRN Management") return grnExpanded
     if (title === "Sales Management") return salesExpanded
     if (title === "Finance Management") return financeExpanded
+    if (title === "Service Management") return serviceManagementExpanded
     return false
   }
   const hasActiveChild = (children: NavChild[]): boolean =>
@@ -242,6 +254,7 @@ export function SidebarContent({
                           if (item.title === "GRN Management") setGrnExpanded(true)
                           if (item.title === "Sales Management") setSalesExpanded(true)
                           if (item.title === "Finance Management") setFinanceExpanded(true)
+                          if (item.title === "Service Management") setServiceManagementExpanded(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
@@ -251,6 +264,8 @@ export function SidebarContent({
                           setFinanceExpanded((expanded) => !expanded)
                         } else if (item.title === "Customers") {
                           setCustomersExpanded((expanded) => !expanded)
+                        } else if (item.title === "Service Management") {
+                          setServiceManagementExpanded((expanded) => !expanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}

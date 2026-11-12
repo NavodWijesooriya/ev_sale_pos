@@ -115,7 +115,10 @@ export interface CustomerProfileData {
   serviceRecords: Array<{
     id: string
     serviceDate: Date | string
-    nextServiceDueDate?: Date | string | null
+    inMileage?: string | null
+    nextServiceMileage?: string | null
+    inDate?: Date | string | null
+    outDate?: Date | string | null
     serviceType: ServiceType
     status: string
     description?: string | null
@@ -735,7 +738,7 @@ export function CustomerProfile({
                       <TableHead className="font-semibold text-xs">Service Type</TableHead>
                       <TableHead className="font-semibold text-xs">Work Description</TableHead>
                       <TableHead className="font-semibold text-xs">Workshop Branch</TableHead>
-                      <TableHead className="font-semibold text-xs">Next Due Date</TableHead>
+                      <TableHead className="font-semibold text-xs">Mileage In / Next</TableHead>
                       <TableHead className="font-semibold text-xs text-right">Cost</TableHead>
                       <TableHead className="font-semibold text-xs text-right">Action</TableHead>
                     </TableRow>
@@ -754,13 +757,6 @@ export function CustomerProfile({
                           month: "short",
                           day: "numeric",
                         })
-                        const dueDate = r.nextServiceDueDate
-                          ? new Date(r.nextServiceDueDate).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "—"
 
                         return (
                           <TableRow key={r.id} className="hover:bg-muted/30 transition-colors border-border/40">
@@ -796,9 +792,18 @@ export function CustomerProfile({
                               {r.branch.name}
                             </TableCell>
 
-                            {/* Next Due */}
-                            <TableCell className="align-middle py-3.5 text-xs font-semibold text-foreground">
-                              {dueDate}
+                            {/* Mileage In / Next */}
+                            <TableCell className="align-middle py-3.5 text-xs font-mono">
+                              <div>
+                                <span className="text-muted-foreground text-[10px] block">In:</span>
+                                <span className="font-semibold text-foreground">{r.inMileage ? `${r.inMileage} km` : "—"}</span>
+                              </div>
+                              {r.nextServiceMileage && (
+                                <div className="mt-0.5">
+                                  <span className="text-muted-foreground text-[10px] block">Next:</span>
+                                  <span className="text-blue-600 dark:text-blue-400 font-medium">{r.nextServiceMileage} km</span>
+                                </div>
+                              )}
                             </TableCell>
 
                             {/* Cost */}
