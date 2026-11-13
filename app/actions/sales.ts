@@ -668,6 +668,10 @@ export interface UpdateDMTRegistrationInput {
   hasPhotos?: boolean
   hasTIN?: boolean
   registeredNumber?: string
+  registrationNumber?: string
+  isBookOk?: boolean
+  isNumberPlateOk?: boolean
+  isInsuranceOk?: boolean
 }
 
 /**
@@ -684,11 +688,27 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
     // Verify sale ownership
     const sale = await prisma.sale.findFirst({
       where: { id: input.saleId, organizationId },
+      include: {
+        items: {
+          select: { vehicleId: true },
+        },
+      },
     })
 
     if (!sale) {
       throw new Error("Sale not found in your dealership records.")
     }
+
+    const regNo =
+      input.registrationNumber !== undefined
+        ? input.registrationNumber
+        : input.registeredNumber
+    const formattedRegNo =
+      regNo !== undefined
+        ? regNo.trim()
+          ? regNo.trim().toUpperCase()
+          : null
+        : undefined
 
     const dmt = await prisma.dMTRegistration.upsert({
       where: { saleId: input.saleId },
@@ -698,9 +718,13 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
         ...(input.hasNIC !== undefined && { hasNIC: input.hasNIC }),
         ...(input.hasPhotos !== undefined && { hasPhotos: input.hasPhotos }),
         ...(input.hasTIN !== undefined && { hasTIN: input.hasTIN }),
-        ...(input.registeredNumber !== undefined && {
-          registeredNumber: input.registeredNumber.trim() || null,
+        ...(formattedRegNo !== undefined && {
+          registeredNumber: formattedRegNo,
+          registrationNumber: formattedRegNo,
         }),
+        ...(input.isBookOk !== undefined && { isBookOk: input.isBookOk }),
+        ...(input.isNumberPlateOk !== undefined && { isNumberPlateOk: input.isNumberPlateOk }),
+        ...(input.isInsuranceOk !== undefined && { isInsuranceOk: input.isInsuranceOk }),
       },
       create: {
         saleId: input.saleId,
@@ -709,10 +733,24 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
         hasNIC: input.hasNIC ?? false,
         hasPhotos: input.hasPhotos ?? false,
         hasTIN: input.hasTIN ?? false,
-        registeredNumber: input.registeredNumber?.trim() || null,
+        registeredNumber: formattedRegNo ?? null,
+        registrationNumber: formattedRegNo ?? null,
+        isBookOk: input.isBookOk ?? false,
+        isNumberPlateOk: input.isNumberPlateOk ?? false,
+        isInsuranceOk: input.isInsuranceOk ?? false,
       },
     })
 
+    if (formattedRegNo !== undefined && sale.items.length > 0) {
+      await prisma.vehicle.updateMany({
+        where: { id: { in: sale.items.map((i) => i.vehicleId) } },
+        data: { registrationNumber: formattedRegNo },
+      })
+    }
+
+    revalidatePath(`/dashboard/customers/${sale.customerId}`)
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/customers/rmv")
     revalidatePath(`/dashboard/sales/${input.saleId}`)
     revalidatePath(`/dashboard/sales/${input.saleId}/invoice`)
     revalidatePath("/dashboard/sales")
@@ -727,6 +765,199 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
     return {
       success: false,
       error: (error as Error).message || "Failed to update DMT registration.",
+    }
+  }
+}
+
+export interface UpdateVehicleDocumentStatusInput {
+  saleId: string
+  isBookOk?: boolean
+  isNumberPlateOk?: boolean
+  isInsuranceOk?: boolean
+  registrationNumber?: string
+}
+
+/**
+ * Fast-update action for the three key RMV documents and plate number
+ */
+export async function updateVehicleDocumentStatus(input: UpdateVehicleDocumentStatusInput) {
+  try {
+    const { organizationId } = await requireAuthOrg()
+
+    if (!input.saleId) {
+      throw new Error("Sale ID is required.")
+    }
+
+    const sale = await prisma.sale.findFirst({
+      where: { id: input.saleId, organizationId },
+      include: {
+        items: {
+          select: { vehicleId: true },
+        },
+      },
+    })
+
+    if (!sale) {
+      throw new Error("Sale not found in your dealership records.")
+    }
+
+    const regNo =
+      input.registrationNumber !== undefined
+        ? input.registrationNumber.trim()
+          ? input.registrationNumber.trim().toUpperCase()
+          : null
+        : undefined
+
+    const dmt = await prisma.dMTRegistration.upsert({
+      where: { saleId: input.saleId },
+      update: {
+        ...(input.isBookOk !== undefined && { isBookOk: input.isBookOk }),
+        ...(input.isNumberPlateOk !== undefined && { isNumberPlateOk: input.isNumberPlateOk }),
+        ...(input.isInsuranceOk !== undefined && { isInsuranceOk: input.isInsuranceOk }),
+        ...(regNo !== undefined && {
+          registrationNumber: regNo,
+          registeredNumber: regNo,
+        }),
+      },
+      create: {
+        saleId: input.saleId,
+        isBookOk: input.isBookOk ?? false,
+        isNumberPlateOk: input.isNumberPlateOk ?? false,
+        isInsuranceOk: input.isInsuranceOk ?? false,
+        registrationNumber: regNo ?? null,
+        registeredNumber: regNo ?? null,
+      },
+    })
+
+    if (regNo !== undefined && sale.items.length > 0) {
+      await prisma.vehicle.updateMany({
+        where: { id: { in: sale.items.map((i) => i.vehicleId) } },
+        data: { registrationNumber: regNo },
+      })
+    }
+
+    revalidatePath(`/dashboard/customers/${sale.customerId}`)
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/customers/rmv")
+    revalidatePath(`/dashboard/sales/${input.saleId}`)
+    revalidatePath("/dashboard/sales")
+
+    return {
+      success: true,
+      message: "Vehicle document tracking status updated successfully!",
+      data: dmt,
+    }
+  } catch (error) {
+    console.error("updateVehicleDocumentStatus error:", error)
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to update vehicle document status.",
+    }
+  }
+}
+
+/**
+ * Logs customer SMS / WhatsApp notification timestamp
+ */
+export async function logCustomerNotification({ saleId }: { saleId: string }) {
+  try {
+    const { organizationId } = await requireAuthOrg()
+
+    if (!saleId) {
+      throw new Error("Sale ID is required.")
+    }
+
+    const sale = await prisma.sale.findFirst({
+      where: { id: saleId, organizationId },
+      select: { id: true, customerId: true },
+    })
+
+    if (!sale) {
+      throw new Error("Sale not found in your dealership records.")
+    }
+
+    const now = new Date()
+
+    const dmt = await prisma.dMTRegistration.upsert({
+      where: { saleId },
+      update: {
+        lastNotifiedAt: now,
+      },
+      create: {
+        saleId,
+        lastNotifiedAt: now,
+      },
+    })
+
+    revalidatePath(`/dashboard/customers/${sale.customerId}`)
+    revalidatePath("/dashboard/customers")
+    revalidatePath("/dashboard/customers/rmv")
+    revalidatePath(`/dashboard/sales/${saleId}`)
+
+    return {
+      success: true,
+      message: "Customer notification logged successfully!",
+      lastNotifiedAt: now,
+      data: dmt,
+    }
+  } catch (error) {
+    console.error("logCustomerNotification error:", error)
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to log notification.",
+    }
+  }
+}
+
+/**
+ * Retrieves all sales with DMT / RMV registration tracking records for the organization
+ */
+export async function getRMVRegistry() {
+  try {
+    const { organizationId } = await requireAuthOrg()
+
+    const sales = await prisma.sale.findMany({
+      where: { organizationId },
+      orderBy: { saleDate: "desc" },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            nic: true,
+            address: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: {
+          include: {
+            vehicle: {
+              include: {
+                vehicleModel: true,
+              },
+            },
+          },
+        },
+        dmtRegistration: true,
+      },
+    })
+
+    return {
+      success: true,
+      data: sales,
+    }
+  } catch (error) {
+    console.error("getRMVRegistry error:", error)
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to load RMV registry records.",
+      data: [],
     }
   }
 }

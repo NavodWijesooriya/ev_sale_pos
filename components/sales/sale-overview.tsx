@@ -51,6 +51,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { updateDMTRegistration } from "@/app/actions/sales"
 import { DMTStatus, PaymentMethod } from "@prisma/client"
+import { VehicleDocumentTracker } from "@/components/customers/vehicle-document-tracker"
 
 interface SaleOverviewProps {
   sale: {
@@ -91,6 +92,8 @@ interface SaleOverviewProps {
       vehicle: {
         id: string
         chassisNumber: string
+        unitGrnNumber?: string | null
+        registrationNumber?: string | null
         motorNumber?: string | null
         batterySerialNumber?: string | null
         warrantyPeriod?: string | null
@@ -119,6 +122,11 @@ interface SaleOverviewProps {
       hasPhotos: boolean
       hasTIN: boolean
       registeredNumber?: string | null
+      registrationNumber?: string | null
+      isBookOk?: boolean
+      isNumberPlateOk?: boolean
+      isInsuranceOk?: boolean
+      lastNotifiedAt?: Date | string | null
     } | null
   }
 }
@@ -638,6 +646,45 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
               </Button>
             </CardFooter>
           </Card>
+
+          {/* Section D / Document Pickup & Customer Notification */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <FileCheck2 className="size-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold">Section D: Document Handover & Customer Alert</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Track Book, Number Plate, & Insurance readiness with 1-Click WhatsApp / SMS alerts
+                </p>
+              </div>
+            </div>
+
+            <VehicleDocumentTracker
+              saleId={sale.id}
+              customerName={sale.customer.name}
+              customerPhone={sale.customer.phone}
+              dealershipName={sale.organization.businessName}
+              modelName={
+                sale.items[0]?.vehicle
+                  ? `${sale.items[0].vehicle.vehicleModel.brand} ${sale.items[0].vehicle.vehicleModel.modelName}`
+                  : "EV Motorcycle"
+              }
+              chassisNumber={sale.items[0]?.vehicle?.chassisNumber || "—"}
+              unitGrnNumber={sale.items[0]?.vehicle?.unitGrnNumber}
+              initialRegistrationNumber={
+                sale.dmtRegistration?.registrationNumber ||
+                sale.dmtRegistration?.registeredNumber ||
+                sale.items[0]?.vehicle?.registrationNumber
+              }
+              initialIsBookOk={sale.dmtRegistration?.isBookOk ?? false}
+              initialIsNumberPlateOk={sale.dmtRegistration?.isNumberPlateOk ?? false}
+              initialIsInsuranceOk={sale.dmtRegistration?.isInsuranceOk ?? false}
+              initialLastNotifiedAt={sale.dmtRegistration?.lastNotifiedAt}
+              onUpdated={() => router.refresh()}
+            />
+          </div>
         </div>
       </div>
     </div>

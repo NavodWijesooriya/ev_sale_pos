@@ -42,6 +42,7 @@ import { CustomerType, PaymentMethod, ServiceType, DMTStatus } from "@prisma/cli
 import { formatLKR } from "@/lib/currency"
 import { setVehicleFreeServiceEntitlement } from "@/app/actions/services"
 import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog"
+import { VehicleDocumentTracker } from "@/components/customers/vehicle-document-tracker"
 
 export interface CustomerProfileData {
   id: string
@@ -88,6 +89,8 @@ export interface CustomerProfileData {
       vehicle: {
         id: string
         chassisNumber: string
+        unitGrnNumber?: string | null
+        registrationNumber?: string | null
         motorNumber?: string | null
         color?: string | null
         freeServiceEntitlement: number
@@ -110,6 +113,11 @@ export interface CustomerProfileData {
       id: string
       status: DMTStatus
       registeredNumber?: string | null
+      registrationNumber?: string | null
+      isBookOk?: boolean
+      isNumberPlateOk?: boolean
+      isInsuranceOk?: boolean
+      lastNotifiedAt?: Date | string | null
     } | null
   }>
   serviceRecords: Array<{
@@ -422,10 +430,17 @@ export function CustomerProfile({
 
       {/* Main History Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 max-w-md h-11 bg-muted/80 p-1">
+        <TabsList className="grid grid-cols-3 max-w-lg h-11 bg-muted/80 p-1">
           <TabsTrigger value="purchases" className="gap-2 text-xs font-bold">
             <Bike className="size-4" />
             EV Bike Purchases
+            <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
+              {customer.sales.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-2 text-xs font-bold">
+            <FileCheck2 className="size-4" />
+            RMV Documents
             <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1.5 h-4">
               {customer.sales.length}
             </Badge>
@@ -461,6 +476,7 @@ export function CustomerProfile({
                       <TableHead className="font-semibold text-xs">Chassis #</TableHead>
                       <TableHead className="font-semibold text-xs">Branch & Rep</TableHead>
                       <TableHead className="font-semibold text-xs">Payment Method</TableHead>
+                      <TableHead className="font-semibold text-xs">RMV Docs</TableHead>
                       <TableHead className="font-semibold text-xs">Status</TableHead>
                       <TableHead className="font-semibold text-xs text-right">Total Amount</TableHead>
                       <TableHead className="font-semibold text-xs text-right">Actions</TableHead>
@@ -469,7 +485,7 @@ export function CustomerProfile({
                   <TableBody>
                     {customer.sales.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-28 text-center text-xs text-muted-foreground">
+                        <TableCell colSpan={9} className="h-28 text-center text-xs text-muted-foreground">
                           No EV bike purchases recorded for this customer yet.
                         </TableCell>
                       </TableRow>
@@ -527,6 +543,54 @@ export function CustomerProfile({
                               </Badge>
                             </TableCell>
 
+                            {/* RMV Documents Status */}
+                            <TableCell className="align-middle py-3.5">
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("documents")}
+                                className="flex flex-col gap-1 text-left cursor-pointer hover:opacity-80 transition-opacity"
+                                title="Click to view RMV Documents"
+                              >
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1 py-0 h-4 ${
+                                      sale.dmtRegistration?.isBookOk
+                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    }`}
+                                  >
+                                    Book: {sale.dmtRegistration?.isBookOk ? "OK" : "Pending"}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1 py-0 h-4 ${
+                                      sale.dmtRegistration?.isNumberPlateOk
+                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    }`}
+                                  >
+                                    Plate: {sale.dmtRegistration?.isNumberPlateOk ? "OK" : "Pending"}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1 py-0 h-4 ${
+                                      sale.dmtRegistration?.isInsuranceOk
+                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    }`}
+                                  >
+                                    Ins: {sale.dmtRegistration?.isInsuranceOk ? "OK" : "Pending"}
+                                  </Badge>
+                                </div>
+                                {(sale.dmtRegistration?.registrationNumber || v?.registrationNumber) && (
+                                  <span className="font-mono text-[10px] font-bold text-foreground">
+                                    {sale.dmtRegistration?.registrationNumber || v?.registrationNumber}
+                                  </span>
+                                )}
+                              </button>
+                            </TableCell>
+
                             {/* Status */}
                             <TableCell className="align-middle py-3.5">
                               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-none text-[11px] font-semibold">
@@ -571,6 +635,59 @@ export function CustomerProfile({
                   </TableBody>
                 </Table>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 2: RMV & VEHICLE DOCUMENTS */}
+        <TabsContent value="documents" className="m-0 focus-visible:outline-none space-y-4">
+          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <FileCheck2 className="size-4 text-emerald-600" />
+                    RMV & Vehicle Document Tracker
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Manage Registration Book (CR Book / පොත), Number Plate, and Insurance policy status, and notify the customer via 1-Click WhatsApp or SMS
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {customer.sales.length === 0 ? (
+                <div className="text-center py-8 text-xs text-muted-foreground">
+                  No purchased vehicles are linked to this customer yet.
+                </div>
+              ) : (
+                customer.sales.map((sale) => {
+                  const item = sale.items[0]
+                  const v = item?.vehicle
+                  const m = v?.vehicleModel
+                  const dmt = sale.dmtRegistration
+
+                  return (
+                    <VehicleDocumentTracker
+                      key={sale.id}
+                      saleId={sale.id}
+                      customerName={customer.name}
+                      customerPhone={customer.phone}
+                      modelName={m ? `${m.brand} ${m.modelName}` : "EV Motorcycle"}
+                      chassisNumber={v?.chassisNumber || "—"}
+                      unitGrnNumber={v?.unitGrnNumber}
+                      initialRegistrationNumber={
+                        dmt?.registrationNumber || dmt?.registeredNumber || v?.registrationNumber
+                      }
+                      initialIsBookOk={dmt?.isBookOk ?? false}
+                      initialIsNumberPlateOk={dmt?.isNumberPlateOk ?? false}
+                      initialIsInsuranceOk={dmt?.isInsuranceOk ?? false}
+                      initialLastNotifiedAt={dmt?.lastNotifiedAt}
+                      onUpdated={() => router.refresh()}
+                    />
+                  )
+                })
+              )}
             </CardContent>
           </Card>
         </TabsContent>

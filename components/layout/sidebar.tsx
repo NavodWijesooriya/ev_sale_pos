@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import Link from "next/link"
@@ -84,6 +84,7 @@ export const navigationItems: NavItem[] = [
     children: [
       { title: "CRM Customers", href: "/dashboard/customers/crm" },
       { title: "Sale Customers", href: "/dashboard/customers/sales" },
+      { title: "RMV Registry", href: "/dashboard/customers/rmv" },
     ],
   },
   {

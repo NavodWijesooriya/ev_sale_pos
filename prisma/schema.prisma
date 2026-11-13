@@ -171,6 +171,7 @@ model Vehicle {
 
   chassisNumber          String        @unique
   unitGrnNumber          String?       @unique
+  registrationNumber     String?       // Actual bike license plate number once assigned (e.g. WP BHE-1234)
   motorNumber            String?
   chargingSerialNumber   String?
   batterySerialNumber    String?       @unique // අලුතින් එකතු කළ කොටස
@@ -513,6 +514,11 @@ model DMTRegistration {
   hasPhotos         Boolean           @default(false)
   hasTIN            Boolean           @default(false)
   registeredNumber  String?
+  registrationNumber String?          // Actual bike license plate number once assigned (e.g. WP BHE-1234)
+  isBookOk          Boolean           @default(false) // Vehicle Registration Book (පොත)
+  isNumberPlateOk   Boolean           @default(false) // Number Plate
+  isInsuranceOk     Boolean           @default(false) // Insurance Card/Policy
+  lastNotifiedAt    DateTime?         // Last SMS/WhatsApp notification timestamp
   numberPlateStatus NumberPlateStatus @default(PENDING)
 }
 
