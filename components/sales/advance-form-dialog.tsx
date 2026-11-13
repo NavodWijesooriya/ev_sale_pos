@@ -359,7 +359,7 @@ export function AdvanceFormDialog({
                     placeholder={
                       selectedVehicle
                         ? `Chassis: ${selectedVehicle.chassisNumber} · ${selectedVehicle.vehicleModel.brand} ${selectedVehicle.vehicleModel.modelName}`
-                        : "Search available bike by Chassis No or Model..."
+                        : "Search available bike by Unit GRN (e.g. JM0102), Chassis, or Model..."
                     }
                     value={vehicleQuery}
                     onFocus={() => setVehicleOpen(true)}

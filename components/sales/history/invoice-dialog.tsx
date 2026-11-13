@@ -23,6 +23,7 @@ export interface SalesHistoryInvoice {
   items: Array<{
     vehicle: {
       chassisNumber: string
+      unitGrnNumber?: string | null
       vehicleModel: { brand: string; modelName: string }
     }
   }>
@@ -36,7 +37,7 @@ interface InvoiceDialogProps {
 
 export function InvoiceDialog({ sale, open, onOpenChange }: InvoiceDialogProps) {
   const vehicles = sale?.items.map(({ vehicle }) =>
-    `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} · ${vehicle.chassisNumber}`,
+    `${vehicle.unitGrnNumber ? `[${vehicle.unitGrnNumber}] ` : ""}${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} · ${vehicle.chassisNumber}`,
   ) ?? []
 
   return (

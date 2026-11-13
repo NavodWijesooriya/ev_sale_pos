@@ -91,7 +91,7 @@ export function ServiceDashboard({
     id: r.id,
     customerName: r.customer.name,
     vehicleModel: `${r.vehicle.vehicleModel.brand} ${r.vehicle.vehicleModel.modelName}`,
-    chassisNumber: r.vehicle.chassisNumber,
+    chassisNumber: r.vehicle.unitGrnNumber ? `[${r.vehicle.unitGrnNumber}] ${r.vehicle.chassisNumber}` : r.vehicle.chassisNumber,
     serviceType: r.serviceType,
     totalCost: r.totalCost,
     date: new Date(r.serviceDate).toLocaleDateString(),

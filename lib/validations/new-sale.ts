@@ -29,6 +29,7 @@ export const createNewSaleSchema = z.object({
   insuranceCompanyId: z.string().trim().optional().or(z.literal("")),
   financeCommission: z.number().min(0).optional().nullable(),
   insuranceCommission: z.number().min(0).optional().nullable(),
+  commissionRecipientId: z.string().trim().optional().or(z.literal("")),
 })
 
 export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>

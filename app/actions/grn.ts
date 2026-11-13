@@ -163,6 +163,11 @@ export async function createGRN(input: CreateGRNInput) {
 
       for (let index = 0; index < input.bikes.length; index += 1) {
         const bike = input.bikes[index]
+        // Generate per-bike unit GRN code: strip spaces from batch number, then append 2-digit index
+        // e.g. grnNumber 'JM 01', bike index 2 → 'JM0102'
+        const batchCode = grnNumber.replace(/\s+/g, '')
+        const bikeIndex = String(index + 1).padStart(2, '0')
+        const unitGrnNumber = `${batchCode}${bikeIndex}`
         const vehicle = await tx.vehicle.create({
           data: {
             organizationId,
@@ -170,6 +175,7 @@ export async function createGRN(input: CreateGRNInput) {
             grnId: createdGRN.id,
             vehicleModelId: bike.vehicleModelId,
             chassisNumber: chassisNumbers[index],
+            unitGrnNumber,
             motorNumber: bike.motorNumber?.trim() || null,
             chargingSerialNumber: bike.chargingSerialNumber?.trim() || null,
             year: bike.year ?? null,
@@ -244,6 +250,7 @@ export async function getAvailableBikeStock() {
         vehicleModel: { select: { brand: true, modelName: true } },
         grn: { select: { grnNumber: true, date: true } },
       },
+      // unitGrnNumber is a direct column on Vehicle, included via findMany by default
       orderBy: [{ createdAt: "desc" }, { chassisNumber: "asc" }],
     })
     return { success: true, data: vehicles }

@@ -6,6 +6,7 @@ import {
   type CustomerData,
   type InStockVehicle,
   type FinanceInsuranceOption,
+  type StaffOption,
   NewSaleForm,
 } from "@/components/sales/new-sale-form"
 import { getAuthSession } from "@/lib/auth"
@@ -37,10 +38,12 @@ export default async function NewSalePage() {
   const vehicles: InStockVehicle[] = result.data.vehicles.map((vehicle) => ({
     id: vehicle.id,
     chassisNumber: vehicle.chassisNumber,
+    unitGrnNumber: (vehicle as any).unitGrnNumber ?? null,
     motorNumber: vehicle.motorNumber,
     color: vehicle.color,
     purchasePrice: vehicle.purchasePrice,
     branchId: vehicle.branchId,
+    grnNumber: (vehicle as any).grn?.grnNumber ?? null,
     branch: {
       id: vehicle.branch.id,
       name: vehicle.branch.name,
@@ -80,6 +83,13 @@ export default async function NewSalePage() {
     defaultCommissionRate: c.defaultCommissionRate,
   }))
 
+  const staffOptions: StaffOption[] = ((result.data as any).staff ?? []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    role: s.role,
+  }))
+
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <header className="space-y-1 border-b pb-5">
@@ -97,6 +107,7 @@ export default async function NewSalePage() {
         branches={result.data.branches.map(({ id, name, location }) => ({ id, name, location }))}
         financeCompanies={financeOptions}
         insuranceCompanies={insuranceOptions}
+        staff={staffOptions}
       />
     </div>
   )

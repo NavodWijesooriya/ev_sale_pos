@@ -48,6 +48,7 @@ export interface ServiceJobCardData {
   vehicle: {
     id: string
     chassisNumber: string
+    unitGrnNumber?: string | null
     motorNumber?: string | null
     batterySerialNumber?: string | null
     warrantyPeriod?: string | null

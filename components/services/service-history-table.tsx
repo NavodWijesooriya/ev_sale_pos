@@ -68,6 +68,7 @@ export interface ServiceRecordRow {
   vehicle: {
     id: string
     chassisNumber: string
+    unitGrnNumber?: string | null
     motorNumber?: string | null
     batterySerialNumber?: string | null
     warrantyPeriod?: string | null
@@ -275,7 +276,7 @@ export function ServiceHistoryTable({ records }: ServiceHistoryTableProps) {
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
             <Input
-              placeholder="Search by Chassis VIN, Battery S/N, customer, phone, or work notes..."
+              placeholder="Search by Unit GRN (e.g. JM0102), Chassis VIN, Battery S/N, customer, phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-10 text-xs"

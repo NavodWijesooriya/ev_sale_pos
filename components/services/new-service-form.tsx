@@ -69,6 +69,7 @@ import { formatLKR } from "@/lib/currency"
 export interface SoldVehicleItem {
   id: string
   chassisNumber: string
+  unitGrnNumber?: string | null
   motorNumber?: string | null
   batterySerialNumber?: string | null
   warrantyPeriod?: string | null
@@ -251,6 +252,7 @@ export function NewServiceForm({
     if (!vehicleSearchQuery.trim()) return vehiclesList.slice(0, 10)
     const q = vehicleSearchQuery.toLowerCase()
     return vehiclesList.filter((v) => {
+      const matchGrn = v.unitGrnNumber ? v.unitGrnNumber.toLowerCase().includes(q) : false
       const matchVin = v.chassisNumber.toLowerCase().includes(q)
       const matchMotor = v.motorNumber?.toLowerCase().includes(q)
       const matchBattery = v.batterySerialNumber?.toLowerCase().includes(q)
@@ -264,7 +266,7 @@ export function NewServiceForm({
           cust.phone.toLowerCase().includes(q) ||
           cust.nic?.toLowerCase().includes(q))
 
-      return matchVin || matchMotor || matchBattery || matchModel || matchCustomer
+      return matchGrn || matchVin || matchMotor || matchBattery || matchModel || matchCustomer
     })
   }, [vehiclesList, vehicleSearchQuery])
 

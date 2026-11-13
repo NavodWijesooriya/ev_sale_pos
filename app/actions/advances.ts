@@ -556,6 +556,7 @@ export async function refundAdvancePayment(
 export interface AvailableVehicleOption {
   id: string
   chassisNumber: string
+  unitGrnNumber?: string | null
   color: string | null
   purchasePrice: number
   motorNumber?: string | null
@@ -600,6 +601,7 @@ export async function getAvailableVehicles(): Promise<AvailableVehicleOption[]> 
   return vehicles.map((v) => ({
     id: v.id,
     chassisNumber: v.chassisNumber,
+    unitGrnNumber: v.unitGrnNumber,
     color: v.color,
     purchasePrice: v.purchasePrice,
     motorNumber: v.motorNumber,

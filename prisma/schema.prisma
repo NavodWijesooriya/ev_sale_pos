@@ -91,6 +91,7 @@ model User {
   createdAt      DateTime     @default(now())
 
   sales            Sale[]           @relation("SoldBy")
+  commissionSales  Sale[]           @relation("CommissionRecipient")
   advancePayments  AdvancePayment[]
   assignedServices ServiceRecord[]  @relation("AssignedTechnician")
 }
@@ -169,6 +170,7 @@ model Vehicle {
   vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
 
   chassisNumber          String        @unique
+  unitGrnNumber          String?       @unique
   motorNumber            String?
   chargingSerialNumber   String?
   batterySerialNumber    String?       @unique // අලුතින් එකතු කළ කොටස
@@ -333,17 +335,22 @@ model Sale {
   financeCompany      FinanceCompany?   @relation("SaleFinanceCompany", fields: [financeCompanyId], references: [id], onDelete: SetNull)
   insuranceCompanyId  String?
   insuranceCompany    InsuranceCompany? @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
-  totalAmount         Float
-  discount            Float             @default(0) // අලුතින් එකතු කළ කොටස
-  additionalCharges   Float             @default(0) // අලුතින් එකතු කළ කොටස
-  financeCommission   Float?
-  insuranceCommission Float?
-  deliveryDate        DateTime? // අලුතින් එකතු කළ කොටස
-  paymentMethod       String?
-  warrantyOption      String?
-  status              String            @default("Completed")
-  freeItems           String[]          @default([])
-  freeServices        Int               @default(0)
+  paymentType              String?           @default("CASH") // CASH or FINANCE
+  commissionAmount         Float?            @default(0)
+  totalAmount              Float
+  discount                 Float             @default(0) // අලුතින් එකතු කළ කොටස
+  additionalCharges        Float             @default(0) // අලුතින් එකතු කළ කොටස
+  advanceDeducted          Float             @default(0) // Amount deducted from advance payment at checkout
+  financeCommission        Float?
+  insuranceCommission      Float?
+  commissionRecipientId    String?           // Staff member credited with finance commission
+  commissionRecipient      User?             @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
+  deliveryDate             DateTime?         // අලුතින් එකතු කළ කොටස
+  paymentMethod            String?
+  warrantyOption           String?
+  status                   String            @default("Completed")
+  freeItems                String[]          @default([])
+  freeServices             Int               @default(0)
 
   items           SaleItem[]
   financeDetail   FinanceDetail?
@@ -352,6 +359,7 @@ model Sale {
 
   @@index([organizationId, financeCompanyId])
   @@index([organizationId, insuranceCompanyId])
+  @@index([commissionRecipientId])
 }
 
 model FinanceCompany {

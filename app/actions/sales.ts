@@ -98,6 +98,7 @@ export async function createNewSale(
     const advancePaymentId = data.advancePaymentId?.trim() || null
     const financeCompanyId = data.financeCompanyId?.trim() || null
     const insuranceCompanyId = data.insuranceCompanyId?.trim() || null
+    const commissionRecipientId = data.commissionRecipientId?.trim() || null
     const result = await prisma.$transaction(async (tx) => {
       const [customer, vehicle, financeCompany, insuranceCompany] = await Promise.all([
         tx.customer.findFirst({
@@ -197,8 +198,10 @@ export async function createNewSale(
           advancePaymentId,
           financeCompanyId,
           insuranceCompanyId,
+          advanceDeducted: advanceAmount,
           financeCommission: financeCompanyId ? data.financeCommission ?? null : null,
           insuranceCommission: insuranceCompanyId ? data.insuranceCommission ?? null : null,
+          commissionRecipientId: (financeCompanyId && commissionRecipientId) ? commissionRecipientId : null,
           items: {
             create: {
               vehicleId: vehicle.id,
@@ -245,13 +248,13 @@ export async function createNewSale(
 }
 
 /**
- * Loads all in-stock vehicles, customers, and branches for the POS terminal
+ * Loads all in-stock vehicles, customers, branches, and active staff for the POS terminal
  */
 export async function getPOSInitialData() {
   try {
     const { organizationId } = await requireAuthOrg()
 
-    const [vehicles, customers, branches] = await Promise.all([
+    const [vehicles, customers, branches, staff] = await Promise.all([
       // Only InStock vehicles for this organization
       prisma.vehicle.findMany({
         where: {
@@ -261,6 +264,7 @@ export async function getPOSInitialData() {
         include: {
           vehicleModel: true,
           branch: true,
+          grn: { select: { grnNumber: true } },
         },
         orderBy: {
           createdAt: "desc",
@@ -281,6 +285,13 @@ export async function getPOSInitialData() {
         where: { organizationId },
         orderBy: { name: "asc" },
       }),
+
+      // Active staff members for commission recipient dropdown
+      prisma.user.findMany({
+        where: { organizationId, isActive: true },
+        select: { id: true, name: true, email: true, role: true },
+        orderBy: { name: "asc" },
+      }),
     ])
 
     return {
@@ -289,6 +300,7 @@ export async function getPOSInitialData() {
         vehicles,
         customers,
         branches,
+        staff,
       },
     }
   } catch (error) {
@@ -296,7 +308,7 @@ export async function getPOSInitialData() {
     return {
       success: false,
       error: (error as Error).message,
-      data: { vehicles: [], customers: [], branches: [] },
+      data: { vehicles: [], customers: [], branches: [], staff: [] },
     }
   }
 }

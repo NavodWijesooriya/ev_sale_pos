@@ -77,6 +77,9 @@ export interface InvoiceSaleData {
         batteryCapacity?: string | null
         range?: string | null
       }
+      grn?: {
+        grnNumber: string
+      } | null
     }
   }>
   financeDetail?: {
@@ -625,7 +628,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   </th>
                   <th
                     style={{
-                      width: "36%",
+                      width: "32%",
                       padding: "8px 10px",
                       textAlign: "left",
                       fontWeight: 700,
@@ -636,7 +639,18 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   </th>
                   <th
                     style={{
-                      width: "28%",
+                      width: "10%",
+                      padding: "8px 6px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                    }}
+                  >
+                    Unit GRN
+                  </th>
+                  <th
+                    style={{
+                      width: "24%",
                       padding: "8px 10px",
                       textAlign: "left",
                       fontWeight: 700,
@@ -647,7 +661,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   </th>
                   <th
                     style={{
-                      width: "12%",
+                      width: "10%",
                       padding: "8px 8px",
                       textAlign: "center",
                       fontWeight: 700,

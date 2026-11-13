@@ -9,11 +9,13 @@ import {
   Check,
   ChevronsUpDown,
   CircleDollarSign,
+  Info,
   LoaderCircle,
   Search,
   ShieldCheck,
   UserRound,
   Landmark,
+  Users,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm, useWatch } from "react-hook-form"
@@ -60,13 +62,22 @@ interface BranchData {
   location?: string | null
 }
 
+export interface StaffOption {
+  id: string
+  name: string
+  email: string
+  role: string
+}
+
 export interface InStockVehicle {
   id: string
   chassisNumber: string
+  unitGrnNumber?: string | null
   motorNumber?: string | null
   color?: string | null
   purchasePrice: number
   branchId: string
+  grnNumber?: string | null
   branch: BranchData
   vehicleModel: VehicleModelData
 }
@@ -93,6 +104,7 @@ interface NewSaleFormProps {
   branches?: BranchData[]
   financeCompanies?: FinanceInsuranceOption[]
   insuranceCompanies?: FinanceInsuranceOption[]
+  staff?: StaffOption[]
   recentSales?: Array<{
     id: string
     customerName: string
@@ -116,6 +128,7 @@ const defaultValues: CreateNewSaleInput = {
   insuranceCompanyId: "",
   financeCommission: null,
   insuranceCommission: null,
+  commissionRecipientId: "",
 }
 
 export function NewSaleForm({
@@ -123,6 +136,7 @@ export function NewSaleForm({
   customers,
   financeCompanies = [],
   insuranceCompanies = [],
+  staff = [],
   onSaleComplete,
 }: NewSaleFormProps) {
   const router = useRouter()
@@ -176,7 +190,9 @@ export function NewSaleForm({
       vehicle.vehicleModel.brand.toLocaleLowerCase().includes(query) ||
       vehicle.vehicleModel.modelName.toLocaleLowerCase().includes(query) ||
       vehicle.color?.toLocaleLowerCase().includes(query) ||
-      vehicle.branch.name.toLocaleLowerCase().includes(query)
+      vehicle.branch.name.toLocaleLowerCase().includes(query) ||
+      vehicle.grnNumber?.toLocaleLowerCase().includes(query) ||
+      vehicle.unitGrnNumber?.toLocaleLowerCase().includes(query)
     )
   })
 
@@ -338,8 +354,8 @@ export function NewSaleForm({
                       autoComplete="off"
                       placeholder={
                         selectedVehicle
-                          ? `${selectedVehicle.vehicleModel.brand} ${selectedVehicle.vehicleModel.modelName}`
-                          : "Search model, chassis, color, or showroom"
+                          ? `${selectedVehicle.vehicleModel.brand} ${selectedVehicle.vehicleModel.modelName} ${selectedVehicle.unitGrnNumber ? `(${selectedVehicle.unitGrnNumber})` : ""}`
+                          : "Search model, Unit GRN (e.g. JM0102), chassis, batch, or showroom"
                       }
                       value={vehicleQuery}
                       onFocus={() => setVehiclePickerOpen(true)}
@@ -383,7 +399,12 @@ export function NewSaleForm({
                                 {vehicle.color ? ` · ${vehicle.color}` : ""}
                               </span>
                               <span className="block truncate text-xs text-muted-foreground">
-                                {vehicle.chassisNumber} · {vehicle.branch.name}
+                                {vehicle.unitGrnNumber && (
+                                  <span className="font-semibold text-primary">{vehicle.unitGrnNumber} · </span>
+                                )}
+                                {vehicle.chassisNumber}
+                                {vehicle.grnNumber ? ` · Batch: ${vehicle.grnNumber}` : ""}
+                                {` · ${vehicle.branch.name}`}
                               </span>
                             </span>
                             <span className="shrink-0 text-xs font-semibold tabular-nums">
@@ -423,11 +444,67 @@ export function NewSaleForm({
                     <p className="text-xs text-muted-foreground">
                       {selectedVehicle.color || "Color not specified"} · {selectedVehicle.branch.name}
                     </p>
+                    {selectedVehicle.chassisNumber && (
+                      <p className="text-xs text-muted-foreground">
+                        Chassis: {selectedVehicle.chassisNumber}
+                        {selectedVehicle.motorNumber ? ` · Motor: ${selectedVehicle.motorNumber}` : ""}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-right text-sm font-bold tabular-nums">
-                    {formatLKR(subtotal)}
-                    <span className="block text-[10px] font-normal text-muted-foreground">Vehicle price</span>
-                  </p>
+                  <div className="text-right">
+                    <div className="flex items-center justify-end gap-1 mb-1">
+                      {selectedVehicle.unitGrnNumber && (
+                        <Badge variant="default" className="font-mono text-xs font-bold">
+                          {selectedVehicle.unitGrnNumber}
+                        </Badge>
+                      )}
+                      {selectedVehicle.grnNumber && (
+                        <Badge variant="outline" className="font-mono text-xs">
+                          GRN {selectedVehicle.grnNumber}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold tabular-nums">
+                      {formatLKR(subtotal)}
+                      <span className="block text-[10px] font-normal text-muted-foreground">Vehicle price</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Pending Advance Alert */}
+              {customerId && !isLoadingAdvance && pendingAdvance && (
+                <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/8 p-4 lg:col-span-2">
+                  <Info className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                      Pending Advance: {formatLKR(pendingAdvance.amount)}
+                    </p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      This advance will be automatically deducted from the final payable amount when the sale is completed.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-xs h-7"
+                    onClick={() => {
+                      if (advancePaymentId === pendingAdvance.id) {
+                        form.setValue("advancePaymentId", "", { shouldDirty: true })
+                      } else {
+                        form.setValue("advancePaymentId", pendingAdvance.id, { shouldDirty: true })
+                      }
+                    }}
+                  >
+                    {advancePaymentId === pendingAdvance.id ? "Remove deduction" : "Apply deduction"}
+                  </Button>
+                </div>
+              )}
+              {customerId && isLoadingAdvance && (
+                <div className="flex items-center gap-2 rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground lg:col-span-2">
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                  Checking for pending advance payments...
                 </div>
               )}
             </CardContent>
@@ -530,6 +607,7 @@ export function NewSaleForm({
                                 form.setValue("financeCommission", company.defaultCommissionRate, { shouldDirty: true })
                               } else if (value === "__none__") {
                                 form.setValue("financeCommission", null)
+                                form.setValue("commissionRecipientId", "")
                               }
                             }}
                           >
@@ -567,6 +645,45 @@ export function NewSaleForm({
                             Default rate: {selectedFinanceCompany.defaultCommissionRate}%
                           </p>
                         )}
+                      </div>
+                    )}
+                    {/* Commission Recipient — only shown when a finance company is selected */}
+                    {selectedFinanceCompany && staff.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="sale-commission-recipient" className="flex items-center gap-1.5">
+                          <Users className="size-3.5 text-muted-foreground" />
+                          Commission Recipient
+                        </Label>
+                        <Controller
+                          name="commissionRecipientId"
+                          control={form.control}
+                          render={({ field }) => (
+                            <Select
+                              value={field.value ?? ""}
+                              onValueChange={(value) =>
+                                field.onChange(value === "__none__" ? "" : value)
+                              }
+                            >
+                              <SelectTrigger id="sale-commission-recipient" className="w-full">
+                                <SelectValue placeholder="Select staff member" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Not specified</SelectItem>
+                                {staff.map((member) => (
+                                  <SelectItem key={member.id} value={member.id}>
+                                    {member.name}
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                      ({member.role})
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Staff member credited with this finance commission.
+                        </p>
                       </div>
                     )}
                   </div>

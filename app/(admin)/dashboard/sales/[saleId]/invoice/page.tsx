@@ -86,6 +86,9 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
                   range: true,
                 },
               },
+              grn: {
+                select: { grnNumber: true },
+              },
             },
           },
         },
