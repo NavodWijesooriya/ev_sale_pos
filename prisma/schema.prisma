@@ -57,6 +57,9 @@ model Organization {
   vehicleModels      VehicleModel[]
   vehicles           Vehicle[]
   grns               GRN[]
+  supplierPayments   SupplierPayment[]
+  cheques            Cheque[]
+  supplierAdvances   SupplierAdvance[]
   customers          Customer[]
   sales              Sale[]
   financeCompanies   FinanceCompany[]
@@ -105,13 +108,14 @@ model Branch {
   contactNumber  String?
   createdAt      DateTime     @default(now())
 
-  users           User[]
-  vehicles        Vehicle[]
-  grns            GRN[]
-  sales           Sale[]
-  advancePayments AdvancePayment[]
-  serviceRecords  ServiceRecord[]
-  testRides       TestRide[]
+  users            User[]
+  vehicles         Vehicle[]
+  grns             GRN[]
+  supplierPayments SupplierPayment[]
+  sales            Sale[]
+  advancePayments  AdvancePayment[]
+  serviceRecords   ServiceRecord[]
+  testRides        TestRide[]
 }
 
 // ==========================================
@@ -127,7 +131,10 @@ model Supplier {
   phone          String?
   email          String?
 
-  grns GRN[]
+  grns     GRN[]
+  payments SupplierPayment[]
+  cheques  Cheque[]
+  advances SupplierAdvance[]
 }
 
 model VehicleModel {
@@ -171,7 +178,7 @@ model Vehicle {
 
   chassisNumber          String        @unique
   unitGrnNumber          String?       @unique
-  registrationNumber     String?       // Actual bike license plate number once assigned (e.g. WP BHE-1234)
+  registrationNumber     String? // Actual bike license plate number once assigned (e.g. WP BHE-1234)
   motorNumber            String?
   chargingSerialNumber   String?
   batterySerialNumber    String?       @unique // අලුතින් එකතු කළ කොටස
@@ -189,10 +196,10 @@ model Vehicle {
   chargingTime           String? // e.g., "4-6 Hours"
   createdAt              DateTime      @default(now())
 
-  grnItems       GRNItem[]
-  saleItems      SaleItem[]
-  sales          Sale[]           @relation("SaleVehicle")
-  serviceRecords ServiceRecord[]
+  grnItems        GRNItem[]
+  saleItems       SaleItem[]
+  sales           Sale[]           @relation("SaleVehicle")
+  serviceRecords  ServiceRecord[]
   advancePayments AdvancePayment[]
 }
 
@@ -213,11 +220,135 @@ model GRN {
   totalAmount        Float    @default(0)
   receivedDate       DateTime @default(now())
 
-  items    GRNItem[]
-  payments Payment[]
-  vehicles Vehicle[]
+  // Supplier payment tracking (totalAmount = amount owed to supplier)
+  paidAmount    Float            @default(0)
+  balanceAmount Float            @default(0)
+  paymentStatus GrnPaymentStatus @default(UNPAID)
+
+  items              GRNItem[]
+  payments           Payment[]
+  vehicles           Vehicle[]
+  paymentAllocations SupplierPaymentAllocation[]
+  advanceAllocations SupplierAdvanceAllocation[]
 
   @@index([organizationId, date])
+  @@index([supplierId, paymentStatus])
+}
+
+enum GrnPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum SupplierPaymentStatus {
+  COMPLETED // cash / bank transfer, or cheque that has cleared
+  PENDING // cheque issued, not yet cleared
+  REVERSED // cheque bounced or payment voided; allocations reversed
+}
+
+// A single payment made to a supplier. One payment can be allocated across
+// many GRNs (see SupplierPaymentAllocation) and/or leave an advance.
+model SupplierPayment {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  supplierId     String
+  supplier       Supplier     @relation(fields: [supplierId], references: [id])
+
+  paymentNumber String                @unique
+  amount        Float
+  method        PaymentMethod // Cash | BankTransfer | CHEQUE are used for supplier payments
+  status        SupplierPaymentStatus @default(COMPLETED)
+  paymentDate   DateTime              @default(now())
+  referenceNo   String? // bank transfer reference
+  notes         String?
+  createdById   String?
+  createdAt     DateTime              @default(now())
+  reversedAt    DateTime?
+
+  cheque      Cheque?
+  allocations SupplierPaymentAllocation[]
+  advances    SupplierAdvance[]
+
+  @@index([organizationId, paymentDate])
+  @@index([supplierId])
+}
+
+// How much of a payment was applied to a given GRN.
+model SupplierPaymentAllocation {
+  id        String          @id @default(uuid())
+  paymentId String
+  payment   SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  grnId     String
+  grn       GRN             @relation(fields: [grnId], references: [id])
+  amount    Float
+  createdAt DateTime        @default(now())
+
+  @@index([paymentId])
+  @@index([grnId])
+}
+
+// Cheque issued to a supplier. Created together with a CHEQUE SupplierPayment.
+model Cheque {
+  id             String          @id @default(uuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplier       Supplier        @relation(fields: [supplierId], references: [id])
+  paymentId      String          @unique
+  payment        SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  chequeNumber String
+  bankName     String
+  amount       Float
+  chequeDate   DateTime // date written on the cheque (may be post-dated)
+  status       ChequeStatus @default(PENDING)
+  clearedAt    DateTime?
+  bouncedAt    DateTime?
+  bounceReason String?
+  createdAt    DateTime     @default(now())
+
+  @@index([organizationId, status])
+  @@index([supplierId])
+}
+
+// Money paid to a supplier ahead of any GRN (or overpayment). Consumed by
+// allocating it to GRNs via SupplierAdvanceAllocation.
+model SupplierAdvance {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplier       Supplier         @relation(fields: [supplierId], references: [id])
+  paymentId      String? // payment that funded this advance
+  payment        SupplierPayment? @relation(fields: [paymentId], references: [id])
+
+  amount        Float
+  usedAmount    Float    @default(0)
+  balanceAmount Float
+  date          DateTime @default(now())
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  allocations SupplierAdvanceAllocation[]
+
+  @@index([supplierId])
+}
+
+model SupplierAdvanceAllocation {
+  id        String          @id @default(uuid())
+  advanceId String
+  advance   SupplierAdvance @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+  grnId     String
+  grn       GRN             @relation(fields: [grnId], references: [id])
+  amount    Float
+  createdAt DateTime        @default(now())
+
+  @@index([advanceId])
+  @@index([grnId])
 }
 
 model GRNItem {
@@ -326,36 +457,36 @@ model Sale {
   userId         String
   soldBy         User         @relation("SoldBy", fields: [userId], references: [id])
 
-  saleDate            DateTime          @default(now())
-  invoiceNumber       String            @unique
-  vehicleId           String
-  vehicle             Vehicle           @relation("SaleVehicle", fields: [vehicleId], references: [id])
-  advancePaymentId    String?           @unique
-  advancePayment      AdvancePayment?   @relation(fields: [advancePaymentId], references: [id])
-  financeCompanyId    String?
-  financeCompany      FinanceCompany?   @relation("SaleFinanceCompany", fields: [financeCompanyId], references: [id], onDelete: SetNull)
-  insuranceCompanyId  String?
-  insuranceCompany    InsuranceCompany? @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
-  paymentType              String?           @default("CASH") // CASH or FINANCE
-  financeAmount            Float             @default(0) // The loan amount provided by the finance company
-  downPayment              Float             @default(0) // The cash down payment paid by the customer
-  commissionBasis          String            @default("FINANCE_AMOUNT") // "FINANCE_AMOUNT", "VEHICLE_PRICE", or "FIXED"
-  commissionRate           Float             @default(0) // percentage or fixed multiplier
-  commissionAmount         Float             @default(0) // final calculated or manually overridden commission value in LKR
-  totalAmount              Float
-  discount                 Float             @default(0) // අලුතින් එකතු කළ කොටස
-  additionalCharges        Float             @default(0) // අලුතින් එකතු කළ කොටස
-  advanceDeducted          Float             @default(0) // Amount deducted from advance payment at checkout
-  financeCommission        Float?
-  insuranceCommission      Float?
-  commissionRecipientId    String?           // Staff member credited with finance commission
-  commissionRecipient      User?             @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
-  deliveryDate             DateTime?         // අලුතින් එකතු කළ කොටස
-  paymentMethod            String?
-  warrantyOption           String?
-  status                   String            @default("Completed")
-  freeItems                String[]          @default([])
-  freeServices             Int               @default(0)
+  saleDate              DateTime          @default(now())
+  invoiceNumber         String            @unique
+  vehicleId             String
+  vehicle               Vehicle           @relation("SaleVehicle", fields: [vehicleId], references: [id])
+  advancePaymentId      String?           @unique
+  advancePayment        AdvancePayment?   @relation(fields: [advancePaymentId], references: [id])
+  financeCompanyId      String?
+  financeCompany        FinanceCompany?   @relation("SaleFinanceCompany", fields: [financeCompanyId], references: [id], onDelete: SetNull)
+  insuranceCompanyId    String?
+  insuranceCompany      InsuranceCompany? @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
+  paymentType           String?           @default("CASH") // CASH or FINANCE
+  financeAmount         Float             @default(0) // The loan amount provided by the finance company
+  downPayment           Float             @default(0) // The cash down payment paid by the customer
+  commissionBasis       String            @default("FINANCE_AMOUNT") // "FINANCE_AMOUNT", "VEHICLE_PRICE", or "FIXED"
+  commissionRate        Float             @default(0) // percentage or fixed multiplier
+  commissionAmount      Float             @default(0) // final calculated or manually overridden commission value in LKR
+  totalAmount           Float
+  discount              Float             @default(0) // අලුතින් එකතු කළ කොටස
+  additionalCharges     Float             @default(0) // අලුතින් එකතු කළ කොටස
+  advanceDeducted       Float             @default(0) // Amount deducted from advance payment at checkout
+  financeCommission     Float?
+  insuranceCommission   Float?
+  commissionRecipientId String? // Staff member credited with finance commission
+  commissionRecipient   User?             @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
+  deliveryDate          DateTime? // අලුතින් එකතු කළ කොටස
+  paymentMethod         String?
+  warrantyOption        String?
+  status                String            @default("Completed")
+  freeItems             String[]          @default([])
+  freeServices          Int               @default(0)
 
   items           SaleItem[]
   financeDetail   FinanceDetail?
@@ -511,21 +642,21 @@ enum DMTStatus {
 
 // අලුතින් එකතු කළ DMT Tracking Model එක
 model DMTRegistration {
-  id                String            @id @default(uuid())
-  saleId            String            @unique
-  sale              Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  status            DMTStatus         @default(Pending)
-  hasMTA2           Boolean           @default(false)
-  hasNIC            Boolean           @default(false)
-  hasPhotos         Boolean           @default(false)
-  hasTIN            Boolean           @default(false)
-  registeredNumber  String?
-  registrationNumber String?          // Actual bike license plate number once assigned (e.g. WP BHE-1234)
-  isBookOk          Boolean           @default(false) // Vehicle Registration Book (පොත)
-  isNumberPlateOk   Boolean           @default(false) // Number Plate
-  isInsuranceOk     Boolean           @default(false) // Insurance Card/Policy
-  lastNotifiedAt    DateTime?         // Last SMS/WhatsApp notification timestamp
-  numberPlateStatus NumberPlateStatus @default(PENDING)
+  id                 String            @id @default(uuid())
+  saleId             String            @unique
+  sale               Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  status             DMTStatus         @default(Pending)
+  hasMTA2            Boolean           @default(false)
+  hasNIC             Boolean           @default(false)
+  hasPhotos          Boolean           @default(false)
+  hasTIN             Boolean           @default(false)
+  registeredNumber   String?
+  registrationNumber String? // Actual bike license plate number once assigned (e.g. WP BHE-1234)
+  isBookOk           Boolean           @default(false) // Vehicle Registration Book (පොත)
+  isNumberPlateOk    Boolean           @default(false) // Number Plate
+  isInsuranceOk      Boolean           @default(false) // Insurance Card/Policy
+  lastNotifiedAt     DateTime? // Last SMS/WhatsApp notification timestamp
+  numberPlateStatus  NumberPlateStatus @default(PENDING)
 }
 
 // ==========================================
