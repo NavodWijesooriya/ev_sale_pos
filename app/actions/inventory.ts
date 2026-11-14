@@ -265,6 +265,8 @@ export async function createSupplier(input: CreateSupplierInput) {
       },
     })
 
+    revalidatePath("/dashboard/suppliers/list")
+    revalidatePath("/dashboard/suppliers/payments")
     return {
       success: true,
       message: `Supplier "${supplier.name}" created successfully!`,
@@ -291,6 +293,8 @@ export async function updateSupplier(input: UpdateSupplierInput) {
       where: { id: input.id, organizationId },
     })
 
+    revalidatePath("/dashboard/suppliers/list")
+    revalidatePath("/dashboard/suppliers/payments")
     return { success: true, message: `Supplier "${supplier.name}" updated successfully!`, data: supplier }
   } catch (error) {
     console.error("updateSupplier error:", error)
@@ -305,16 +309,23 @@ export async function deleteSupplier(id: string) {
 
     const supplier = await prisma.supplier.findFirst({
       where: { id, organizationId },
-      select: { name: true, _count: { select: { grns: true } } },
+      select: {
+        name: true,
+        _count: { select: { grns: true, payments: true, cheques: true, advances: true } },
+      },
     })
 
     if (!supplier) throw new Error("Supplier not found in your dealership.")
     if (supplier._count.grns > 0) {
       throw new Error("This supplier is linked to GRNs and cannot be deleted.")
     }
+    if (supplier._count.payments + supplier._count.cheques + supplier._count.advances > 0) {
+      throw new Error("This supplier has payment records and cannot be deleted.")
+    }
 
     const deleted = await prisma.supplier.deleteMany({ where: { id, organizationId } })
     if (deleted.count !== 1) throw new Error("Supplier could not be deleted because it no longer exists.")
+    revalidatePath("/dashboard/suppliers/list")
     return { success: true, message: `Supplier "${supplier.name}" deleted successfully!` }
   } catch (error) {
     console.error("deleteSupplier error:", error)

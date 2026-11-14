@@ -105,6 +105,7 @@ export const navigationItems: NavItem[] = [
     icon: HandCoins,
     roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
     children: [
+      { title: "Suppliers", href: "/dashboard/suppliers/list" },
       { title: "Supplier Payments", href: "/dashboard/suppliers/payments" },
       { title: "Cheque Management", href: "/dashboard/suppliers/cheques" },
       { title: "Ledger & Reports", href: "/dashboard/suppliers/reports" },
