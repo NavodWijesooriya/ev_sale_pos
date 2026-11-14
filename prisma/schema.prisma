@@ -337,7 +337,11 @@ model Sale {
   insuranceCompanyId  String?
   insuranceCompany    InsuranceCompany? @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
   paymentType              String?           @default("CASH") // CASH or FINANCE
-  commissionAmount         Float?            @default(0)
+  financeAmount            Float             @default(0) // The loan amount provided by the finance company
+  downPayment              Float             @default(0) // The cash down payment paid by the customer
+  commissionBasis          String            @default("FINANCE_AMOUNT") // "FINANCE_AMOUNT", "VEHICLE_PRICE", or "FIXED"
+  commissionRate           Float             @default(0) // percentage or fixed multiplier
+  commissionAmount         Float             @default(0) // final calculated or manually overridden commission value in LKR
   totalAmount              Float
   discount                 Float             @default(0) // අලුතින් එකතු කළ කොටස
   additionalCharges        Float             @default(0) // අලුතින් එකතු කළ කොටස
@@ -464,8 +468,10 @@ model AdvanceTransfer {
   fromAdvance    AdvancePayment @relation("AdvanceTransferFrom", fields: [fromAdvanceId], references: [id], onDelete: Cascade)
   toCustomerId   String
   toCustomer     Customer       @relation("AdvanceTransferToCustomer", fields: [toCustomerId], references: [id])
+  toAdvanceId    String?
   transferAmount Float
   transferDate   DateTime       @default(now())
+  note           String?
 
   @@index([fromAdvanceId, transferDate])
   @@index([toCustomerId, transferDate])

@@ -84,6 +84,7 @@ export interface AdvanceTransferCustomerOption {
 export interface AdvanceTransferVehicleOption {
   id: string
   chassisNumber: string
+  unitGrnNumber?: string | null
   color: string | null
   vehicleModel: {
     brand: string
@@ -103,10 +104,11 @@ export async function getAdvanceTransferOptions(): Promise<{
       orderBy: { name: "asc" },
     }),
     prisma.vehicle.findMany({
-      where: { organizationId, status: VehicleStatus.AVAILABLE },
+      where: { organizationId, status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } },
       select: {
         id: true,
         chassisNumber: true,
+        unitGrnNumber: true,
         color: true,
         vehicleModel: {
           select: { brand: true, modelName: true },
@@ -149,49 +151,61 @@ export async function transferAdvancePayment(
         select: {
           id: true,
           customerId: true,
+          vehicleId: true,
           nicNumber: true,
           bikeModel: true,
           amount: true,
           advanceDate: true,
           branchId: true,
           staffId: true,
+          paymentMethod: true,
           paymentDetails: true,
+          notes: true,
         },
       })
       if (!sourceAdvance) {
         throw new Error("This advance is no longer available for transfer.")
       }
 
-      const [targetCustomer, targetVehicle] = await Promise.all([
-        tx.customer.findFirst({
-          where: { id: parsedInput.data.targetCustomerId, organizationId },
-          select: { id: true, nic: true },
-        }),
-        tx.vehicle.findFirst({
+      const targetCustomer = await tx.customer.findFirst({
+        where: { id: parsedInput.data.targetCustomerId, organizationId },
+        select: { id: true, name: true, nic: true },
+      })
+      if (!targetCustomer) throw new Error("The selected customer could not be found.")
+
+      const targetVehicleId = parsedInput.data.targetVehicleId?.trim() || null
+      let targetVehicle: any = null
+      if (targetVehicleId) {
+        targetVehicle = await tx.vehicle.findFirst({
           where: {
-            id: parsedInput.data.targetVehicleId,
+            id: targetVehicleId,
             organizationId,
-            status: VehicleStatus.AVAILABLE,
+            status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
           },
           select: {
+            id: true,
             chassisNumber: true,
+            unitGrnNumber: true,
             vehicleModel: {
               select: { brand: true, modelName: true },
             },
           },
-        }),
-      ])
-      if (!targetCustomer) throw new Error("The selected customer could not be found.")
-      if (!targetVehicle) throw new Error("The selected vehicle is no longer available.")
+        })
+        if (!targetVehicle) throw new Error("The selected vehicle is no longer available.")
+      }
 
-      const targetBikeModel =
-        `${targetVehicle.vehicleModel.brand} ${targetVehicle.vehicleModel.modelName} · ${targetVehicle.chassisNumber}`.trim()
-      if (
-        targetCustomer.id === sourceAdvance.customerId &&
-        targetBikeModel.toLocaleLowerCase() === sourceAdvance.bikeModel.trim().toLocaleLowerCase()
-      ) {
+      const targetBikeModel = targetVehicle
+        ? `${targetVehicle.vehicleModel.brand} ${targetVehicle.vehicleModel.modelName} · ${targetVehicle.unitGrnNumber || targetVehicle.chassisNumber}`.trim()
+        : sourceAdvance.bikeModel
+
+      const isSameCustomer = targetCustomer.id === sourceAdvance.customerId
+      const isSameVehicle = targetVehicle ? targetVehicle.id === sourceAdvance.vehicleId : !sourceAdvance.vehicleId
+
+      if (isSameCustomer && isSameVehicle) {
         throw new Error("Choose a different customer or vehicle for the transfer.")
       }
+
+      const transferNote = parsedInput.data.transferNote?.trim() || ""
 
       const updatedSource = await tx.advancePayment.updateMany({
         where: {
@@ -200,23 +214,35 @@ export async function transferAdvancePayment(
           status: AdvancePaymentStatus.PENDING,
           sale: null,
         },
-        data: { status: AdvancePaymentStatus.TRANSFERRED },
+        data: {
+          status: AdvancePaymentStatus.TRANSFERRED,
+          notes: sourceAdvance.notes
+            ? `${sourceAdvance.notes} | Transferred to ${targetCustomer.name}${targetVehicle ? ` (Vehicle: ${targetVehicle.chassisNumber})` : ""}: ${transferNote || "Balance reallocated"}`
+            : `Transferred to ${targetCustomer.name}${targetVehicle ? ` (Vehicle: ${targetVehicle.chassisNumber})` : ""}: ${transferNote || "Balance reallocated"}`,
+        },
       })
       if (updatedSource.count !== 1) {
         throw new Error("This advance was just updated. Refresh and try again.")
       }
 
+      const destNotes = transferNote
+        ? `Transferred from Advance #${sourceAdvance.id.slice(0, 8)} (${sourceAdvance.nicNumber}): ${transferNote}`
+        : `Transferred from Advance #${sourceAdvance.id.slice(0, 8)} (${sourceAdvance.nicNumber})`
+
       const destinationAdvance = await tx.advancePayment.create({
         data: {
           organizationId,
           customerId: targetCustomer.id,
+          vehicleId: targetVehicle ? targetVehicle.id : null,
           nicNumber: targetCustomer.nic ?? sourceAdvance.nicNumber,
           bikeModel: targetBikeModel,
           amount: sourceAdvance.amount,
           advanceDate: sourceAdvance.advanceDate,
           branchId: sourceAdvance.branchId,
           staffId: sourceAdvance.staffId,
+          paymentMethod: sourceAdvance.paymentMethod || "Cash",
           paymentDetails: sourceAdvance.paymentDetails,
+          notes: destNotes,
           status: AdvancePaymentStatus.PENDING,
         },
         select: { id: true },
@@ -226,7 +252,9 @@ export async function transferAdvancePayment(
         data: {
           fromAdvanceId: sourceAdvance.id,
           toCustomerId: targetCustomer.id,
+          toAdvanceId: destinationAdvance.id,
           transferAmount: sourceAdvance.amount,
+          note: transferNote || null,
         },
       })
 
@@ -236,6 +264,7 @@ export async function transferAdvancePayment(
     revalidatePath("/dashboard/sales/advances")
     revalidatePath("/dashboard/sales/advances/reports")
     revalidatePath("/dashboard/sales/advances/transfers")
+    revalidatePath("/dashboard/reports")
     return { success: true, newAdvanceId }
   } catch (error) {
     console.error("transferAdvancePayment error:", error)

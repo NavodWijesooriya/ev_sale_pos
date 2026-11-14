@@ -180,6 +180,17 @@ export async function createNewSale(
       const invoiceNumber = `INV-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`
       const warrantyCharge =
         data.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
+      const isFinance = data.paymentType === "FINANCE" || Boolean(financeCompanyId)
+      const financeAmt = isFinance ? (data.financeAmount ?? 0) : 0
+      const downPmt = isFinance ? (data.downPayment ?? 0) : 0
+      const commBasis = isFinance ? (data.commissionBasis ?? "FINANCE_AMOUNT") : "FINANCE_AMOUNT"
+      const commRate = isFinance ? (data.commissionRate ?? 0) : 0
+      const finalCommissionAmt = isFinance
+        ? (data.commissionAmount != null
+            ? data.commissionAmount
+            : (data.financeCommission ?? 0))
+        : 0
+
       const sale = await tx.sale.create({
         data: {
           organizationId,
@@ -189,25 +200,42 @@ export async function createNewSale(
           vehicleId: vehicle.id,
           invoiceNumber,
           totalAmount: Math.max(0, subtotal + warrantyCharge - advanceAmount),
-          paymentMethod: data.paymentMethod,
+          paymentMethod: isFinance ? (data.paymentMethod === "Cash" ? "Leasing" : data.paymentMethod) : data.paymentMethod,
+          paymentType: isFinance ? "FINANCE" : "CASH",
+          financeAmount: financeAmt,
+          downPayment: downPmt,
+          commissionBasis: commBasis,
+          commissionRate: commRate,
+          commissionAmount: finalCommissionAmt,
           warrantyOption: data.warrantyOption,
           saleDate: new Date(),
           status: "Completed",
           freeItems: data.freeItems,
           freeServices: data.freeServices,
           advancePaymentId,
-          financeCompanyId,
+          financeCompanyId: isFinance ? financeCompanyId : null,
           insuranceCompanyId,
           advanceDeducted: advanceAmount,
-          financeCommission: financeCompanyId ? data.financeCommission ?? null : null,
+          financeCommission: isFinance ? finalCommissionAmt : null,
           insuranceCommission: insuranceCompanyId ? data.insuranceCommission ?? null : null,
-          commissionRecipientId: (financeCompanyId && commissionRecipientId) ? commissionRecipientId : null,
+          commissionRecipientId: (isFinance && commissionRecipientId) ? commissionRecipientId : (commissionRecipientId || null),
           items: {
             create: {
               vehicleId: vehicle.id,
               price: subtotal,
             },
           },
+          ...(isFinance && financeCompanyId ? {
+            financeDetail: {
+              create: {
+                financeCompany: (await tx.financeCompany.findUnique({ where: { id: financeCompanyId }, select: { name: true } }))?.name || "Finance Company",
+                totalFinanceAmount: financeAmt,
+                downPaymentPaid: downPmt,
+                dealerCommission: finalCommissionAmt || null,
+                status: FinanceStatus.Pending,
+              },
+            },
+          } : {}),
           dmtRegistration: {
             create: {
               status: DMTStatus.Pending,
@@ -355,6 +383,9 @@ export async function getSalesHistory() {
           },
         },
         financeDetail: true,
+        financeCompany: {
+          select: { id: true, name: true },
+        },
         dmtRegistration: true,
         advancePayment: {
           select: { amount: true },
@@ -531,6 +562,10 @@ export async function processSale(input: ProcessSaleInput) {
           totalAmount: calculatedTotal,
           discount,
           additionalCharges,
+          paymentType: isFinance ? "FINANCE" : "CASH",
+          financeAmount: isFinance ? (Number(input.totalFinanceAmount) || 0) : 0,
+          downPayment: isFinance ? (Number(input.downPaymentPaid) || 0) : 0,
+          commissionAmount: isFinance && input.dealerCommission ? Number(input.dealerCommission) : 0,
           deliveryDate: input.deliveryDate ? new Date(input.deliveryDate) : new Date(),
           paymentMethod: input.paymentMethod,
           status: "Completed",
@@ -645,6 +680,9 @@ export async function getSaleDetails(saleId: string) {
           },
         },
         financeDetail: true,
+        financeCompany: {
+          select: { id: true, name: true },
+        },
         dmtRegistration: true,
       },
     })

@@ -31,7 +31,15 @@ export interface InvoiceSaleData {
   advancePayment?: {
     amount: number
   } | null
+  advanceDeducted?: number | null
   paymentMethod: PaymentMethod | string | null
+  paymentType?: string | null
+  financeAmount?: number | null
+  downPayment?: number | null
+  financeCompany?: {
+    id: string
+    name: string
+  } | null
   status: string
   organization: {
     id: string
@@ -111,24 +119,42 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
   const additionalCharges = sale.additionalCharges ?? 0
   const warrantyCharge =
     sale.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
-  const advanceDeduction =
-    sale.advancePayment && sale.advancePayment.amount > 0
-      ? sale.advancePayment.amount
-      : 0
   const isFinance =
+    sale.paymentType === "FINANCE" ||
     sale.paymentMethod === PaymentMethod.Finance ||
-    sale.paymentMethod === PaymentMethod.SplitPayment
-  const financeReceived =
-    isFinance && sale.financeDetail?.status === FinanceStatus.Received
-      ? sale.financeDetail.totalFinanceAmount
-      : 0
+    sale.paymentMethod === "Finance" ||
+    sale.paymentMethod === "Leasing" ||
+    sale.paymentMethod === PaymentMethod.SplitPayment ||
+    Boolean(sale.financeCompany) ||
+    Boolean(sale.financeDetail) ||
+    Boolean(sale.financeAmount && sale.financeAmount > 0)
+
+  const financeCompanyName =
+    sale.financeCompany?.name ||
+    sale.financeDetail?.financeCompany ||
+    "Finance Company"
+
+  const vehicleTotalPrice = itemSubtotal + warrantyCharge + additionalCharges
+  const financeAmount = sale.financeAmount || sale.financeDetail?.totalFinanceAmount || 0
+  const downPaymentPaid = sale.downPayment || sale.financeDetail?.downPaymentPaid || 0
+  const advanceDeduction =
+    (sale.advanceDeducted != null && sale.advanceDeducted > 0)
+      ? sale.advanceDeducted
+      : (sale.advancePayment && sale.advancePayment.amount > 0 ? sale.advancePayment.amount : 0)
+
+  const netDownPaymentCollected = isFinance
+    ? Math.max(0, downPaymentPaid - advanceDeduction)
+    : 0
+
   const recordedPaidAmount = isFinance
-    ? (sale.financeDetail?.downPaymentPaid ?? 0) + financeReceived
+    ? downPaymentPaid + (sale.financeDetail?.status === FinanceStatus.Received ? financeAmount : 0)
     : ["paid", "completed"].includes(sale.status.toLowerCase())
       ? sale.totalAmount
       : 0
-  const paidAmount = Math.min(sale.totalAmount, recordedPaidAmount)
-  const balanceDue = Math.max(0, sale.totalAmount - paidAmount)
+  const paidAmount = isFinance ? downPaymentPaid : Math.min(sale.totalAmount, recordedPaidAmount)
+  const balanceDue = isFinance
+    ? Math.max(0, vehicleTotalPrice - downPaymentPaid - financeAmount)
+    : Math.max(0, sale.totalAmount - paidAmount)
 
   const handlePrint = () => {
     if (documentRef.current) {
@@ -789,24 +815,42 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
             {/* Payment Method / Financing Details */}
             <div
               style={{
-                backgroundColor: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                backgroundColor: isFinance ? "#f0fdf4" : "#f8fafc",
+                border: isFinance ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
                 borderRadius: "6px",
                 padding: "12px 14px",
               }}
             >
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "9px",
-                  fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "#047857",
-                }}
-              >
-                Payment Settlement
-              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "9px",
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: isFinance ? "#15803d" : "#047857",
+                  }}
+                >
+                  {isFinance ? "Finance Sale Breakdown" : "Payment Settlement"}
+                </p>
+                {isFinance && (
+                  <span
+                    style={{
+                      fontSize: "9px",
+                      fontWeight: 700,
+                      backgroundColor: "#dbeafe",
+                      color: "#1e40af",
+                      border: "1px solid #93c5fd",
+                      borderRadius: "12px",
+                      padding: "1px 7px",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Finance Sale
+                  </span>
+                )}
+              </div>
               <h3
                 style={{
                   margin: "3px 0 6px",
@@ -815,33 +859,47 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   color: "#0f172a",
                 }}
               >
-                {sale.paymentMethod}
+                {isFinance ? `Finance / Leasing: ${financeCompanyName}` : (sale.paymentMethod || "Cash")}
               </h3>
-              {isFinance && sale.financeDetail ? (
+              {isFinance ? (
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "110px 1fr",
+                    gridTemplateColumns: "130px 1fr",
                     gap: "4px 8px",
                     fontSize: "11px",
                     color: "#334155",
+                    marginTop: "6px",
                   }}
                 >
+                  <span style={{ color: "#64748b" }}>Payment Type:</span>
+                  <strong style={{ color: "#0f172a" }}>Finance Sale</strong>
+
                   <span style={{ color: "#64748b" }}>Finance Company:</span>
-                  <strong style={{ color: "#0f172a" }}>
-                    {sale.financeDetail.financeCompany}
-                  </strong>
-                  <span style={{ color: "#64748b" }}>Finance Status:</span>
-                  <strong style={{ color: "#047857" }}>
-                    {sale.financeDetail.status}
-                  </strong>
-                  <span style={{ color: "#64748b" }}>Down Payment:</span>
-                  <strong style={{ color: "#0f172a" }}>
-                    {formatLKR(sale.financeDetail.downPaymentPaid)}
-                  </strong>
-                  <span style={{ color: "#64748b" }}>Financed Amount:</span>
-                  <strong style={{ color: "#0f172a" }}>
-                    {formatLKR(sale.financeDetail.totalFinanceAmount)}
+                  <strong style={{ color: "#1d4ed8" }}>{financeCompanyName}</strong>
+
+                  <span style={{ color: "#64748b" }}>Vehicle Total Price:</span>
+                  <strong style={{ color: "#0f172a" }}>{formatLKR(vehicleTotalPrice)}</strong>
+
+                  <span style={{ color: "#64748b" }}>Finance Amount (Loan):</span>
+                  <strong style={{ color: "#2563eb" }}>{formatLKR(financeAmount)}</strong>
+
+                  <span style={{ color: "#64748b" }}>Down Payment Paid:</span>
+                  <strong style={{ color: "#047857" }}>{formatLKR(downPaymentPaid)}</strong>
+
+                  {advanceDeduction > 0 && (
+                    <>
+                      <span style={{ color: "#64748b" }}>Advance Deducted:</span>
+                      <strong style={{ color: "#d97706" }}>− {formatLKR(advanceDeduction)}</strong>
+
+                      <span style={{ color: "#64748b" }}>Net Cash at Desk:</span>
+                      <strong style={{ color: "#0f172a" }}>{formatLKR(netDownPaymentCollected)}</strong>
+                    </>
+                  )}
+
+                  <span style={{ color: "#64748b" }}>Net Balance Due:</span>
+                  <strong style={{ color: balanceDue > 0 ? "#b91c1c" : "#047857" }}>
+                    {formatLKR(balanceDue)}
                   </strong>
                 </div>
               ) : (
@@ -895,7 +953,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   color: "#475569",
                 }}
               >
-                <span>Subtotal</span>
+                <span>Vehicle Price (Subtotal)</span>
                 <strong style={{ color: "#0f172a" }}>{formatLKR(itemSubtotal)}</strong>
               </div>
               {warrantyCharge > 0 && (
@@ -928,19 +986,88 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   </strong>
                 </div>
               )}
-              {advanceDeduction > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "12px",
-                    color: "#64748b",
-                  }}
-                >
-                  <span>Advance Deducted</span>
-                  <strong>− {formatLKR(advanceDeduction)}</strong>
-                </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#0f172a",
+                  fontWeight: 600,
+                  paddingTop: "2px",
+                  borderTop: "1px dashed #cbd5e1",
+                }}
+              >
+                <span>Vehicle Total Price</span>
+                <strong style={{ color: "#0f172a" }}>{formatLKR(vehicleTotalPrice)}</strong>
+              </div>
+
+              {isFinance ? (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "12px",
+                      color: "#2563eb",
+                    }}
+                  >
+                    <span>Finance Amount (Loan)</span>
+                    <strong>− {formatLKR(financeAmount)}</strong>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "12px",
+                      color: "#047857",
+                    }}
+                  >
+                    <span>Customer Down Payment</span>
+                    <strong>{formatLKR(downPaymentPaid)}</strong>
+                  </div>
+                  {advanceDeduction > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: "12px",
+                        color: "#d97706",
+                      }}
+                    >
+                      <span>Advance Deducted</span>
+                      <strong>− {formatLKR(advanceDeduction)}</strong>
+                    </div>
+                  )}
+                  {advanceDeduction > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: "12px",
+                        color: "#0f172a",
+                      }}
+                    >
+                      <span>Net Cash Collected at Desk</span>
+                      <strong>{formatLKR(netDownPaymentCollected)}</strong>
+                    </div>
+                  )}
+                </>
+              ) : (
+                advanceDeduction > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "12px",
+                      color: "#64748b",
+                    }}
+                  >
+                    <span>Advance Deducted</span>
+                    <strong>− {formatLKR(advanceDeduction)}</strong>
+                  </div>
+                )
               )}
+
               {discount > 0 && (
                 <div
                   style={{
@@ -969,7 +1096,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                 }}
               >
                 <span style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                  Total Payable
+                  {isFinance ? "Total Customer Payable" : "Total Payable"}
                 </span>
                 <span
                   style={{
@@ -978,7 +1105,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     color: "#047857",
                   }}
                 >
-                  {formatLKR(sale.totalAmount)}
+                  {formatLKR(isFinance ? (downPaymentPaid > 0 ? (advanceDeduction > 0 ? netDownPaymentCollected : downPaymentPaid) : sale.totalAmount) : sale.totalAmount)}
                 </span>
               </div>
               <div
@@ -989,8 +1116,8 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   color: "#475569",
                 }}
               >
-                <span>Amount Paid / Settled</span>
-                <strong style={{ color: "#047857" }}>{formatLKR(paidAmount)}</strong>
+                <span>{isFinance ? "Down Payment Settled" : "Amount Paid / Settled"}</span>
+                <strong style={{ color: "#047857" }}>{formatLKR(isFinance ? downPaymentPaid : paidAmount)}</strong>
               </div>
               <div
                 style={{
@@ -1001,7 +1128,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   fontWeight: 700,
                 }}
               >
-                <span>Balance Due</span>
+                <span>Net Balance Due</span>
                 <strong>{formatLKR(balanceDue)}</strong>
               </div>
             </div>

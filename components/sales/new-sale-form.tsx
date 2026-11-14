@@ -6,11 +6,14 @@ import { CustomerType } from "@prisma/client"
 import {
   ArrowRight,
   Bike,
+  Calculator,
   Check,
   ChevronsUpDown,
   CircleDollarSign,
   Info,
   LoaderCircle,
+  Percent,
+  RotateCcw,
   Search,
   ShieldCheck,
   UserRound,
@@ -42,6 +45,8 @@ import {
   extendedWarrantyPrice,
   salePaymentMethods,
   saleWarrantyOptions,
+  commissionBasisOptions,
+  type CommissionBasis,
   type CreateNewSaleInput,
 } from "@/lib/validations/new-sale"
 
@@ -119,12 +124,18 @@ interface NewSaleFormProps {
 const defaultValues: CreateNewSaleInput = {
   customerId: "",
   vehicleId: "",
+  paymentType: "CASH",
   paymentMethod: "Cash",
   warrantyOption: saleWarrantyOptions[0],
   freeItems: [],
   freeServices: 3,
   advancePaymentId: "",
   financeCompanyId: "",
+  financeAmount: 0,
+  downPayment: 0,
+  commissionBasis: "FINANCE_AMOUNT",
+  commissionRate: 1,
+  commissionAmount: 0,
   insuranceCompanyId: "",
   financeCommission: null,
   insuranceCommission: null,
@@ -156,6 +167,9 @@ export function NewSaleForm({
   })
   const customerId = useWatch({ control: form.control, name: "customerId" })
   const vehicleId = useWatch({ control: form.control, name: "vehicleId" })
+  const paymentType = useWatch({ control: form.control, name: "paymentType" }) ?? "CASH"
+  const financeAmount = useWatch({ control: form.control, name: "financeAmount" }) ?? 0
+  const downPayment = useWatch({ control: form.control, name: "downPayment" }) ?? 0
   const advancePaymentId = useWatch({ control: form.control, name: "advancePaymentId" })
   const warrantyOption = useWatch({ control: form.control, name: "warrantyOption" })
   const financeCompanyId = useWatch({ control: form.control, name: "financeCompanyId" })
@@ -169,9 +183,126 @@ export function NewSaleForm({
   const subtotal = selectedVehicle?.vehicleModel.defaultPrice ?? 0
   const warrantyCharge =
     warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
+  const totalVehiclePrice = subtotal + warrantyCharge
   const advanceDeduction =
     pendingAdvance && advancePaymentId === pendingAdvance.id ? pendingAdvance.amount : 0
-  const finalTotal = Math.max(0, subtotal + warrantyCharge - advanceDeduction)
+  const finalTotal = Math.max(0, totalVehiclePrice - advanceDeduction)
+
+  // Auto-balance logic for Finance Sales
+  const handleDownPaymentChange = (value: number) => {
+    form.setValue("downPayment", value, { shouldDirty: true, shouldValidate: true })
+    if (totalVehiclePrice > 0) {
+      const calculatedFinance = Math.max(0, totalVehiclePrice - value)
+      form.setValue("financeAmount", calculatedFinance, { shouldDirty: true, shouldValidate: true })
+    }
+  }
+
+  const handleFinanceAmountChange = (value: number) => {
+    form.setValue("financeAmount", value, { shouldDirty: true, shouldValidate: true })
+    if (totalVehiclePrice > 0) {
+      const calculatedDown = Math.max(0, totalVehiclePrice - value)
+      form.setValue("downPayment", calculatedDown, { shouldDirty: true, shouldValidate: true })
+    }
+  }
+
+  const handleAutoBalance = () => {
+    if (totalVehiclePrice <= 0) return
+    const currentDown = form.getValues("downPayment") || 0
+    if (currentDown > 0 && currentDown <= totalVehiclePrice) {
+      form.setValue("financeAmount", totalVehiclePrice - currentDown, { shouldDirty: true, shouldValidate: true })
+    } else {
+      const defaultDown = selectedVehicle?.vehicleModel.minDownPayment ?? Math.round(totalVehiclePrice * 0.3)
+      form.setValue("downPayment", defaultDown, { shouldDirty: true, shouldValidate: true })
+      form.setValue("financeAmount", Math.max(0, totalVehiclePrice - defaultDown), { shouldDirty: true, shouldValidate: true })
+    }
+    toast.success("Breakdown balanced to match Total Vehicle Price!")
+  }
+
+  React.useEffect(() => {
+    if (paymentType === "FINANCE" && totalVehiclePrice > 0) {
+      const curDown = form.getValues("downPayment") || 0
+      const curFin = form.getValues("financeAmount") || 0
+      if (curDown === 0 && curFin === 0) {
+        const initDown = selectedVehicle?.vehicleModel.minDownPayment ?? Math.round(totalVehiclePrice * 0.3)
+        form.setValue("downPayment", initDown, { shouldDirty: true })
+        form.setValue("financeAmount", Math.max(0, totalVehiclePrice - initDown), { shouldDirty: true })
+      }
+    }
+  }, [selectedVehicle?.id, totalVehiclePrice, paymentType])
+
+  const financeSum = (downPayment || 0) + (financeAmount || 0)
+  const isBalanced = totalVehiclePrice > 0 ? Math.abs(financeSum - totalVehiclePrice) <= 1 : true
+
+  const [isCommissionOverridden, setIsCommissionOverridden] = React.useState(false)
+
+  const commissionBasis = (useWatch({ control: form.control, name: "commissionBasis" }) ?? "FINANCE_AMOUNT") as CommissionBasis
+  const commissionRate = useWatch({ control: form.control, name: "commissionRate" }) ?? 1
+  const commissionAmount = useWatch({ control: form.control, name: "commissionAmount" }) ?? 0
+
+  const calculatedCommission = React.useMemo(() => {
+    const rate = Number(commissionRate) || 0
+    if (commissionBasis === "FINANCE_AMOUNT") {
+      return Math.round(((Number(financeAmount) || 0) * rate) / 100)
+    } else if (commissionBasis === "VEHICLE_PRICE") {
+      return Math.round(((Number(totalVehiclePrice) || 0) * rate) / 100)
+    } else if (commissionBasis === "FIXED") {
+      return Math.round(rate)
+    }
+    return 0
+  }, [commissionBasis, commissionRate, financeAmount, totalVehiclePrice])
+
+  // Auto-calculate commissionAmount when inputs change, unless staff manually overrides it
+  React.useEffect(() => {
+    if (paymentType === "FINANCE" && !isCommissionOverridden) {
+      form.setValue("commissionAmount", calculatedCommission, { shouldDirty: true })
+      form.setValue("financeCommission", calculatedCommission, { shouldDirty: true })
+    }
+  }, [paymentType, calculatedCommission, isCommissionOverridden, form])
+
+  const handleBasisChange = (basis: CommissionBasis) => {
+    form.setValue("commissionBasis", basis, { shouldDirty: true, shouldValidate: true })
+    setIsCommissionOverridden(false)
+    let newAmt = 0
+    const rate = Number(form.getValues("commissionRate")) || 0
+    if (basis === "FINANCE_AMOUNT") {
+      newAmt = Math.round(((Number(financeAmount) || 0) * rate) / 100)
+    } else if (basis === "VEHICLE_PRICE") {
+      newAmt = Math.round(((Number(totalVehiclePrice) || 0) * rate) / 100)
+    } else {
+      newAmt = Math.round(rate)
+    }
+    form.setValue("commissionAmount", newAmt, { shouldDirty: true, shouldValidate: true })
+    form.setValue("financeCommission", newAmt, { shouldDirty: true })
+  }
+
+  const handleRateChange = (rateVal: number) => {
+    form.setValue("commissionRate", rateVal, { shouldDirty: true, shouldValidate: true })
+    setIsCommissionOverridden(false)
+    const basis = (form.getValues("commissionBasis") || "FINANCE_AMOUNT") as CommissionBasis
+    let newAmt = 0
+    if (basis === "FINANCE_AMOUNT") {
+      newAmt = Math.round(((Number(financeAmount) || 0) * rateVal) / 100)
+    } else if (basis === "VEHICLE_PRICE") {
+      newAmt = Math.round(((Number(totalVehiclePrice) || 0) * rateVal) / 100)
+    } else {
+      newAmt = Math.round(rateVal)
+    }
+    form.setValue("commissionAmount", newAmt, { shouldDirty: true, shouldValidate: true })
+    form.setValue("financeCommission", newAmt, { shouldDirty: true })
+  }
+
+  const handleCommissionAmountChange = (amt: number) => {
+    form.setValue("commissionAmount", amt, { shouldDirty: true, shouldValidate: true })
+    form.setValue("financeCommission", amt, { shouldDirty: true })
+    setIsCommissionOverridden(true)
+  }
+
+  const handleResetCommissionToCalculated = () => {
+    form.setValue("commissionAmount", calculatedCommission, { shouldDirty: true, shouldValidate: true })
+    form.setValue("financeCommission", calculatedCommission, { shouldDirty: true })
+    setIsCommissionOverridden(false)
+    toast.success(`Commission reset to calculated: ${formatLKR(calculatedCommission)}`)
+  }
 
   const filteredCustomers = customers.filter((customer) => {
     const query = customerQuery.trim().toLocaleLowerCase()
@@ -227,8 +358,27 @@ export function NewSaleForm({
   }
 
   async function onSubmit(values: CreateNewSaleInput) {
+    if (values.paymentType === "FINANCE") {
+      if (!values.financeCompanyId || values.financeCompanyId === "__none__") {
+        toast.error("Please select a Finance Company / Institute for this Finance Sale.")
+        return
+      }
+      const sum = (values.downPayment ?? 0) + (values.financeAmount ?? 0)
+      if (totalVehiclePrice > 0 && Math.abs(sum - totalVehiclePrice) > 1) {
+        toast.error(
+          `Down Payment (${formatLKR(values.downPayment ?? 0)}) + Finance Amount (${formatLKR(values.financeAmount ?? 0)}) must equal Total Vehicle Price (${formatLKR(totalVehiclePrice)}). Difference: ${formatLKR(Math.abs(totalVehiclePrice - sum))}`
+        )
+        return
+      }
+    }
+
     try {
-      const result = await createNewSale(values)
+      const finalValues: CreateNewSaleInput = {
+        ...values,
+        commissionAmount: values.commissionAmount ?? values.financeCommission ?? 0,
+        financeCommission: values.commissionAmount ?? values.financeCommission ?? 0,
+      }
+      const result = await createNewSale(finalValues)
       if (!result.success) {
         toast.error(result.error)
         return
@@ -570,184 +720,486 @@ export function NewSaleForm({
             </CardContent>
           </Card>
 
-          {/* Finance & Insurance Details */}
-          {(financeCompanies.length > 0 || insuranceCompanies.length > 0) && (
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <Landmark className="size-5" />
-                  </span>
-                  <div>
-                    <CardTitle>Finance &amp; Insurance <span className="ml-1 text-xs font-normal text-muted-foreground">(Internal)</span></CardTitle>
-                    <CardDescription>Record finance/insurance details for commission tracking.</CardDescription>
+          {/* Payment Type Selection (Cash Sale vs Finance Sale) */}
+          <Card className="rounded-2xl border-border/70 shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 bg-muted/20">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <CircleDollarSign className="size-5" />
+                </span>
+                <div>
+                  <CardTitle>Sale &amp; Payment Type</CardTitle>
+                  <CardDescription>Choose whether this is a direct cash sale or a vehicle leasing/finance sale.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    form.setValue("paymentType", "CASH", { shouldDirty: true, shouldValidate: true })
+                    form.setValue("paymentMethod", "Cash", { shouldDirty: true })
+                  }}
+                  className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition-all ${
+                    paymentType === "CASH"
+                      ? "border-primary bg-primary/[0.05] shadow-xs ring-1 ring-primary/30"
+                      : "border-border/70 bg-card hover:bg-muted/40 text-muted-foreground"
+                  }`}
+                >
+                  <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                    paymentType === "CASH" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}>
+                    <CircleDollarSign className="size-4" />
                   </div>
+                  <div>
+                    <div className="text-sm font-bold text-foreground">Cash / Direct Sale</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Full vehicle payment via Cash, Card, or direct Bank Transfer.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    form.setValue("paymentType", "FINANCE", { shouldDirty: true, shouldValidate: true })
+                    form.setValue("paymentMethod", "Leasing", { shouldDirty: true })
+                    if (totalVehiclePrice > 0 && (!downPayment && !financeAmount)) {
+                      const initDown = selectedVehicle?.vehicleModel.minDownPayment ?? Math.round(totalVehiclePrice * 0.3)
+                      form.setValue("downPayment", initDown, { shouldDirty: true })
+                      form.setValue("financeAmount", Math.max(0, totalVehiclePrice - initDown), { shouldDirty: true })
+                    }
+                  }}
+                  className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition-all ${
+                    paymentType === "FINANCE"
+                      ? "border-blue-600 bg-blue-500/[0.05] shadow-xs ring-1 ring-blue-500/30"
+                      : "border-border/70 bg-card hover:bg-muted/40 text-muted-foreground"
+                  }`}
+                >
+                  <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                    paymentType === "FINANCE" ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
+                  }`}>
+                    <Landmark className="size-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-foreground">Finance Sale (Leasing)</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Vehicle loan covered by a finance institute with upfront down payment.
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Finance Sale Breakdown & Institute Details */}
+          {paymentType === "FINANCE" && (
+            <Card className="rounded-2xl border-blue-500/30 bg-blue-500/[0.02] shadow-sm">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      <Landmark className="size-5" />
+                    </span>
+                    <div>
+                      <CardTitle>Finance Sale Financial Breakdown</CardTitle>
+                      <CardDescription>
+                        Set the financing institute, loan amount, customer down payment, and staff commission.
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      isBalanced
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold"
+                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-semibold"
+                    }
+                  >
+                    {isBalanced ? "✓ Breakdown Balanced" : "⚠ Breakdown Imbalance"}
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="grid gap-6 md:grid-cols-2">
-                {/* Finance Company */}
-                {financeCompanies.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sale-finance-company" className="flex items-center gap-1.5">
-                        <Landmark className="size-3.5 text-muted-foreground" />
-                        Finance Company
-                      </Label>
-                      <Controller
-                        name="financeCompanyId"
-                        control={form.control}
-                        render={({ field }) => (
-                          <Select
-                            value={field.value ?? ""}
-                            onValueChange={(value) => {
-                              field.onChange(value === "__none__" ? "" : value)
-                              // Auto-fill default commission rate
-                              const company = financeCompanies.find((c) => c.id === value)
-                              if (company?.defaultCommissionRate != null) {
-                                form.setValue("financeCommission", company.defaultCommissionRate, { shouldDirty: true })
-                              } else if (value === "__none__") {
-                                form.setValue("financeCommission", null)
-                                form.setValue("commissionRecipientId", "")
-                              }
-                            }}
-                          >
-                            <SelectTrigger id="sale-finance-company" className="w-full">
-                              <SelectValue placeholder="None — Cash/Self-funded" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">None — Cash/Self-funded</SelectItem>
-                              {financeCompanies.map((company) => (
-                                <SelectItem key={company.id} value={company.id}>
-                                  {company.name}
-                                  {company.defaultCommissionRate != null
-                                    ? ` (${company.defaultCommissionRate}%)`
-                                    : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
+              <CardContent className="space-y-6">
+                {/* Reference Vehicle Price Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-xl border bg-card text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Vehicle Total Price: </span>
+                    <strong className="text-sm font-bold text-foreground">{formatLKR(totalVehiclePrice)}</strong>
+                    {warrantyCharge > 0 && (
+                      <span className="text-muted-foreground ml-1">
+                        (Includes {formatLKR(warrantyCharge)} warranty)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span>
+                      Down Payment: <strong className="text-emerald-600 font-semibold">{formatLKR(downPayment)}</strong>
+                    </span>
+                    <span>+</span>
+                    <span>
+                      Finance Loan: <strong className="text-blue-600 font-semibold">{formatLKR(financeAmount)}</strong>
+                    </span>
+                    {!isBalanced && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAutoBalance}
+                        className="h-7 text-[11px] font-semibold text-primary border-primary/30 hover:bg-primary/10 ml-2"
+                      >
+                        Auto Balance
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Primary Finance Fields Grid */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* 1. Finance Company */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sale-finance-company" className="flex items-center gap-1.5 font-semibold text-xs">
+                      <Landmark className="size-3.5 text-blue-600" />
+                      Finance Company / Institute <span className="text-destructive">*</span>
+                    </Label>
+                    <Controller
+                      name="financeCompanyId"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value ?? ""}
+                          onValueChange={(value) => {
+                            field.onChange(value === "__none__" ? "" : value)
+                            const company = financeCompanies.find((c) => c.id === value)
+                            const rate = company?.defaultCommissionRate != null ? company.defaultCommissionRate : 1
+                            form.setValue("commissionRate", rate, { shouldDirty: true })
+                            setIsCommissionOverridden(false)
+                            const basis = (form.getValues("commissionBasis") || "FINANCE_AMOUNT") as CommissionBasis
+                            const finAmt = form.getValues("financeAmount") || 0
+                            let newAmt = 0
+                            if (basis === "FINANCE_AMOUNT") {
+                              newAmt = Math.round((finAmt * rate) / 100)
+                            } else if (basis === "VEHICLE_PRICE") {
+                              newAmt = Math.round((totalVehiclePrice * rate) / 100)
+                            } else {
+                              newAmt = Math.round(rate)
+                            }
+                            form.setValue("commissionAmount", newAmt, { shouldDirty: true })
+                            form.setValue("financeCommission", newAmt, { shouldDirty: true })
+                          }}
+                        >
+                          <SelectTrigger id="sale-finance-company" className="w-full bg-background">
+                            <SelectValue placeholder="Select Finance Company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {financeCompanies.map((company) => (
+                              <SelectItem key={company.id} value={company.id}>
+                                {company.name}
+                                {company.defaultCommissionRate != null
+                                  ? ` (${company.defaultCommissionRate}%)`
+                                  : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      E.g. People's Leasing, Commercial Credit, LB Finance, etc.
+                    </p>
+                  </div>
+
+                  {/* 2. Down Payment */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sale-down-payment" className="flex items-center gap-1.5 font-semibold text-xs">
+                      <CircleDollarSign className="size-3.5 text-emerald-600" />
+                      Down Payment (Rs.) <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="sale-down-payment"
+                      type="number"
+                      min={0}
+                      step={1000}
+                      placeholder="Enter cash down payment"
+                      value={downPayment || ""}
+                      onChange={(e) => handleDownPaymentChange(Number(e.target.value) || 0)}
+                      className="bg-background font-semibold"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Cash paid upfront by the customer.
+                    </p>
+                  </div>
+
+                  {/* 3. Finance Amount */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sale-finance-amount" className="flex items-center gap-1.5 font-semibold text-xs">
+                      <Landmark className="size-3.5 text-blue-600" />
+                      Finance Amount (Rs.) <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="sale-finance-amount"
+                      type="number"
+                      min={0}
+                      step={1000}
+                      placeholder="Enter loan amount"
+                      value={financeAmount || ""}
+                      onChange={(e) => handleFinanceAmountChange(Number(e.target.value) || 0)}
+                      className="bg-background font-semibold"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Loan amount covered by finance partner.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Advance payment notice if present */}
+                {pendingAdvance && advanceDeduction > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-800 dark:text-emerald-300">
+                    <div>
+                      Customer Advance Payment of <strong>{formatLKR(advanceDeduction)}</strong> will be applied towards this sale.
                     </div>
-                    {selectedFinanceCompany && (
-                      <div className="space-y-2">
-                        <Label htmlFor="sale-finance-commission">Finance Commission (Rs.)</Label>
-                        <Input
-                          id="sale-finance-commission"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          placeholder="Enter commission amount"
-                          {...form.register("financeCommission", { valueAsNumber: true })}
-                        />
-                        {selectedFinanceCompany.defaultCommissionRate != null && (
-                          <p className="text-xs text-muted-foreground">
-                            Default rate: {selectedFinanceCompany.defaultCommissionRate}%
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {/* Commission Recipient — only shown when a finance company is selected */}
-                    {selectedFinanceCompany && staff.length > 0 && (
-                      <div className="space-y-2">
-                        <Label htmlFor="sale-commission-recipient" className="flex items-center gap-1.5">
-                          <Users className="size-3.5 text-muted-foreground" />
-                          Commission Recipient
-                        </Label>
-                        <Controller
-                          name="commissionRecipientId"
-                          control={form.control}
-                          render={({ field }) => (
-                            <Select
-                              value={field.value ?? ""}
-                              onValueChange={(value) =>
-                                field.onChange(value === "__none__" ? "" : value)
-                              }
-                            >
-                              <SelectTrigger id="sale-commission-recipient" className="w-full">
-                                <SelectValue placeholder="Select staff member" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Not specified</SelectItem>
-                                {staff.map((member) => (
-                                  <SelectItem key={member.id} value={member.id}>
-                                    {member.name}
-                                    <span className="ml-1 text-xs text-muted-foreground">
-                                      ({member.role})
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Staff member credited with this finance commission.
-                        </p>
-                      </div>
-                    )}
+                    <div className="font-semibold">
+                      Net Cash Required at POS: {formatLKR(Math.max(0, downPayment - advanceDeduction))}
+                    </div>
                   </div>
                 )}
 
-                {/* Insurance Company */}
-                {insuranceCompanies.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sale-insurance-company" className="flex items-center gap-1.5">
-                        <ShieldCheck className="size-3.5 text-muted-foreground" />
-                        Insurance Company
+                {/* Secondary Section: Finance Commission Management */}
+                <div className="rounded-xl border border-blue-500/20 bg-card p-4 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b">
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                        <Calculator className="size-4" />
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground">Finance Commission Management</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Auto-calculate based on finance amount or vehicle price, or type a manual override.
+                        </p>
+                      </div>
+                    </div>
+                    {isCommissionOverridden ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 font-medium">
+                          Manual Override Active
+                        </Badge>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleResetCommissionToCalculated}
+                          className="h-6 text-[11px] px-2 text-primary hover:bg-primary/10 gap-1"
+                        >
+                          <RotateCcw className="size-3" />
+                          Recalculate
+                        </Button>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-medium">
+                        Auto-Calculated
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {/* 1. Commission Basis */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sale-commission-basis" className="text-xs font-semibold">
+                        Commission Basis
+                      </Label>
+                      <Select
+                        value={commissionBasis}
+                        onValueChange={(val) => handleBasisChange(val as CommissionBasis)}
+                      >
+                        <SelectTrigger id="sale-commission-basis" className="w-full bg-background h-9 text-xs">
+                          <SelectValue placeholder="Select basis" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="FINANCE_AMOUNT">% of Finance Amount</SelectItem>
+                          <SelectItem value="VEHICLE_PRICE">% of Vehicle Total</SelectItem>
+                          <SelectItem value="FIXED">Fixed Amount (Rs.)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">
+                        {commissionBasis === "FINANCE_AMOUNT" && `Based on ${formatLKR(financeAmount)}`}
+                        {commissionBasis === "VEHICLE_PRICE" && `Based on ${formatLKR(totalVehiclePrice)}`}
+                        {commissionBasis === "FIXED" && "Fixed lump sum value"}
+                      </p>
+                    </div>
+
+                    {/* 2. Commission Rate */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sale-commission-rate" className="text-xs font-semibold">
+                        {commissionBasis === "FIXED" ? "Fixed Base (Rs.)" : "Commission Rate (%)"}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="sale-commission-rate"
+                          type="number"
+                          min={0}
+                          step={commissionBasis === "FIXED" ? 500 : 0.1}
+                          placeholder={commissionBasis === "FIXED" ? "e.g. 15000" : "e.g. 1.0"}
+                          value={commissionRate || ""}
+                          onChange={(e) => handleRateChange(Number(e.target.value) || 0)}
+                          className="bg-background h-9 text-xs pr-7 font-mono font-medium"
+                        />
+                        {commissionBasis !== "FIXED" && (
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                            %
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {selectedFinanceCompany?.defaultCommissionRate != null
+                          ? `Default for ${selectedFinanceCompany.name}: ${selectedFinanceCompany.defaultCommissionRate}%`
+                          : "Default rate: 1.0%"}
+                      </p>
+                    </div>
+
+                    {/* 3. Final Commission Amount (Editable / Override) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sale-commission-amount" className="text-xs font-semibold flex items-center justify-between">
+                        <span>Commission Amount (Rs.)</span>
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="sale-commission-amount"
+                        type="number"
+                        min={0}
+                        step={100}
+                        placeholder="Final commission (Rs.)"
+                        value={commissionAmount || ""}
+                        onChange={(e) => handleCommissionAmountChange(Number(e.target.value) || 0)}
+                        className={`bg-background h-9 text-xs font-semibold font-mono ${
+                          isCommissionOverridden ? "border-amber-500/60 ring-1 ring-amber-500/20 text-amber-950 dark:text-amber-100" : "text-foreground"
+                        }`}
+                      />
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>Formula: {formatLKR(calculatedCommission)}</span>
+                        {isCommissionOverridden && (
+                          <button
+                            type="button"
+                            onClick={handleResetCommissionToCalculated}
+                            className="text-primary hover:underline font-medium"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Commission Recipient */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sale-commission-recipient" className="text-xs font-semibold flex items-center gap-1">
+                        <Users className="size-3 text-muted-foreground" />
+                        <span>Commission Recipient</span>
                       </Label>
                       <Controller
-                        name="insuranceCompanyId"
+                        name="commissionRecipientId"
                         control={form.control}
                         render={({ field }) => (
                           <Select
                             value={field.value ?? ""}
-                            onValueChange={(value) => {
-                              field.onChange(value === "__none__" ? "" : value)
-                              const company = insuranceCompanies.find((c) => c.id === value)
-                              if (company?.defaultCommissionRate != null) {
-                                form.setValue("insuranceCommission", company.defaultCommissionRate, { shouldDirty: true })
-                              } else if (value === "__none__") {
-                                form.setValue("insuranceCommission", null)
-                              }
-                            }}
+                            onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
                           >
-                            <SelectTrigger id="sale-insurance-company" className="w-full">
-                              <SelectValue placeholder="None — No insurance" />
+                            <SelectTrigger id="sale-commission-recipient" className="w-full bg-background h-9 text-xs">
+                              <SelectValue placeholder="Select Staff / Owner" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__none__">None — No insurance</SelectItem>
-                              {insuranceCompanies.map((company) => (
-                                <SelectItem key={company.id} value={company.id}>
-                                  {company.name}
-                                  {company.defaultCommissionRate != null
-                                    ? ` (${company.defaultCommissionRate}%)`
-                                    : ""}
+                              <SelectItem value="__none__">Not specified / Dealership</SelectItem>
+                              {staff.map((member) => (
+                                <SelectItem key={member.id} value={member.id}>
+                                  {member.name}
+                                  <span className="ml-1 text-xs text-muted-foreground">
+                                    ({member.role})
+                                  </span>
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         )}
                       />
+                      <p className="text-[10px] text-muted-foreground">
+                        Staff or owner receiving commission.
+                      </p>
                     </div>
-                    {selectedInsuranceCompany && (
-                      <div className="space-y-2">
-                        <Label htmlFor="sale-insurance-commission">Insurance Commission (Rs.)</Label>
-                        <Input
-                          id="sale-insurance-commission"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          placeholder="Enter commission amount"
-                          {...form.register("insuranceCommission", { valueAsNumber: true })}
-                        />
-                        {selectedInsuranceCompany.defaultCommissionRate != null && (
-                          <p className="text-xs text-muted-foreground">
-                            Default rate: {selectedInsuranceCompany.defaultCommissionRate}%
-                          </p>
-                        )}
-                      </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Insurance Details (Optional) */}
+          {insuranceCompanies.length > 0 && (
+            <Card className="rounded-2xl border-border/70 shadow-sm">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <ShieldCheck className="size-5" />
+                  </span>
+                  <div>
+                    <CardTitle>Insurance Details <span className="ml-1 text-xs font-normal text-muted-foreground">(Optional)</span></CardTitle>
+                    <CardDescription>Record vehicle insurance partner and dealer commission.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sale-insurance-company" className="text-xs font-semibold flex items-center gap-1.5">
+                    <ShieldCheck className="size-3.5 text-muted-foreground" />
+                    Insurance Company
+                  </Label>
+                  <Controller
+                    name="insuranceCompanyId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? ""}
+                        onValueChange={(value) => {
+                          field.onChange(value === "__none__" ? "" : value)
+                          const company = insuranceCompanies.find((c) => c.id === value)
+                          if (company?.defaultCommissionRate != null) {
+                            form.setValue("insuranceCommission", company.defaultCommissionRate, { shouldDirty: true })
+                          } else if (value === "__none__") {
+                            form.setValue("insuranceCommission", null)
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="sale-insurance-company" className="w-full bg-background">
+                          <SelectValue placeholder="None — No insurance" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None — No insurance</SelectItem>
+                          {insuranceCompanies.map((company) => (
+                            <SelectItem key={company.id} value={company.id}>
+                              {company.name}
+                              {company.defaultCommissionRate != null
+                                ? ` (${company.defaultCommissionRate}%)`
+                                : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                {selectedInsuranceCompany && (
+                  <div className="space-y-2">
+                    <Label htmlFor="sale-insurance-commission" className="text-xs font-semibold">Insurance Commission (Rs.)</Label>
+                    <Input
+                      id="sale-insurance-commission"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="Enter commission amount"
+                      {...form.register("insuranceCommission", { valueAsNumber: true })}
+                      className="bg-background"
+                    />
+                    {selectedInsuranceCompany.defaultCommissionRate != null && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Default rate: {selectedInsuranceCompany.defaultCommissionRate}%
+                      </p>
                     )}
                   </div>
                 )}
@@ -771,65 +1223,116 @@ export function NewSaleForm({
             </CardHeader>
             <CardContent className="space-y-5 pt-5">
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium tabular-nums">{formatLKR(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted-foreground">Advance deduction</span>
-                  <span
-                    className={`text-right font-medium tabular-nums ${
-                      advanceDeduction > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
-                    }`}
-                  >
-                    {isLoadingAdvance ? (
-                      <LoaderCircle className="ml-auto size-4 animate-spin" />
-                    ) : advanceDeduction > 0 ? (
-                      `− ${formatLKR(advanceDeduction)}`
-                    ) : (
-                      formatLKR(0)
+                {paymentType === "FINANCE" ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Vehicle Total Price</span>
+                      <span className="font-semibold tabular-nums">{formatLKR(totalVehiclePrice)}</span>
+                    </div>
+                    {warrantyCharge > 0 && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Includes warranty</span>
+                        <span className="tabular-nums">+{formatLKR(warrantyCharge)}</span>
+                      </div>
                     )}
-                  </span>
-                </div>
-                {warrantyCharge > 0 && (
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Extended warranty</span>
-                    <span className="font-medium tabular-nums">
-                      {formatLKR(warrantyCharge)}
-                    </span>
-                  </div>
+                    <div className="flex items-center justify-between text-sm text-blue-600 dark:text-blue-400">
+                      <span>Finance Loan ({selectedFinanceCompany?.name || "Leasing"})</span>
+                      <span className="font-semibold tabular-nums">− {formatLKR(financeAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium">Customer Down Payment</span>
+                      <span className="font-bold tabular-nums text-foreground">{formatLKR(downPayment)}</span>
+                    </div>
+                    {advanceDeduction > 0 && (
+                      <div className="flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                        <span>Advance deduction</span>
+                        <span className="font-medium tabular-nums">− {formatLKR(advanceDeduction)}</span>
+                      </div>
+                    )}
+                    {selectedInsuranceCompany && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Insurance</span>
+                        <span className="max-w-[120px] truncate text-right text-xs font-medium text-purple-600 dark:text-purple-400">
+                          {selectedInsuranceCompany.name}
+                        </span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex items-end justify-between gap-3">
+                      <div>
+                        <span className="text-sm font-bold block text-foreground">Net Cash Due at POS</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {advanceDeduction > 0 ? "Down payment after advance" : "Upfront down payment"}
+                        </span>
+                      </div>
+                      <span className="text-2xl font-black tracking-tight tabular-nums text-emerald-600 dark:text-emerald-400">
+                        {formatLKR(Math.max(0, downPayment - advanceDeduction))}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-medium tabular-nums">{formatLKR(subtotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Advance deduction</span>
+                      <span
+                        className={`text-right font-medium tabular-nums ${
+                          advanceDeduction > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                        }`}
+                      >
+                        {isLoadingAdvance ? (
+                          <LoaderCircle className="ml-auto size-4 animate-spin" />
+                        ) : advanceDeduction > 0 ? (
+                          `− ${formatLKR(advanceDeduction)}`
+                        ) : (
+                          formatLKR(0)
+                        )}
+                      </span>
+                    </div>
+                    {warrantyCharge > 0 && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Extended warranty</span>
+                        <span className="font-medium tabular-nums">
+                          {formatLKR(warrantyCharge)}
+                        </span>
+                      </div>
+                    )}
+                    {pendingAdvance && advanceDeduction > 0 && (
+                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+                        Pending customer advance will be applied to this sale.
+                      </div>
+                    )}
+                    {!isLoadingAdvance && customerId && !pendingAdvance && (
+                      <p className="text-xs text-muted-foreground">No pending advance found for this customer.</p>
+                    )}
+                    {selectedFinanceCompany && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Finance</span>
+                        <span className="max-w-[120px] truncate text-right text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {selectedFinanceCompany.name}
+                        </span>
+                      </div>
+                    )}
+                    {selectedInsuranceCompany && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Insurance</span>
+                        <span className="max-w-[120px] truncate text-right text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {selectedInsuranceCompany.name}
+                        </span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex items-end justify-between gap-3">
+                      <span className="text-sm font-semibold">Final total</span>
+                      <span className="text-2xl font-bold tracking-tight tabular-nums">
+                        {formatLKR(finalTotal)}
+                      </span>
+                    </div>
+                  </>
                 )}
-                {pendingAdvance && advanceDeduction > 0 && (
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-                    Pending customer advance will be applied to this sale.
-                  </div>
-                )}
-                {!isLoadingAdvance && customerId && !pendingAdvance && (
-                  <p className="text-xs text-muted-foreground">No pending advance found for this customer.</p>
-                )}
-                {selectedFinanceCompany && (
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Finance</span>
-                    <span className="max-w-[120px] truncate text-right text-xs font-medium text-blue-600 dark:text-blue-400">
-                      {selectedFinanceCompany.name}
-                    </span>
-                  </div>
-                )}
-                {selectedInsuranceCompany && (
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Insurance</span>
-                    <span className="max-w-[120px] truncate text-right text-xs font-medium text-blue-600 dark:text-blue-400">
-                      {selectedInsuranceCompany.name}
-                    </span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex items-end justify-between gap-3">
-                  <span className="text-sm font-semibold">Final total</span>
-                  <span className="text-2xl font-bold tracking-tight tabular-nums">
-                    {formatLKR(finalTotal)}
-                  </span>
-                </div>
               </div>
 
               <div className="space-y-2">
@@ -874,7 +1377,9 @@ export function NewSaleForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sale-payment-method">Payment method</Label>
+                <Label htmlFor="sale-payment-method">
+                  {paymentType === "FINANCE" ? "Down payment method" : "Payment method"}
+                </Label>
                 <Controller
                   name="paymentMethod"
                   control={form.control}

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { MoreHorizontal, Plus, Search, Undo2, Receipt, Bike, Calendar } from "lucide-react"
+import { MoreHorizontal, Plus, Search, Undo2, Receipt, Bike, Calendar, ArrowRightLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -14,6 +14,7 @@ import type {
   AvailableVehicleOption,
 } from "@/app/actions/advances"
 import { AdvanceFormDialog } from "@/components/sales/advance-form-dialog"
+import { TransferAdvanceDialog } from "@/components/sales/advances/transfer-advance-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -157,6 +158,9 @@ function StatusBadge({ status }: { status: string }) {
   if (status === "USED") {
     return <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-500/10">Used</Badge>
   }
+  if (status === "TRANSFERRED") {
+    return <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-500/10">Transferred</Badge>
+  }
   if (status === "REFUNDED") {
     return <Badge variant="secondary">Refunded</Badge>
   }
@@ -168,6 +172,7 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL")
   const [isAddOpen, setIsAddOpen] = React.useState(false)
   const [refundingAdvance, setRefundingAdvance] = React.useState<AdvancePaymentRecord | null>(null)
+  const [transferringAdvance, setTransferringAdvance] = React.useState<AdvancePaymentRecord | null>(null)
 
   const filteredAdvances = React.useMemo(() => {
     const query = search.trim().toLocaleLowerCase()
@@ -294,6 +299,13 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           disabled={advance.status !== "PENDING"}
+                          onClick={() => setTransferringAdvance(advance)}
+                        >
+                          <ArrowRightLeft className="size-4 text-primary" />
+                          <span>Transfer Advance</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={advance.status !== "PENDING"}
                           onClick={() => setRefundingAdvance(advance)}
                         >
                           <Undo2 className="size-4 text-muted-foreground" />
@@ -322,6 +334,15 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
         onOpenChange={setIsAddOpen}
         initialCustomers={customers}
         vehicles={vehicles}
+      />
+
+      {/* Transfer Advance Modal */}
+      <TransferAdvanceDialog
+        advance={transferringAdvance}
+        customers={customers}
+        vehicles={vehicles}
+        open={Boolean(transferringAdvance)}
+        onOpenChange={(open) => !open && setTransferringAdvance(null)}
       />
 
       {/* Refund Modal */}

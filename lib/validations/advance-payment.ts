@@ -25,8 +25,9 @@ export const refundAdvancePaymentSchema = z.object({
 export type RefundAdvancePaymentInput = z.infer<typeof refundAdvancePaymentSchema>
 
 export const transferAdvancePaymentSchema = z.object({
-  targetCustomerId: z.string().trim().min(1, "Select a customer."),
-  targetVehicleId: z.string().trim().min(1, "Select an available vehicle."),
+  targetCustomerId: z.string().trim().min(1, "Select a destination customer."),
+  targetVehicleId: z.string().trim().optional().or(z.literal("")),
+  transferNote: z.string().trim().max(1000).optional().or(z.literal("")),
 })
 
 export type TransferAdvancePaymentInput = z.infer<typeof transferAdvancePaymentSchema>

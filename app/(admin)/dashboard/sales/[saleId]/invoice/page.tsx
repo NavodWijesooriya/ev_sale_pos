@@ -94,6 +94,12 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
         },
       },
       financeDetail: true,
+      financeCompany: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       advancePayment: {
         select: {
           amount: true,

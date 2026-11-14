@@ -1,14 +1,8 @@
 import type { Metadata, Viewport } from "next"
-import { Roboto } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/components/providers/auth-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { PwaRegister } from "@/components/pwa/pwa-register"
-
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
-})
 
 export const viewport: Viewport = {
   themeColor: "#0f766e",
@@ -50,8 +44,14 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Ev Sale Pos" />
         <meta name="theme-color" content="#0f766e" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body className={roboto.className}>
+      <body className="font-sans antialiased min-h-screen bg-background text-foreground">
         <AuthProvider>
           <PwaRegister />
           {children}

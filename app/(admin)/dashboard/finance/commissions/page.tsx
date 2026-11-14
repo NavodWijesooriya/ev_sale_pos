@@ -15,6 +15,7 @@ interface PageProps {
   searchParams: Promise<{
     from?: string
     to?: string
+    staff?: string
   }>
 }
 
@@ -26,9 +27,9 @@ export default async function CommissionReportsPage({ searchParams }: PageProps)
     redirect("/login?callbackUrl=/dashboard/finance/commissions")
   }
 
-  const { from, to } = await searchParams
+  const { from, to, staff } = await searchParams
 
-  const data = await getCommissionReports(from, to)
+  const data = await getCommissionReports(from, to, staff)
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -36,6 +37,7 @@ export default async function CommissionReportsPage({ searchParams }: PageProps)
         initialData={data}
         initialFrom={from}
         initialTo={to}
+        initialStaff={staff}
       />
     </div>
   )

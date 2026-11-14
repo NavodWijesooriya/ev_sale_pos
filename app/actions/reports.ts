@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { VehicleStatus } from "@prisma/client"
+import { getCommissionReports, type CommissionReportData } from "./finance-reports"
 
 /**
  * Ensures session authentication and extracts organizationId
@@ -231,7 +232,10 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       (sale.discount || 0) -
       vehicleCost
 
-    const commission = sale.financeDetail?.dealerCommission || 0
+    const commission =
+      sale.commissionAmount && sale.commissionAmount > 0
+        ? sale.commissionAmount
+        : sale.financeCommission || sale.financeDetail?.dealerCommission || 0
 
     totalRevenue += sale.totalAmount
     totalFinanceCommission += commission
@@ -968,5 +972,782 @@ export async function getAnalyticsData(
     paymentMethodDistribution,
     recentSales,
     exportableSales,
+  }
+}
+
+// ==========================================
+// 5. Daily & Monthly Sales Reports
+// ==========================================
+
+export interface SalesReportItem {
+  id: string
+  saleDate: string
+  invoiceNumber: string
+  customerName: string
+  customerPhone: string
+  customerNic: string
+  vehicleModel: string
+  unitGrnNumber: string | null
+  chassisNumber: string
+  color: string | null
+  paymentType: string
+  paymentMethod: string
+  financeCompany: string | null
+  advanceDeducted: number
+  totalAmount: number
+  grossPrice: number
+  status: string
+  soldByName: string
+  branchName: string
+}
+
+export interface SalesReportKPIs {
+  totalSalesCount: number
+  totalRevenue: number
+  cashSalesTotal: number
+  financeSalesTotal: number
+  totalAdvancesDeducted: number
+  netCashCollected: number
+}
+
+export interface DailySalesReportData {
+  selectedDate: string
+  kpis: SalesReportKPIs
+  sales: SalesReportItem[]
+}
+
+export interface MonthlySalesReportData {
+  selectedYearMonth: string // "2026-11"
+  selectedYearMonthLabel: string // "Nov 2026"
+  kpis: SalesReportKPIs
+  dailyTrend: Array<{
+    date: string
+    dayLabel: string
+    salesCount: number
+    revenue: number
+    cashTotal: number
+    financeTotal: number
+  }>
+  sales: SalesReportItem[]
+}
+
+export async function getDailySalesReport(dateStr?: string): Promise<DailySalesReportData> {
+  const { organizationId } = await requireAuthOrg()
+
+  const targetDate = dateStr ? new Date(`${dateStr}T00:00:00.000`) : new Date()
+  const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0)
+  const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999)
+
+  const salesRaw = await prisma.sale.findMany({
+    where: {
+      organizationId,
+      saleDate: { gte: startOfDay, lte: endOfDay },
+    },
+    include: {
+      customer: { select: { id: true, name: true, phone: true, nic: true } },
+      branch: { select: { id: true, name: true } },
+      soldBy: { select: { id: true, name: true } },
+      financeCompany: { select: { id: true, name: true } },
+      items: {
+        include: {
+          vehicle: {
+            include: {
+              vehicleModel: { select: { brand: true, modelName: true, defaultPrice: true } },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { saleDate: "desc" },
+  })
+
+  let totalRevenue = 0
+  let cashSalesTotal = 0
+  let financeSalesTotal = 0
+  let totalAdvancesDeducted = 0
+  let netCashCollected = 0
+
+  const sales: SalesReportItem[] = salesRaw.map((s) => {
+    const v = s.items[0]?.vehicle
+    const m = v?.vehicleModel
+    const isFinance = Boolean(s.financeCompanyId || s.paymentType === "FINANCE" || s.paymentMethod === "Leasing")
+    const grossPrice = s.totalAmount + (s.advanceDeducted || 0)
+    const advDeducted = s.advanceDeducted || 0
+
+    totalRevenue += grossPrice
+    totalAdvancesDeducted += advDeducted
+
+    if (isFinance) {
+      financeSalesTotal += grossPrice
+      // On finance sale, net cash collected is down payment / advance deducted if paid, or invoice cash component
+      netCashCollected += Math.max(0, s.totalAmount)
+    } else {
+      cashSalesTotal += grossPrice
+      netCashCollected += Math.max(0, s.totalAmount)
+    }
+
+    return {
+      id: s.id,
+      saleDate: s.saleDate.toISOString(),
+      invoiceNumber: s.invoiceNumber,
+      customerName: s.customer.name,
+      customerPhone: s.customer.phone,
+      customerNic: s.customer.nic || "N/A",
+      vehicleModel: m ? `${m.brand} ${m.modelName}` : "EV Bike",
+      unitGrnNumber: v?.unitGrnNumber || null,
+      chassisNumber: v?.chassisNumber || "N/A",
+      color: v?.color || null,
+      paymentType: isFinance ? "FINANCE" : "CASH",
+      paymentMethod: s.paymentMethod || (isFinance ? "Leasing" : "Cash"),
+      financeCompany: s.financeCompany?.name || null,
+      advanceDeducted: advDeducted,
+      totalAmount: s.totalAmount,
+      grossPrice,
+      status: s.status,
+      soldByName: s.soldBy.name,
+      branchName: s.branch.name,
+    }
+  })
+
+  const formattedDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`
+
+  return {
+    selectedDate: formattedDateStr,
+    kpis: {
+      totalSalesCount: sales.length,
+      totalRevenue,
+      cashSalesTotal,
+      financeSalesTotal,
+      totalAdvancesDeducted,
+      netCashCollected,
+    },
+    sales,
+  }
+}
+
+export async function getMonthlySalesReport(yearMonthStr?: string): Promise<MonthlySalesReportData> {
+  const { organizationId } = await requireAuthOrg()
+
+  const now = new Date()
+  let year = now.getFullYear()
+  let month = now.getMonth() // 0-indexed
+
+  if (yearMonthStr) {
+    const parts = yearMonthStr.split("-")
+    if (parts.length === 2) {
+      year = parseInt(parts[0], 10)
+      month = parseInt(parts[1], 10) - 1
+    }
+  }
+
+  const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0)
+  const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999)
+
+  const salesRaw = await prisma.sale.findMany({
+    where: {
+      organizationId,
+      saleDate: { gte: startOfMonth, lte: endOfMonth },
+    },
+    include: {
+      customer: { select: { id: true, name: true, phone: true, nic: true } },
+      branch: { select: { id: true, name: true } },
+      soldBy: { select: { id: true, name: true } },
+      financeCompany: { select: { id: true, name: true } },
+      items: {
+        include: {
+          vehicle: {
+            include: {
+              vehicleModel: { select: { brand: true, modelName: true, defaultPrice: true } },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { saleDate: "desc" },
+  })
+
+  let totalRevenue = 0
+  let cashSalesTotal = 0
+  let financeSalesTotal = 0
+  let totalAdvancesDeducted = 0
+  let netCashCollected = 0
+
+  // Map for daily breakdown within month
+  const daysInMonth = endOfMonth.getDate()
+  const dailyMap = new Map<number, { date: string; dayLabel: string; salesCount: number; revenue: number; cashTotal: number; financeTotal: number }>()
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+    dailyMap.set(day, {
+      date: dStr,
+      dayLabel: `Day ${day}`,
+      salesCount: 0,
+      revenue: 0,
+      cashTotal: 0,
+      financeTotal: 0,
+    })
+  }
+
+  const sales: SalesReportItem[] = salesRaw.map((s) => {
+    const v = s.items[0]?.vehicle
+    const m = v?.vehicleModel
+    const isFinance = Boolean(s.financeCompanyId || s.paymentType === "FINANCE" || s.paymentMethod === "Leasing")
+    const grossPrice = s.totalAmount + (s.advanceDeducted || 0)
+    const advDeducted = s.advanceDeducted || 0
+
+    totalRevenue += grossPrice
+    totalAdvancesDeducted += advDeducted
+
+    if (isFinance) {
+      financeSalesTotal += grossPrice
+      netCashCollected += Math.max(0, s.totalAmount)
+    } else {
+      cashSalesTotal += grossPrice
+      netCashCollected += Math.max(0, s.totalAmount)
+    }
+
+    const dayNumber = s.saleDate.getDate()
+    const dayBucket = dailyMap.get(dayNumber)
+    if (dayBucket) {
+      dayBucket.salesCount += 1
+      dayBucket.revenue += grossPrice
+      if (isFinance) {
+        dayBucket.financeTotal += grossPrice
+      } else {
+        dayBucket.cashTotal += grossPrice
+      }
+    }
+
+    return {
+      id: s.id,
+      saleDate: s.saleDate.toISOString(),
+      invoiceNumber: s.invoiceNumber,
+      customerName: s.customer.name,
+      customerPhone: s.customer.phone,
+      customerNic: s.customer.nic || "N/A",
+      vehicleModel: m ? `${m.brand} ${m.modelName}` : "EV Bike",
+      unitGrnNumber: v?.unitGrnNumber || null,
+      chassisNumber: v?.chassisNumber || "N/A",
+      color: v?.color || null,
+      paymentType: isFinance ? "FINANCE" : "CASH",
+      paymentMethod: s.paymentMethod || (isFinance ? "Leasing" : "Cash"),
+      financeCompany: s.financeCompany?.name || null,
+      advanceDeducted: advDeducted,
+      totalAmount: s.totalAmount,
+      grossPrice,
+      status: s.status,
+      soldByName: s.soldBy.name,
+      branchName: s.branch.name,
+    }
+  })
+
+  const ymString = `${year}-${String(month + 1).padStart(2, "0")}`
+  const ymLabel = startOfMonth.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+
+  return {
+    selectedYearMonth: ymString,
+    selectedYearMonthLabel: ymLabel,
+    kpis: {
+      totalSalesCount: sales.length,
+      totalRevenue,
+      cashSalesTotal,
+      financeSalesTotal,
+      totalAdvancesDeducted,
+      netCashCollected,
+    },
+    dailyTrend: Array.from(dailyMap.values()),
+    sales,
+  }
+}
+
+// ==========================================
+// 6. Advances Report Data
+// ==========================================
+
+export interface AdvancesReportItem {
+  id: string
+  advanceDate: string
+  customerName: string
+  customerPhone: string
+  customerNic: string
+  allocatedVehicle: string
+  unitGrnNumber: string | null
+  chassisNumber: string | null
+  paymentMethod: string
+  amount: number
+  status: "PENDING" | "USED" | "TRANSFERRED" | "REFUNDED"
+  branchName: string
+  staffName: string
+  notes: string | null
+  saleInvoiceNumber: string | null
+  transferredToCustomer: string | null
+  transferredNote: string | null
+}
+
+export interface AdvancesReportKPIs {
+  totalAdvancesCount: number
+  totalPendingAmount: number
+  pendingCount: number
+  totalUsedAmount: number
+  usedCount: number
+  totalTransferredAmount: number
+  transferredCount: number
+  totalRefundedAmount: number
+  refundedCount: number
+}
+
+export interface AdvancesReportData {
+  kpis: AdvancesReportKPIs
+  advances: AdvancesReportItem[]
+}
+
+export async function getAdvancesReportData(): Promise<AdvancesReportData> {
+  const { organizationId } = await requireAuthOrg()
+
+  const advancesRaw = await prisma.advancePayment.findMany({
+    where: { organizationId },
+    include: {
+      customer: { select: { id: true, name: true, phone: true, nic: true } },
+      branch: { select: { id: true, name: true } },
+      staff: { select: { id: true, name: true } },
+      vehicle: {
+        include: {
+          vehicleModel: { select: { brand: true, modelName: true } },
+        },
+      },
+      sale: { select: { id: true, invoiceNumber: true, saleDate: true } },
+      transfers: {
+        include: {
+          toCustomer: { select: { id: true, name: true } },
+        },
+        take: 1,
+      },
+    },
+    orderBy: { advanceDate: "desc" },
+  })
+
+  let totalPendingAmount = 0
+  let pendingCount = 0
+  let totalUsedAmount = 0
+  let usedCount = 0
+  let totalTransferredAmount = 0
+  let transferredCount = 0
+  let totalRefundedAmount = 0
+  let refundedCount = 0
+
+  const advances: AdvancesReportItem[] = advancesRaw.map((a) => {
+    if (a.status === "PENDING") {
+      totalPendingAmount += a.amount
+      pendingCount += 1
+    } else if (a.status === "USED") {
+      totalUsedAmount += a.amount
+      usedCount += 1
+    } else if (a.status === "TRANSFERRED") {
+      totalTransferredAmount += a.amount
+      transferredCount += 1
+    } else if (a.status === "REFUNDED") {
+      totalRefundedAmount += a.amount
+      refundedCount += 1
+    }
+
+    let allocatedDesc = a.bikeModel
+    if (a.vehicle) {
+      allocatedDesc = `${a.vehicle.vehicleModel.brand} ${a.vehicle.vehicleModel.modelName}`
+    }
+
+    const transferRecord = a.transfers[0]
+
+    return {
+      id: a.id,
+      advanceDate: a.advanceDate.toISOString(),
+      customerName: a.customer.name,
+      customerPhone: a.customer.phone,
+      customerNic: a.nicNumber || a.customer.nic || "N/A",
+      allocatedVehicle: allocatedDesc,
+      unitGrnNumber: a.vehicle?.unitGrnNumber || null,
+      chassisNumber: a.vehicle?.chassisNumber || null,
+      paymentMethod: a.paymentMethod || "Cash",
+      amount: a.amount,
+      status: a.status as "PENDING" | "USED" | "TRANSFERRED" | "REFUNDED",
+      branchName: a.branch.name,
+      staffName: a.staff.name,
+      notes: a.notes,
+      saleInvoiceNumber: a.sale?.invoiceNumber || null,
+      transferredToCustomer: transferRecord?.toCustomer?.name || null,
+      transferredNote: transferRecord?.note || null,
+    }
+  })
+
+  return {
+    kpis: {
+      totalAdvancesCount: advances.length,
+      totalPendingAmount,
+      pendingCount,
+      totalUsedAmount,
+      usedCount,
+      totalTransferredAmount,
+      transferredCount,
+      totalRefundedAmount,
+      refundedCount,
+    },
+    advances,
+  }
+}
+
+// ==========================================
+// 7. Service & Spare Parts Report Data
+// ==========================================
+
+export interface ServiceJobReportItem {
+  id: string
+  serviceDate: string
+  inDate: string
+  outDate: string | null
+  durationDays: number
+  inMileage: string | null
+  nextServiceMileage: string | null
+  customerName: string
+  customerPhone: string
+  vehicleSummary: string
+  chassisNumber: string
+  registrationNumber: string | null
+  serviceType: "Free" | "Paid" | "Warranty"
+  status: string
+  technicianName: string | null
+  description: string
+  partsCost: number
+  laborCost: number
+  totalCost: number
+  partsUsed: Array<{
+    partName: string
+    quantity: number
+    unitPrice: number
+    totalPrice: number
+  }>
+}
+
+export interface LowStockPartItem {
+  id: string
+  name: string
+  sku: string
+  partNumber: string | null
+  stockQuantity: number
+  price: number
+  totalValue: number
+  isCritical: boolean
+}
+
+export interface ServiceAndPartsReportData {
+  kpis: {
+    totalCompletedJobs: number
+    totalFreeServices: number
+    totalPaidServices: number
+    totalWarrantyServices: number
+    totalLaborRevenue: number
+    totalPartsRevenue: number
+    totalOverallServiceRevenue: number
+    lowStockPartsCount: number
+    totalSparePartsCount: number
+  }
+  serviceJobs: ServiceJobReportItem[]
+  lowStockParts: LowStockPartItem[]
+}
+
+export async function getServiceAndPartsReportData(): Promise<ServiceAndPartsReportData> {
+  const { organizationId } = await requireAuthOrg()
+
+  const [serviceRecordsRaw, sparePartsRaw] = await Promise.all([
+    prisma.serviceRecord.findMany({
+      where: { organizationId },
+      include: {
+        customer: { select: { id: true, name: true, phone: true } },
+        branch: { select: { id: true, name: true } },
+        assignedTechnician: { select: { id: true, name: true } },
+        vehicle: {
+          include: {
+            vehicleModel: { select: { brand: true, modelName: true } },
+          },
+        },
+        serviceJob: {
+          include: {
+            parts: {
+              include: {
+                sparePart: {
+                  select: { name: true, sku: true, partNumber: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { inDate: "desc" },
+    }),
+    prisma.sparePart.findMany({
+      where: { organizationId },
+      orderBy: { stockQuantity: "asc" },
+    }),
+  ])
+
+  let totalCompletedJobs = 0
+  let totalFreeServices = 0
+  let totalPaidServices = 0
+  let totalWarrantyServices = 0
+  let totalLaborRevenue = 0
+  let totalPartsRevenue = 0
+
+  const serviceJobs: ServiceJobReportItem[] = serviceRecordsRaw.map((s) => {
+    const isCompleted = s.status === "COMPLETED" || Boolean(s.outDate)
+    if (isCompleted) totalCompletedJobs += 1
+
+    if (s.serviceType === "Free") totalFreeServices += 1
+    else if (s.serviceType === "Paid") totalPaidServices += 1
+    else if (s.serviceType === "Warranty") totalWarrantyServices += 1
+
+    const partsCost = s.serviceJob?.partsCost || 0
+    // Labor cost is total minus parts cost
+    const laborCost = Math.max(0, s.totalCost - partsCost)
+
+    if (s.serviceType === "Paid") {
+      totalLaborRevenue += laborCost
+      totalPartsRevenue += partsCost
+    }
+
+    const inDateObj = new Date(s.inDate || s.serviceDate)
+    const outDateObj = s.outDate ? new Date(s.outDate) : null
+    const durationDays = outDateObj
+      ? Math.max(0, Math.round((outDateObj.getTime() - inDateObj.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0
+
+    const partsUsed =
+      s.serviceJob?.parts.map((p) => ({
+        partName: p.sparePart.name,
+        quantity: p.quantity,
+        unitPrice: p.unitPrice,
+        totalPrice: p.totalPrice,
+      })) || []
+
+    return {
+      id: s.id,
+      serviceDate: s.serviceDate.toISOString(),
+      inDate: inDateObj.toISOString(),
+      outDate: outDateObj ? outDateObj.toISOString() : null,
+      durationDays,
+      inMileage: s.inMileage,
+      nextServiceMileage: s.nextServiceMileage,
+      customerName: s.customer.name,
+      customerPhone: s.customer.phone,
+      vehicleSummary: `${s.vehicle.vehicleModel.brand} ${s.vehicle.vehicleModel.modelName}`,
+      chassisNumber: s.vehicle.chassisNumber,
+      registrationNumber: s.vehicle.registrationNumber || null,
+      serviceType: s.serviceType as "Free" | "Paid" | "Warranty",
+      status: s.status,
+      technicianName: s.assignedTechnician?.name || null,
+      description: s.description || "Routine maintenance",
+      partsCost,
+      laborCost,
+      totalCost: s.totalCost,
+      partsUsed,
+    }
+  })
+
+  let lowStockCount = 0
+  const lowStockParts: LowStockPartItem[] = sparePartsRaw.map((sp) => {
+    const isCritical = sp.stockQuantity <= 3
+    if (sp.stockQuantity <= 5) lowStockCount += 1
+
+    return {
+      id: sp.id,
+      name: sp.name,
+      sku: sp.sku,
+      partNumber: sp.partNumber,
+      stockQuantity: sp.stockQuantity,
+      price: sp.price,
+      totalValue: sp.stockQuantity * sp.price,
+      isCritical,
+    }
+  })
+
+  return {
+    kpis: {
+      totalCompletedJobs,
+      totalFreeServices,
+      totalPaidServices,
+      totalWarrantyServices,
+      totalLaborRevenue,
+      totalPartsRevenue,
+      totalOverallServiceRevenue: totalLaborRevenue + totalPartsRevenue,
+      lowStockPartsCount: lowStockCount,
+      totalSparePartsCount: sparePartsRaw.length,
+    },
+    serviceJobs,
+    lowStockParts,
+  }
+}
+
+// ==========================================
+// 8. GRN Batch Summary Report Data
+// ==========================================
+
+export interface GRNBatchSummaryItem {
+  id: string
+  grnNumber: string // "JM 01"
+  dateReceived: string
+  supplierName: string
+  branchName: string
+  totalUnitsReceived: number
+  totalUnitsSold: number
+  totalUnitsRemaining: number
+  depletionPercent: number
+  totalBatchValue: number
+  vehicles: Array<{
+    id: string
+    unitGrnNumber: string | null // "JM0101"
+    chassisNumber: string
+    brand: string
+    modelName: string
+    color: string | null
+    status: string
+    buyerName: string | null
+    invoiceNumber: string | null
+  }>
+}
+
+export interface GRNBatchReportData {
+  kpis: {
+    totalBatchesCount: number
+    totalUnitsReceived: number
+    totalUnitsSold: number
+    totalUnitsRemaining: number
+    overallDepletionPercent: number
+  }
+  batches: GRNBatchSummaryItem[]
+}
+
+export async function getGRNBatchReportData(): Promise<GRNBatchReportData> {
+  const { organizationId } = await requireAuthOrg()
+
+  const grnsRaw = await prisma.gRN.findMany({
+    where: { organizationId },
+    include: {
+      supplier: { select: { id: true, name: true } },
+      branch: { select: { id: true, name: true } },
+      vehicles: {
+        include: {
+          vehicleModel: { select: { brand: true, modelName: true, defaultPrice: true } },
+          sales: {
+            include: {
+              customer: { select: { name: true } },
+            },
+            take: 1,
+          },
+        },
+        orderBy: { unitGrnNumber: "asc" },
+      },
+    },
+    orderBy: { date: "desc" },
+  })
+
+  let totalUnitsReceived = 0
+  let totalUnitsSold = 0
+  let totalUnitsRemaining = 0
+
+  const batches: GRNBatchSummaryItem[] = grnsRaw.map((g) => {
+    const receivedCount = g.vehicles.length
+    const soldCount = g.vehicles.filter((v) => v.status === "Sold").length
+    const remainingCount = receivedCount - soldCount
+    const depletion = receivedCount > 0 ? Math.round((soldCount / receivedCount) * 100) : 0
+
+    totalUnitsReceived += receivedCount
+    totalUnitsSold += soldCount
+    totalUnitsRemaining += remainingCount
+
+    const batchValue = g.vehicles.reduce((sum, v) => sum + (v.vehicleModel?.defaultPrice || 0), 0)
+
+    const vehicleItems = g.vehicles.map((v) => {
+      const sale = v.sales[0]
+      return {
+        id: v.id,
+        unitGrnNumber: v.unitGrnNumber,
+        chassisNumber: v.chassisNumber,
+        brand: v.vehicleModel?.brand || "",
+        modelName: v.vehicleModel?.modelName || "",
+        color: v.color,
+        status: v.status,
+        buyerName: sale?.customer?.name || null,
+        invoiceNumber: sale?.invoiceNumber || null,
+      }
+    })
+
+    return {
+      id: g.id,
+      grnNumber: g.grnNumber,
+      dateReceived: g.receivedDate.toISOString(),
+      supplierName: g.supplier?.name || "Direct Factory Import",
+      branchName: g.branch?.name || "Main Showroom",
+      totalUnitsReceived: receivedCount,
+      totalUnitsSold: soldCount,
+      totalUnitsRemaining: remainingCount,
+      depletionPercent: depletion,
+      totalBatchValue: batchValue,
+      vehicles: vehicleItems,
+    }
+  })
+
+  const overallDepletion =
+    totalUnitsReceived > 0 ? Math.round((totalUnitsSold / totalUnitsReceived) * 100) : 0
+
+  return {
+    kpis: {
+      totalBatchesCount: batches.length,
+      totalUnitsReceived,
+      totalUnitsSold,
+      totalUnitsRemaining,
+      overallDepletionPercent: overallDepletion,
+    },
+    batches,
+  }
+}
+
+// ==========================================
+// 9. Unified Reports Master Fetcher
+// ==========================================
+
+export interface UnifiedReportsData {
+  advancedData: AdvancedReportsData
+  dailySales: DailySalesReportData
+  monthlySales: MonthlySalesReportData
+  advancesReport: AdvancesReportData
+  serviceAndParts: ServiceAndPartsReportData
+  grnBatches: GRNBatchReportData
+  commissionsData: CommissionReportData
+}
+
+export async function getUnifiedReportsData(): Promise<UnifiedReportsData> {
+  const [
+    advancedData,
+    dailySales,
+    monthlySales,
+    advancesReport,
+    serviceAndParts,
+    grnBatches,
+    commissionsData,
+  ] = await Promise.all([
+    getAdvancedReportsData(),
+    getDailySalesReport(),
+    getMonthlySalesReport(),
+    getAdvancesReportData(),
+    getServiceAndPartsReportData(),
+    getGRNBatchReportData(),
+    getCommissionReports(),
+  ])
+
+  return {
+    advancedData,
+    dailySales,
+    monthlySales,
+    advancesReport,
+    serviceAndParts,
+    grnBatches,
+    commissionsData,
   }
 }

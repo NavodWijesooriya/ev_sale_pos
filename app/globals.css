@@ -48,6 +48,7 @@
 }
 
 :root {
+  --font-sans: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --background: oklch(0.985 0.004 165);
   --foreground: oklch(0.23 0.025 175);
   --card: oklch(1 0 0);
