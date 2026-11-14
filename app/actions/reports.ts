@@ -4,14 +4,31 @@ import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { VehicleStatus } from "@prisma/client"
 import { getCommissionReports, type CommissionReportData } from "./finance-reports"
+import {
+  colomboDateKey,
+  colomboDayRange,
+  colomboMonthKey,
+  colomboParts,
+  daysInMonth,
+  monthLabel,
+  parseDateKey,
+  parseMonthKey,
+} from "@/lib/dates"
+
+const REPORT_ROLES = ["OrgAdmin", "BranchManager", "SuperAdmin"]
 
 /**
- * Ensures session authentication and extracts organizationId
+ * Ensures session authentication and extracts organizationId.
+ * Reports expose margins and purchase costs, so only management roles may run them
+ * (server actions are callable directly, hiding the nav link is not enough).
  */
 async function requireAuthOrg() {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  if (!REPORT_ROLES.includes(session.user.role)) {
+    throw new Error("You do not have permission to view reports.")
   }
   return {
     organizationId: session.user.organizationId,
@@ -202,9 +219,10 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
   // Prepare 6-month timeline buckets
   const monthlyMap = new Map<string, MonthlyFinancialBucket>()
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-    const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    const current = colomboParts(now)
+    const d = new Date(Date.UTC(current.year, current.month - i, 1))
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+    const label = monthLabel(d.getUTCFullYear(), d.getUTCMonth())
     monthlyMap.set(key, {
       monthKey: key,
       monthLabel: label,
@@ -225,31 +243,29 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
         ? sale.items.reduce((sum, it) => sum + (it.vehicle?.purchasePrice || 0), 0)
         : 0
 
-    // Profit formula per prompt: (sale.totalAmount + sale.additionalCharges - sale.discount) - purchasePrice
-    const saleProfit =
-      sale.totalAmount +
-      (sale.additionalCharges || 0) -
-      (sale.discount || 0) -
-      vehicleCost
+    // Sale value = amount invoiced + advance already paid by the customer.
+    // totalAmount is already net of discount and includes additional charges, so
+    // they must not be applied again (that double-counted them), and the deducted
+    // advance is real revenue that totalAmount no longer contains.
+    const saleValue = sale.totalAmount + (sale.advanceDeducted || 0)
+    const saleProfit = saleValue - vehicleCost
 
     const commission =
       sale.commissionAmount && sale.commissionAmount > 0
         ? sale.commissionAmount
         : sale.financeCommission || sale.financeDetail?.dealerCommission || 0
 
-    totalRevenue += sale.totalAmount
+    totalRevenue += saleValue
     totalFinanceCommission += commission
     totalAcquisitionCost += vehicleCost
     netGrossProfit += saleProfit + commission
 
-    // Assign to monthly bucket if in last 6 months
-    const monthKey = `${sale.saleDate.getFullYear()}-${String(
-      sale.saleDate.getMonth() + 1
-    ).padStart(2, "0")}`
+    // Assign to monthly bucket if in last 6 months (Colombo calendar month)
+    const monthKey = colomboMonthKey(sale.saleDate)
 
     const bucket = monthlyMap.get(monthKey)
     if (bucket) {
-      bucket.revenue += sale.totalAmount
+      bucket.revenue += saleValue
       bucket.acquisitionCost += vehicleCost
       bucket.commission += commission
       bucket.grossProfit += saleProfit
@@ -1031,12 +1047,25 @@ export interface MonthlySalesReportData {
   sales: SalesReportItem[]
 }
 
+/**
+ * Cash actually received at the till for a sale, excluding the customer advance
+ * (collected earlier) and the finance company's loan (paid later, if at all).
+ * For finance sales that is the down payment; for cash sales the invoiced amount.
+ */
+function cashCollectedOnSale(
+  sale: { totalAmount: number; downPayment: number | null },
+  isFinance: boolean,
+): number {
+  const invoiced = Math.max(0, sale.totalAmount)
+  return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0)) : invoiced
+}
+
 export async function getDailySalesReport(dateStr?: string): Promise<DailySalesReportData> {
   const { organizationId } = await requireAuthOrg()
 
-  const targetDate = dateStr ? new Date(`${dateStr}T00:00:00.000`) : new Date()
-  const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0)
-  const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999)
+  // Day boundaries are Colombo calendar days, independent of the server's timezone.
+  const target = parseDateKey(dateStr) ?? colomboParts(new Date())
+  const { start: startOfDay, end: endOfDay } = colomboDayRange(target.year, target.month, target.day)
 
   const salesRaw = await prisma.sale.findMany({
     where: {
@@ -1079,12 +1108,10 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
 
     if (isFinance) {
       financeSalesTotal += grossPrice
-      // On finance sale, net cash collected is down payment / advance deducted if paid, or invoice cash component
-      netCashCollected += Math.max(0, s.totalAmount)
     } else {
       cashSalesTotal += grossPrice
-      netCashCollected += Math.max(0, s.totalAmount)
     }
+    netCashCollected += cashCollectedOnSale(s, isFinance)
 
     return {
       id: s.id,
@@ -1109,7 +1136,7 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
     }
   })
 
-  const formattedDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`
+  const formattedDateStr = `${target.year}-${String(target.month + 1).padStart(2, "0")}-${String(target.day).padStart(2, "0")}`
 
   return {
     selectedDate: formattedDateStr,
@@ -1128,20 +1155,12 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
 export async function getMonthlySalesReport(yearMonthStr?: string): Promise<MonthlySalesReportData> {
   const { organizationId } = await requireAuthOrg()
 
-  const now = new Date()
-  let year = now.getFullYear()
-  let month = now.getMonth() // 0-indexed
+  const selected = parseMonthKey(yearMonthStr) ?? colomboParts(new Date())
+  const { year, month } = selected
 
-  if (yearMonthStr) {
-    const parts = yearMonthStr.split("-")
-    if (parts.length === 2) {
-      year = parseInt(parts[0], 10)
-      month = parseInt(parts[1], 10) - 1
-    }
-  }
-
-  const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0)
-  const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999)
+  // Month boundaries are Colombo calendar days, independent of the server's timezone.
+  const startOfMonth = colomboDayRange(year, month, 1).start
+  const endOfMonth = colomboDayRange(year, month, daysInMonth(year, month)).end
 
   const salesRaw = await prisma.sale.findMany({
     where: {
@@ -1173,10 +1192,10 @@ export async function getMonthlySalesReport(yearMonthStr?: string): Promise<Mont
   let netCashCollected = 0
 
   // Map for daily breakdown within month
-  const daysInMonth = endOfMonth.getDate()
+  const dayCount = daysInMonth(year, month)
   const dailyMap = new Map<number, { date: string; dayLabel: string; salesCount: number; revenue: number; cashTotal: number; financeTotal: number }>()
 
-  for (let day = 1; day <= daysInMonth; day++) {
+  for (let day = 1; day <= dayCount; day++) {
     const dStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
     dailyMap.set(day, {
       date: dStr,
@@ -1200,13 +1219,12 @@ export async function getMonthlySalesReport(yearMonthStr?: string): Promise<Mont
 
     if (isFinance) {
       financeSalesTotal += grossPrice
-      netCashCollected += Math.max(0, s.totalAmount)
     } else {
       cashSalesTotal += grossPrice
-      netCashCollected += Math.max(0, s.totalAmount)
     }
+    netCashCollected += cashCollectedOnSale(s, isFinance)
 
-    const dayNumber = s.saleDate.getDate()
+    const dayNumber = colomboParts(s.saleDate).day
     const dayBucket = dailyMap.get(dayNumber)
     if (dayBucket) {
       dayBucket.salesCount += 1
@@ -1242,7 +1260,7 @@ export async function getMonthlySalesReport(yearMonthStr?: string): Promise<Mont
   })
 
   const ymString = `${year}-${String(month + 1).padStart(2, "0")}`
-  const ymLabel = startOfMonth.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+  const ymLabel = monthLabel(year, month)
 
   return {
     selectedYearMonth: ymString,

@@ -15,8 +15,6 @@ async function authenticate(
   const password = formData.get("password")
   const email = typeof submittedEmail === "string" ? submittedEmail.trim() : ""
 
-  console.log("LOGIN ATTEMPT:", email)
-
   let authError: { message: string } | null = null
   let dbError: unknown = null
 

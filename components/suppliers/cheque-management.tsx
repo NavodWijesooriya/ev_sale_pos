@@ -4,7 +4,13 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { LoaderCircle } from "lucide-react"
 import { toast } from "sonner"
-import { bounceCheque, clearCheque, type ChequeRow } from "@/app/actions/supplier-payments"
+import {
+  bounceCheque,
+  cancelCheque,
+  clearCheque,
+  markChequePresented,
+  type ChequeRow,
+} from "@/app/actions/supplier-payments"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -20,19 +26,25 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatDate, formatMoney, nativeSelectClass, StatusBadge, todayISO } from "./shared"
 
-type Filter = "ALL" | "PENDING" | "CLEARED" | "BOUNCED"
+type Filter = "ALL" | "ACTIVE" | "CLEARED" | "BOUNCED" | "CANCELLED"
+
+const ACTIVE = ["PENDING", "ISSUED", "PRESENTED"]
+const isActive = (status: string) => ACTIVE.includes(status)
 
 export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
   const router = useRouter()
-  const [filter, setFilter] = React.useState<Filter>("PENDING")
+  const [filter, setFilter] = React.useState<Filter>("ACTIVE")
+  const [cancelling, setCancelling] = React.useState<ChequeRow | null>(null)
   const [clearing, setClearing] = React.useState<ChequeRow | null>(null)
   const [clearedDate, setClearedDate] = React.useState(todayISO())
   const [bouncing, setBouncing] = React.useState<ChequeRow | null>(null)
   const [reason, setReason] = React.useState("")
   const [busy, setBusy] = React.useState(false)
 
-  const rows = cheques.filter((c) => filter === "ALL" || c.status === filter)
-  const pendingTotal = cheques.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amount, 0)
+  const rows = cheques.filter((c) =>
+    filter === "ALL" ? true : filter === "ACTIVE" ? isActive(c.status) : c.status === filter,
+  )
+  const pendingTotal = cheques.filter((c) => isActive(c.status)).reduce((s, c) => s + c.amount, 0)
   const today = todayISO()
 
   async function run(action: () => Promise<{ success: boolean; message: string }>, done: () => void) {
@@ -72,9 +84,10 @@ export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
             value={filter}
             onChange={(e) => setFilter(e.target.value as Filter)}
           >
-            <option value="PENDING">Pending</option>
+            <option value="ACTIVE">Awaiting clearance</option>
             <option value="CLEARED">Cleared</option>
             <option value="BOUNCED">Bounced</option>
+            <option value="CANCELLED">Cancelled</option>
             <option value="ALL">All</option>
           </select>
         </CardHeader>
@@ -101,7 +114,8 @@ export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
                 </TableRow>
               )}
               {rows.map((c) => {
-                const due = c.status === "PENDING" && c.chequeDate.slice(0, 10) <= today
+                const due = isActive(c.status) && c.chequeDate.slice(0, 10) <= today
+                const canPresent = c.status === "PENDING" || c.status === "ISSUED"
                 return (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.chequeNumber}</TableCell>
@@ -115,13 +129,28 @@ export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
                     <TableCell>{c.paymentNumber}</TableCell>
                     <TableCell>
                       <StatusBadge status={c.status} />
-                      {c.status === "BOUNCED" && c.bounceReason && (
+                      {(c.status === "BOUNCED" || c.status === "CANCELLED") && c.bounceReason && (
                         <p className="mt-1 text-xs text-muted-foreground">{c.bounceReason}</p>
                       )}
                     </TableCell>
                     <TableCell className="space-x-2 text-right">
-                      {c.status === "PENDING" && (
+                      {isActive(c.status) && (
                         <>
+                          {canPresent && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => run(() => markChequePresented({ chequeId: c.id }), () => undefined)}
+                            >
+                              Presented
+                            </Button>
+                          )}
+                          {canPresent && (
+                            <Button size="sm" variant="outline" onClick={() => { setCancelling(c); setReason("") }}>
+                              Cancel
+                            </Button>
+                          )}
                           <Button size="sm" onClick={() => { setClearing(c); setClearedDate(todayISO()) }}>
                             Clear
                           </Button>
@@ -160,6 +189,34 @@ export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
               }
             >
               {busy && <LoaderCircle className="size-4 animate-spin" />} Confirm cleared
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!cancelling} onOpenChange={(open) => !open && setCancelling(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel cheque {cancelling?.chequeNumber}</DialogTitle>
+            <DialogDescription>
+              Use this for a cheque that was never presented. The payment is reversed and the amount returns to the
+              outstanding balance of the GRNs it was applied to. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="cancel-reason">Reason (optional)</Label>
+            <Input id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelling(null)}>Keep cheque</Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() =>
+                cancelling && run(() => cancelCheque({ chequeId: cancelling.id, reason }), () => setCancelling(null))
+              }
+            >
+              {busy && <LoaderCircle className="size-4 animate-spin" />} Cancel cheque
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -27,8 +27,11 @@ export function StatusBadge({ status }: { status: string }) {
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">{status}</Badge>
     case "PARTIAL":
     case "PENDING":
+    case "ISSUED":
+    case "PRESENTED":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400">{status}</Badge>
     case "BOUNCED":
+    case "CANCELLED":
     case "REVERSED":
       return <Badge variant="destructive">{status}</Badge>
     default:

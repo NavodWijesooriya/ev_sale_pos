@@ -45,7 +45,13 @@ interface MakePaymentDialogProps {
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
-export function MakePaymentDialog({
+export function MakePaymentDialog(props: MakePaymentDialogProps) {
+  // Mount the form fresh on every open so its state starts clean.
+  if (!props.open) return null
+  return <MakePaymentDialogInner {...props} />
+}
+
+function MakePaymentDialogInner({
   open,
   onOpenChange,
   suppliers,
@@ -62,41 +68,18 @@ export function MakePaymentDialog({
   const [chequeNumber, setChequeNumber] = React.useState("")
   const [bankName, setBankName] = React.useState("")
   const [chequeDate, setChequeDate] = React.useState(todayISO())
-  const [grns, setGrns] = React.useState<PayableGrn[]>([])
-  const [advanceBalance, setAdvanceBalance] = React.useState(0)
+  const [loaded, setLoaded] = React.useState<{ supplierId: string; grns: PayableGrn[]; advanceBalance: number } | null>(null)
   const [alloc, setAlloc] = React.useState<Record<string, string>>({})
-  const [loading, setLoading] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
-
-  // Reset whenever the dialog is (re)opened
-  React.useEffect(() => {
-    if (!open) return
-    setSupplierId(initialSupplierId ?? "")
-    setMethod("Cash")
-    setAmount("")
-    setPaymentDate(todayISO())
-    setReferenceNo("")
-    setNotes("")
-    setChequeNumber("")
-    setBankName("")
-    setChequeDate(todayISO())
-    setAlloc({})
-  }, [open, initialSupplierId])
 
   // Load payable GRNs for the chosen supplier
   React.useEffect(() => {
-    if (!open || !supplierId) {
-      setGrns([])
-      setAdvanceBalance(0)
-      return
-    }
+    if (!supplierId) return
     let cancelled = false
-    setLoading(true)
     getSupplierPayableDetails(supplierId)
       .then((details) => {
         if (cancelled) return
-        setGrns(details.grns)
-        setAdvanceBalance(details.advanceBalance)
+        setLoaded({ supplierId, grns: details.grns, advanceBalance: details.advanceBalance })
         const target = details.grns.find((g) => g.id === initialGrnId)
         if (target) {
           setAlloc({ [target.id]: String(target.balanceAmount) })
@@ -106,11 +89,15 @@ export function MakePaymentDialog({
         }
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load GRNs."))
-      .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [open, supplierId, initialGrnId])
+  }, [supplierId, initialGrnId])
+
+  const current = loaded?.supplierId === supplierId ? loaded : null
+  const grns = current?.grns ?? []
+  const advanceBalance = current?.advanceBalance ?? 0
+  const loading = Boolean(supplierId) && !current
 
   const isAdvanceMode = method === "ADVANCE"
   const paymentAmount = Number(amount) || 0

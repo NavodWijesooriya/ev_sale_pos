@@ -18,8 +18,9 @@ export async function uploadImageAction(
       return { success: false, error: "No file provided" }
     }
 
-    if (!file.type.startsWith("image/")) {
-      return { success: false, error: "Only image files are permitted" }
+    // Raster formats only: SVG can carry scripts and is served from our origin.
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(file.type)) {
+      return { success: false, error: "Only JPEG, PNG, WebP, GIF or AVIF images are permitted" }
     }
 
     if (file.size > 10 * 1024 * 1024) {

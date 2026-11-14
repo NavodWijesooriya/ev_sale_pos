@@ -18,8 +18,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate mime type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 })
+    // Raster formats only: SVG can carry scripts and is served from our origin.
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(file.type)) {
+      return NextResponse.json({ error: "Only JPEG, PNG, WebP, GIF or AVIF images are allowed" }, { status: 400 })
     }
 
     // Max 10MB

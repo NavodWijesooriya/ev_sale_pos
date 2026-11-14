@@ -8,6 +8,9 @@ async function requireOrganization() {
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
   }
+  if (!["OrgAdmin", "BranchManager", "SuperAdmin"].includes(session.user.role)) {
+    throw new Error("You do not have permission to view commission reports.")
+  }
   return { organizationId: session.user.organizationId, role: session.user.role }
 }
 

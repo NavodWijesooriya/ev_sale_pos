@@ -219,6 +219,8 @@ export async function recordSupplierPayment(
             bankName: data.cheque.bankName,
             chequeDate: parseDate(data.cheque.chequeDate),
             amount,
+            status: ChequeStatus.ISSUED,
+            events: { create: { fromStatus: null, toStatus: ChequeStatus.ISSUED, note: "Cheque issued", userId } },
           },
         })
       }
@@ -318,94 +320,156 @@ export async function allocateAdvanceToGrns(input: AllocateAdvanceInput): Promis
 
 // ---------------------------------------------------------------------------
 // Cheque lifecycle
+//
+//   ISSUED ──> PRESENTED ──> CLEARED
+//      │           │
+//      ├───────────┴──> BOUNCED   (payment reversed)
+//      └──────────────> CANCELLED (payment reversed)
+//
+// PENDING is a legacy alias of ISSUED. CLEARED / BOUNCED / CANCELLED are final.
+// Every transition is written to ChequeEvent for audit.
 // ---------------------------------------------------------------------------
+
+const ACTIVE_CHEQUE_STATUSES: ChequeStatus[] = [ChequeStatus.PENDING, ChequeStatus.ISSUED, ChequeStatus.PRESENTED]
+
+const ALLOWED_FROM: Record<"PRESENTED" | "CLEARED" | "BOUNCED" | "CANCELLED", ChequeStatus[]> = {
+  PRESENTED: [ChequeStatus.PENDING, ChequeStatus.ISSUED],
+  CLEARED: ACTIVE_CHEQUE_STATUSES,
+  BOUNCED: ACTIVE_CHEQUE_STATUSES,
+  CANCELLED: [ChequeStatus.PENDING, ChequeStatus.ISSUED],
+}
+
+/** Rolls back every GRN allocation (and any advance) funded by a payment. Runs inside a transaction. */
+async function reversePayment(tx: Tx, paymentId: string, organizationId: string, reason: string) {
+  const allocations = await tx.supplierPaymentAllocation.findMany({ where: { paymentId } })
+  for (const a of allocations) {
+    await applyToGrn(tx, a.grnId, organizationId, -a.amount)
+  }
+
+  // Void advances funded by this payment, undoing any GRN allocations made from them
+  const advances = await tx.supplierAdvance.findMany({ where: { paymentId }, include: { allocations: true } })
+  for (const advance of advances) {
+    for (const a of advance.allocations) {
+      await applyToGrn(tx, a.grnId, organizationId, -a.amount)
+    }
+    await tx.supplierAdvanceAllocation.deleteMany({ where: { advanceId: advance.id } })
+    await tx.supplierAdvance.update({
+      where: { id: advance.id },
+      data: { usedAmount: 0, balanceAmount: 0, notes: `${advance.notes ?? ""} [Voided: ${reason}]`.trim() },
+    })
+  }
+
+  await tx.supplierPayment.update({
+    where: { id: paymentId },
+    data: { status: SupplierPaymentStatus.REVERSED, reversedAt: new Date() },
+  })
+}
+
+/**
+ * Moves a cheque to a new status exactly once. The status-guarded updateMany makes
+ * double clicks and concurrent requests fail instead of repeating side effects
+ * (in particular, a payment can only be reversed one time).
+ */
+async function transitionCheque(
+  chequeId: string,
+  to: "PRESENTED" | "CLEARED" | "BOUNCED" | "CANCELLED",
+  opts: { note?: string; clearedAt?: Date } = {},
+) {
+  const { organizationId, userId } = await requireOrganizationUser()
+
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.cheque.findFirst({
+      where: { id: chequeId, organizationId },
+      select: { status: true, paymentId: true },
+    })
+    if (!current) throw new Error("Cheque not found.")
+
+    const now = new Date()
+    const updated = await tx.cheque.updateMany({
+      where: { id: chequeId, organizationId, status: current.status, AND: { status: { in: ALLOWED_FROM[to] } } },
+      data: {
+        status: ChequeStatus[to],
+        ...(to === "CLEARED" ? { clearedAt: opts.clearedAt ?? now } : {}),
+        ...(to === "BOUNCED" ? { bouncedAt: now, bounceReason: opts.note || null } : {}),
+      },
+    })
+    if (updated.count !== 1) {
+      throw new Error(`A ${current.status.toLowerCase()} cheque cannot be marked as ${to.toLowerCase()}.`)
+    }
+
+    await tx.chequeEvent.create({
+      data: { chequeId, fromStatus: current.status, toStatus: ChequeStatus[to], note: opts.note || null, userId },
+    })
+
+    if (to === "CLEARED") {
+      await tx.supplierPayment.update({
+        where: { id: current.paymentId },
+        data: { status: SupplierPaymentStatus.COMPLETED },
+      })
+    } else if (to === "BOUNCED" || to === "CANCELLED") {
+      await reversePayment(tx, current.paymentId, organizationId, `cheque ${to.toLowerCase()}`)
+    }
+  })
+
+  revalidateSupplierPages()
+}
+
+export async function markChequePresented(input: { chequeId: string }): Promise<ActionResult> {
+  try {
+    await transitionCheque(input.chequeId, "PRESENTED")
+    return { success: true, message: "Cheque marked as presented to the bank." }
+  } catch (error) {
+    return failure("markChequePresented", error)
+  }
+}
 
 export async function clearCheque(input: { chequeId: string; clearedDate?: string }): Promise<ActionResult> {
   try {
-    const { organizationId } = await requireOrganizationUser()
     const data = clearChequeSchema.parse(input)
-
-    await prisma.$transaction(async (tx) => {
-      // updateMany with a status guard makes this safe against double-clicks / races.
-      const updated = await tx.cheque.updateMany({
-        where: { id: data.chequeId, organizationId, status: ChequeStatus.PENDING },
-        data: { status: ChequeStatus.CLEARED, clearedAt: data.clearedDate ? parseDate(data.clearedDate) : new Date() },
-      })
-      if (updated.count !== 1) throw new Error("Only pending cheques can be cleared.")
-
-      const cheque = await tx.cheque.findUniqueOrThrow({ where: { id: data.chequeId }, select: { paymentId: true } })
-      await tx.supplierPayment.update({
-        where: { id: cheque.paymentId },
-        data: { status: SupplierPaymentStatus.COMPLETED },
-      })
+    await transitionCheque(data.chequeId, "CLEARED", {
+      clearedAt: data.clearedDate ? parseDate(data.clearedDate) : undefined,
     })
-
-    revalidateSupplierPages()
     return { success: true, message: "Cheque marked as cleared." }
   } catch (error) {
     return failure("clearCheque", error)
   }
 }
 
-/**
- * Marks a cheque as bounced and automatically reverses its payment: every GRN
- * allocation is rolled back, and any advance it funded is voided (including
- * advance money that had already been applied to GRNs).
- */
+/** Bounce: the payment is reversed automatically (allocations rolled back, advances voided). */
 export async function bounceCheque(input: { chequeId: string; reason?: string }): Promise<ActionResult> {
   try {
-    const { organizationId } = await requireOrganizationUser()
     const data = bounceChequeSchema.parse(input)
-
-    await prisma.$transaction(async (tx) => {
-      const updated = await tx.cheque.updateMany({
-        where: { id: data.chequeId, organizationId, status: ChequeStatus.PENDING },
-        data: { status: ChequeStatus.BOUNCED, bouncedAt: new Date(), bounceReason: data.reason || null },
-      })
-      if (updated.count !== 1) throw new Error("Only pending cheques can be marked as bounced.")
-
-      const cheque = await tx.cheque.findUniqueOrThrow({
-        where: { id: data.chequeId },
-        select: { paymentId: true },
-      })
-
-      // 1. Roll back direct GRN allocations
-      const allocations = await tx.supplierPaymentAllocation.findMany({ where: { paymentId: cheque.paymentId } })
-      for (const a of allocations) {
-        await applyToGrn(tx, a.grnId, organizationId, -a.amount)
-      }
-
-      // 2. Void advances funded by this payment, undoing any GRN allocations made from them
-      const advances = await tx.supplierAdvance.findMany({
-        where: { paymentId: cheque.paymentId },
-        include: { allocations: true },
-      })
-      for (const advance of advances) {
-        for (const a of advance.allocations) {
-          await applyToGrn(tx, a.grnId, organizationId, -a.amount)
-        }
-        await tx.supplierAdvanceAllocation.deleteMany({ where: { advanceId: advance.id } })
-        await tx.supplierAdvance.update({
-          where: { id: advance.id },
-          data: {
-            usedAmount: 0,
-            balanceAmount: 0,
-            notes: `${advance.notes ?? ""} [Voided: cheque bounced]`.trim(),
-          },
-        })
-      }
-
-      await tx.supplierPayment.update({
-        where: { id: cheque.paymentId },
-        data: { status: SupplierPaymentStatus.REVERSED, reversedAt: new Date() },
-      })
-    })
-
-    revalidateSupplierPages()
+    await transitionCheque(data.chequeId, "BOUNCED", { note: data.reason })
     return { success: true, message: "Cheque marked as bounced and the payment was reversed." }
   } catch (error) {
     return failure("bounceCheque", error)
   }
+}
+
+/** Cancel a cheque that was issued but never presented; the payment is reversed too. */
+export async function cancelCheque(input: { chequeId: string; reason?: string }): Promise<ActionResult> {
+  try {
+    const data = bounceChequeSchema.parse(input)
+    await transitionCheque(data.chequeId, "CANCELLED", { note: data.reason })
+    return { success: true, message: "Cheque cancelled and the payment was reversed." }
+  } catch (error) {
+    return failure("cancelCheque", error)
+  }
+}
+
+export async function getChequeHistory(chequeId: string) {
+  const { organizationId } = await requireOrganizationUser()
+  const events = await prisma.chequeEvent.findMany({
+    where: { chequeId, cheque: { organizationId } },
+    orderBy: { createdAt: "asc" },
+  })
+  return events.map((e) => ({
+    id: e.id,
+    fromStatus: e.fromStatus,
+    toStatus: e.toStatus,
+    note: e.note,
+    createdAt: e.createdAt.toISOString(),
+  }))
 }
 
 // ---------------------------------------------------------------------------
@@ -644,7 +708,7 @@ export async function getSupplierOutstandingReport(): Promise<SupplierOutstandin
     prisma.supplierAdvance.groupBy({ by: ["supplierId"], where: { organizationId }, _sum: { balanceAmount: true } }),
     prisma.cheque.groupBy({
       by: ["supplierId"],
-      where: { organizationId, status: ChequeStatus.PENDING },
+      where: { organizationId, status: { in: ACTIVE_CHEQUE_STATUSES } },
       _sum: { amount: true },
     }),
   ])

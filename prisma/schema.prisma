@@ -305,14 +305,30 @@ model Cheque {
   bankName     String
   amount       Float
   chequeDate   DateTime // date written on the cheque (may be post-dated)
-  status       ChequeStatus @default(PENDING)
+  status       ChequeStatus @default(ISSUED)
   clearedAt    DateTime?
   bouncedAt    DateTime?
   bounceReason String?
   createdAt    DateTime     @default(now())
 
+  events ChequeEvent[]
+
   @@index([organizationId, status])
   @@index([supplierId])
+}
+
+// Append-only audit trail of every cheque status change.
+model ChequeEvent {
+  id         String        @id @default(uuid())
+  chequeId   String
+  cheque     Cheque        @relation(fields: [chequeId], references: [id], onDelete: Cascade)
+  fromStatus ChequeStatus?
+  toStatus   ChequeStatus
+  note       String?
+  userId     String?
+  createdAt  DateTime      @default(now())
+
+  @@index([chequeId])
 }
 
 // Money paid to a supplier ahead of any GRN (or overpayment). Consumed by
@@ -416,9 +432,13 @@ enum PaymentMethod {
 }
 
 enum ChequeStatus {
-  PENDING
+  PENDING // legacy: treated the same as ISSUED
+  PREPARED
+  ISSUED
+  PRESENTED
   CLEARED
   BOUNCED
+  CANCELLED
 }
 
 enum PaymentStatus {

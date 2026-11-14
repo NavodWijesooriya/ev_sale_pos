@@ -16,6 +16,9 @@ export default async function ReportsPage() {
   if (!session?.user?.organizationId) {
     redirect("/login")
   }
+  if (!["OrgAdmin", "BranchManager", "SuperAdmin"].includes(session.user.role)) {
+    redirect("/dashboard")
+  }
 
   // Fetch unified reports data spanning sales, commissions, advances, service, and GRN batches
   const data = await getUnifiedReportsData()

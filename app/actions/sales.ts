@@ -582,13 +582,19 @@ export async function processSale(input: ProcessSaleInput) {
         },
       })
 
-      // Step E: Update Vehicle status from InStock to Sold
-      await tx.vehicle.update({
-        where: { id: vehicle.id },
-        data: {
-          status: VehicleStatus.Sold,
+      // Step E: Atomically claim the vehicle. The status filter makes concurrent
+      // sales of the same bike fail instead of both succeeding.
+      const claimed = await tx.vehicle.updateMany({
+        where: {
+          id: vehicle.id,
+          organizationId,
+          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
         },
+        data: { status: VehicleStatus.Sold },
       })
+      if (claimed.count !== 1) {
+        throw new Error("This vehicle was just sold or reserved. Refresh stock and try again.")
+      }
 
       // Step F: Create FinanceDetail record if applicable
       let financeRecord = null
