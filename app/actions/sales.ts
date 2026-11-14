@@ -16,9 +16,14 @@ import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import {
   createNewSaleSchema,
   extendedWarrantyPrice,
+  insuranceCommissionFor,
   saleWarrantyOptions,
   type CreateNewSaleInput,
 } from "@/lib/validations/new-sale"
+
+/** Only the dealership owner / platform admin may see or set commissions. */
+const COMMISSION_ROLES = ["OrgAdmin", "SuperAdmin"]
+const canManageCommissions = (role: string) => COMMISSION_ROLES.includes(role)
 
 /**
  * Enforces session authentication and extracts the user's organizationId and userId
@@ -85,7 +90,8 @@ export async function createNewSale(
   input: CreateNewSaleInput,
 ): Promise<{ success: true; saleId: string; invoiceNumber: string } | { success: false; error: string }> {
   try {
-    const { organizationId, userId } = await requireAuthOrg()
+    const { organizationId, userId, user } = await requireAuthOrg()
+    const commissionsAllowed = canManageCommissions(user.role)
     const parsedInput = createNewSaleSchema.safeParse(input)
     if (!parsedInput.success) {
       return {
@@ -98,7 +104,8 @@ export async function createNewSale(
     const advancePaymentId = data.advancePaymentId?.trim() || null
     const financeCompanyId = data.financeCompanyId?.trim() || null
     const insuranceCompanyId = data.insuranceCompanyId?.trim() || null
-    const commissionRecipientId = data.commissionRecipientId?.trim() || null
+    // Non-owner/admin users can never set commissions: anything sent by the client is ignored.
+    const commissionRecipientId = commissionsAllowed ? data.commissionRecipientId?.trim() || null : null
     const result = await prisma.$transaction(async (tx) => {
       const [customer, vehicle, financeCompany, insuranceCompany] = await Promise.all([
         tx.customer.findFirst({
@@ -183,13 +190,19 @@ export async function createNewSale(
       const isFinance = data.paymentType === "FINANCE" || Boolean(financeCompanyId)
       const financeAmt = isFinance ? (data.financeAmount ?? 0) : 0
       const downPmt = isFinance ? (data.downPayment ?? 0) : 0
-      const commBasis = isFinance ? (data.commissionBasis ?? "FINANCE_AMOUNT") : "FINANCE_AMOUNT"
-      const commRate = isFinance ? (data.commissionRate ?? 0) : 0
-      const finalCommissionAmt = isFinance
+      const financeCommissionApplies = isFinance && commissionsAllowed
+      const commBasis = financeCommissionApplies ? (data.commissionBasis ?? "FINANCE_AMOUNT") : "FINANCE_AMOUNT"
+      const commRate = financeCommissionApplies ? (data.commissionRate ?? 0) : 0
+      const finalCommissionAmt = financeCommissionApplies
         ? (data.commissionAmount != null
             ? data.commissionAmount
             : (data.financeCommission ?? 0))
         : 0
+      // Insurance commission is computed here, never taken from the client:
+      // Rs. 2,000 for Full Insurance on a cash sale, otherwise 0.
+      const insuranceType = data.insuranceType
+      const insuranceCommissionAmt = commissionsAllowed ? insuranceCommissionFor(insuranceType, isFinance) : 0
+      const effectiveInsuranceCompanyId = insuranceType === "FULL_DEALER" ? insuranceCompanyId : null
 
       const sale = await tx.sale.create({
         data: {
@@ -214,11 +227,12 @@ export async function createNewSale(
           freeServices: data.freeServices,
           advancePaymentId,
           financeCompanyId: isFinance ? financeCompanyId : null,
-          insuranceCompanyId,
+          insuranceCompanyId: effectiveInsuranceCompanyId,
+          insuranceType,
           advanceDeducted: advanceAmount,
           financeCommission: isFinance ? finalCommissionAmt : null,
-          insuranceCommission: insuranceCompanyId ? data.insuranceCommission ?? null : null,
-          commissionRecipientId: (isFinance && commissionRecipientId) ? commissionRecipientId : (commissionRecipientId || null),
+          insuranceCommission: insuranceCommissionAmt,
+          commissionRecipientId,
           items: {
             create: {
               vehicleId: vehicle.id,
@@ -418,7 +432,9 @@ export async function getSalesHistory() {
  */
 export async function processSale(input: ProcessSaleInput) {
   try {
-    const { organizationId, userId } = await requireAuthOrg()
+    const { organizationId, userId, user } = await requireAuthOrg()
+    // Commissions are owner/admin only; ignore any dealerCommission sent by other roles.
+    const dealerCommission = canManageCommissions(user.role) ? input.dealerCommission : undefined
 
     // 1. Validation
     if (!input.vehicleId?.trim()) {
@@ -565,7 +581,7 @@ export async function processSale(input: ProcessSaleInput) {
           paymentType: isFinance ? "FINANCE" : "CASH",
           financeAmount: isFinance ? (Number(input.totalFinanceAmount) || 0) : 0,
           downPayment: isFinance ? (Number(input.downPaymentPaid) || 0) : 0,
-          commissionAmount: isFinance && input.dealerCommission ? Number(input.dealerCommission) : 0,
+          commissionAmount: isFinance && dealerCommission ? Number(dealerCommission) : 0,
           deliveryDate: input.deliveryDate ? new Date(input.deliveryDate) : new Date(),
           paymentMethod: input.paymentMethod,
           status: "Completed",
@@ -605,7 +621,7 @@ export async function processSale(input: ProcessSaleInput) {
             financeCompany: input.financeCompany!.trim(),
             totalFinanceAmount: Number(input.totalFinanceAmount) || 0,
             downPaymentPaid: Number(input.downPaymentPaid) || 0,
-            dealerCommission: input.dealerCommission !== undefined ? Number(input.dealerCommission) : null,
+            dealerCommission: dealerCommission !== undefined ? Number(dealerCommission) : null,
             status: FinanceStatus.Pending,
           },
         })

@@ -25,6 +25,10 @@ export default async function NewSalePage() {
     redirect("/login?callbackUrl=/dashboard/sales/new")
   }
 
+  // Only the owner / platform admin may see commission rates, amounts or recipients.
+  // Strip them server-side so they never reach a staff member's browser.
+  const canManageCommission = ["OrgAdmin", "SuperAdmin"].includes(session.user.role)
+
   const [result, financeCompanies, insuranceCompanies] = await Promise.all([
     getPOSInitialData(),
     getFinanceCompanies(),
@@ -74,16 +78,16 @@ export default async function NewSalePage() {
   const financeOptions: FinanceInsuranceOption[] = financeCompanies.map((c) => ({
     id: c.id,
     name: c.name,
-    defaultCommissionRate: c.defaultCommissionRate,
+    defaultCommissionRate: canManageCommission ? c.defaultCommissionRate : null,
   }))
 
   const insuranceOptions: FinanceInsuranceOption[] = insuranceCompanies.map((c) => ({
     id: c.id,
     name: c.name,
-    defaultCommissionRate: c.defaultCommissionRate,
+    defaultCommissionRate: canManageCommission ? c.defaultCommissionRate : null,
   }))
 
-  const staffOptions: StaffOption[] = ((result.data as any).staff ?? []).map((s: any) => ({
+  const staffOptions: StaffOption[] = (canManageCommission ? ((result.data as any).staff ?? []) : []).map((s: any) => ({
     id: s.id,
     name: s.name,
     email: s.email,
@@ -108,6 +112,7 @@ export default async function NewSalePage() {
         financeCompanies={financeOptions}
         insuranceCompanies={insuranceOptions}
         staff={staffOptions}
+        canManageCommission={canManageCommission}
       />
     </div>
   )

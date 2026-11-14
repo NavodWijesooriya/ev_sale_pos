@@ -46,7 +46,10 @@ import {
   salePaymentMethods,
   saleWarrantyOptions,
   commissionBasisOptions,
+  FULL_INSURANCE_COMMISSION,
+  insuranceCommissionFor,
   type CommissionBasis,
+  type InsuranceTypeOption,
   type CreateNewSaleInput,
 } from "@/lib/validations/new-sale"
 
@@ -110,6 +113,8 @@ interface NewSaleFormProps {
   financeCompanies?: FinanceInsuranceOption[]
   insuranceCompanies?: FinanceInsuranceOption[]
   staff?: StaffOption[]
+  /** Owner/admin only. When false, every commission field is hidden and never sent. */
+  canManageCommission?: boolean
   recentSales?: Array<{
     id: string
     customerName: string
@@ -136,6 +141,7 @@ const defaultValues: CreateNewSaleInput = {
   commissionBasis: "FINANCE_AMOUNT",
   commissionRate: 1,
   commissionAmount: 0,
+  insuranceType: "NONE",
   insuranceCompanyId: "",
   financeCommission: null,
   insuranceCommission: null,
@@ -148,6 +154,7 @@ export function NewSaleForm({
   financeCompanies = [],
   insuranceCompanies = [],
   staff = [],
+  canManageCommission = false,
   onSaleComplete,
 }: NewSaleFormProps) {
   const router = useRouter()
@@ -174,6 +181,8 @@ export function NewSaleForm({
   const warrantyOption = useWatch({ control: form.control, name: "warrantyOption" })
   const financeCompanyId = useWatch({ control: form.control, name: "financeCompanyId" })
   const insuranceCompanyId = useWatch({ control: form.control, name: "insuranceCompanyId" })
+  const insuranceType = (useWatch({ control: form.control, name: "insuranceType" }) ?? "NONE") as InsuranceTypeOption
+  const insuranceCommission = insuranceCommissionFor(insuranceType, paymentType === "FINANCE")
 
   const selectedCustomer = customers.find((customer) => customer.id === customerId)
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === vehicleId)
@@ -253,11 +262,11 @@ export function NewSaleForm({
 
   // Auto-calculate commissionAmount when inputs change, unless staff manually overrides it
   React.useEffect(() => {
-    if (paymentType === "FINANCE" && !isCommissionOverridden) {
+    if (canManageCommission && paymentType === "FINANCE" && !isCommissionOverridden) {
       form.setValue("commissionAmount", calculatedCommission, { shouldDirty: true })
       form.setValue("financeCommission", calculatedCommission, { shouldDirty: true })
     }
-  }, [paymentType, calculatedCommission, isCommissionOverridden, form])
+  }, [canManageCommission, paymentType, calculatedCommission, isCommissionOverridden, form])
 
   const handleBasisChange = (basis: CommissionBasis) => {
     form.setValue("commissionBasis", basis, { shouldDirty: true, shouldValidate: true })
@@ -373,11 +382,27 @@ export function NewSaleForm({
     }
 
     try {
-      const finalValues: CreateNewSaleInput = {
-        ...values,
-        commissionAmount: values.commissionAmount ?? values.financeCommission ?? 0,
-        financeCommission: values.commissionAmount ?? values.financeCommission ?? 0,
-      }
+      // Staff never send commission data (the server also ignores it); the server
+      // computes the insurance commission from insuranceType, so it is not sent.
+      const insuranceCompanyForSale = values.insuranceType === "FULL_DEALER" ? values.insuranceCompanyId : ""
+      const finalValues: CreateNewSaleInput = canManageCommission
+        ? {
+            ...values,
+            commissionAmount: values.commissionAmount ?? values.financeCommission ?? 0,
+            financeCommission: values.commissionAmount ?? values.financeCommission ?? 0,
+            insuranceCommission: null,
+            insuranceCompanyId: insuranceCompanyForSale,
+          }
+        : {
+            ...values,
+            commissionBasis: "FINANCE_AMOUNT",
+            commissionRate: 0,
+            commissionAmount: 0,
+            financeCommission: 0,
+            insuranceCommission: null,
+            commissionRecipientId: "",
+            insuranceCompanyId: insuranceCompanyForSale,
+          }
       const result = await createNewSale(finalValues)
       if (!result.success) {
         toast.error(result.error)
@@ -805,7 +830,7 @@ export function NewSaleForm({
                     <div>
                       <CardTitle>Finance Sale Financial Breakdown</CardTitle>
                       <CardDescription>
-                        Set the financing institute, loan amount, customer down payment, and staff commission.
+                        Set the financing institute, loan amount, and customer down payment.
                       </CardDescription>
                     </div>
                   </div>
@@ -965,7 +990,8 @@ export function NewSaleForm({
                   </div>
                 )}
 
-                {/* Secondary Section: Finance Commission Management */}
+                {/* Secondary Section: Finance Commission Management (owner/admin only) */}
+                {canManageCommission && (
                 <div className="rounded-xl border border-blue-500/20 bg-card p-4 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b">
                     <div className="flex items-center gap-2">
@@ -1126,55 +1152,71 @@ export function NewSaleForm({
                     </div>
                   </div>
                 </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Insurance Details (Optional) */}
-          {insuranceCompanies.length > 0 && (
-            <Card className="rounded-2xl border-border/70 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                    <ShieldCheck className="size-5" />
-                  </span>
-                  <div>
-                    <CardTitle>Insurance Details <span className="ml-1 text-xs font-normal text-muted-foreground">(Optional)</span></CardTitle>
-                    <CardDescription>Record vehicle insurance partner and dealer commission.</CardDescription>
-                  </div>
+          {/* Insurance Details */}
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <div>
+                  <CardTitle>Insurance <span className="ml-1 text-xs font-normal text-muted-foreground">(Optional)</span></CardTitle>
+                  <CardDescription>Record how this vehicle will be insured.</CardDescription>
                 </div>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sale-insurance-type" className="text-xs font-semibold">Insurance type</Label>
+                <Controller
+                  name="insuranceType"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value)
+                        if (value !== "FULL_DEALER") form.setValue("insuranceCompanyId", "", { shouldDirty: true })
+                      }}
+                    >
+                      <SelectTrigger id="sale-insurance-type" className="w-full bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">No insurance</SelectItem>
+                        <SelectItem value="FULL_DEALER">Full insurance (through dealership)</SelectItem>
+                        <SelectItem value="CUSTOMER_OWN">Customer&apos;s own insurance (Pitin)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+
+              {insuranceType === "FULL_DEALER" && insuranceCompanies.length > 0 && (
                 <div className="space-y-2">
-                  <Label htmlFor="sale-insurance-company" className="text-xs font-semibold flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5 text-muted-foreground" />
-                    Insurance Company
-                  </Label>
+                  <Label htmlFor="sale-insurance-company" className="text-xs font-semibold">Insurance company</Label>
                   <Controller
                     name="insuranceCompanyId"
                     control={form.control}
                     render={({ field }) => (
                       <Select
-                        value={field.value ?? ""}
-                        onValueChange={(value) => {
-                          field.onChange(value === "__none__" ? "" : value)
-                          const company = insuranceCompanies.find((c) => c.id === value)
-                          if (company?.defaultCommissionRate != null) {
-                            form.setValue("insuranceCommission", company.defaultCommissionRate, { shouldDirty: true })
-                          } else if (value === "__none__") {
-                            form.setValue("insuranceCommission", null)
-                          }
-                        }}
+                        value={field.value || "__none__"}
+                        onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
                       >
                         <SelectTrigger id="sale-insurance-company" className="w-full bg-background">
-                          <SelectValue placeholder="None — No insurance" />
+                          <SelectValue placeholder="Select company" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">None — No insurance</SelectItem>
+                          <SelectItem value="__none__">Not specified</SelectItem>
                           {insuranceCompanies.map((company) => (
                             <SelectItem key={company.id} value={company.id}>
                               {company.name}
-                              {company.defaultCommissionRate != null
+                              {canManageCommission && company.defaultCommissionRate != null
                                 ? ` (${company.defaultCommissionRate}%)`
                                 : ""}
                             </SelectItem>
@@ -1184,28 +1226,26 @@ export function NewSaleForm({
                     )}
                   />
                 </div>
-                {selectedInsuranceCompany && (
-                  <div className="space-y-2">
-                    <Label htmlFor="sale-insurance-commission" className="text-xs font-semibold">Insurance Commission (Rs.)</Label>
-                    <Input
-                      id="sale-insurance-commission"
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      placeholder="Enter commission amount"
-                      {...form.register("insuranceCommission", { valueAsNumber: true })}
-                      className="bg-background"
-                    />
-                    {selectedInsuranceCompany.defaultCommissionRate != null && (
-                      <p className="text-[11px] text-muted-foreground">
-                        Default rate: {selectedInsuranceCompany.defaultCommissionRate}%
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+              )}
+
+              {canManageCommission && (
+                <div className="space-y-1 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-xs sm:col-span-2">
+                  <p className="font-semibold text-foreground">
+                    Insurance commission: {formatLKR(insuranceCommission)}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {insuranceType === "FULL_DEALER" && paymentType === "FINANCE"
+                      ? "No insurance commission on finance sales."
+                      : insuranceType === "FULL_DEALER"
+                        ? `Fixed ${formatLKR(FULL_INSURANCE_COMMISSION)} for full insurance issued through the dealership.`
+                        : insuranceType === "CUSTOMER_OWN"
+                          ? "No commission when the customer arranges their own insurance."
+                          : "No commission without dealership insurance."}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">

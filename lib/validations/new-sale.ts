@@ -22,6 +22,21 @@ export const extendedWarrantyPrice = 25_000
 export const commissionBasisOptions = ["FINANCE_AMOUNT", "VEHICLE_PRICE", "FIXED"] as const
 export type CommissionBasis = (typeof commissionBasisOptions)[number]
 
+export const insuranceTypeOptions = ["NONE", "FULL_DEALER", "CUSTOMER_OWN"] as const
+export type InsuranceTypeOption = (typeof insuranceTypeOptions)[number]
+
+/** Dealer insurance commission, in LKR, for a Full Insurance policy sold on a cash sale. */
+export const FULL_INSURANCE_COMMISSION = 2_000
+
+/**
+ * Insurance commission rule (single source of truth for UI and server):
+ * - only Full Insurance issued through the dealership earns commission
+ * - finance sales earn none, customer's own insurance earns none
+ */
+export function insuranceCommissionFor(insuranceType: InsuranceTypeOption, isFinance: boolean): number {
+  return insuranceType === "FULL_DEALER" && !isFinance ? FULL_INSURANCE_COMMISSION : 0
+}
+
 export const createNewSaleSchema = z.object({
   customerId: z.string().trim().min(1, "Select a customer."),
   vehicleId: z.string().trim().min(1, "Select a vehicle."),
@@ -37,6 +52,7 @@ export const createNewSaleSchema = z.object({
   commissionBasis: z.enum(commissionBasisOptions),
   commissionRate: z.number().min(0).optional().nullable(),
   commissionAmount: z.number().min(0).optional().nullable(),
+  insuranceType: z.enum(insuranceTypeOptions),
   insuranceCompanyId: z.string().trim().optional().or(z.literal("")),
   financeCommission: z.number().min(0).optional().nullable(),
   insuranceCommission: z.number().min(0).optional().nullable(),

@@ -431,6 +431,13 @@ enum PaymentMethod {
   CHEQUE
 }
 
+// How the customer's vehicle insurance is arranged at sale time.
+enum InsuranceType {
+  NONE
+  FULL_DEALER // comprehensive cover issued through the dealership
+  CUSTOMER_OWN // customer arranges their own policy ("Customer Pitin")
+}
+
 enum ChequeStatus {
   PENDING // legacy: treated the same as ISSUED
   PREPARED
@@ -499,6 +506,7 @@ model Sale {
   advanceDeducted       Float             @default(0) // Amount deducted from advance payment at checkout
   financeCommission     Float?
   insuranceCommission   Float?
+  insuranceType         InsuranceType     @default(NONE)
   commissionRecipientId String? // Staff member credited with finance commission
   commissionRecipient   User?             @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
   deliveryDate          DateTime? // අලුතින් එකතු කළ කොටස
