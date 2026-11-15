@@ -324,7 +324,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
                             </SelectTrigger>
                             <SelectContent align="start">
                               {roleOptions.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                <SelectItem key={opt.value} value={opt.value} label={opt.label} className="text-xs">
                                   <div className="flex flex-col">
                                     <span className="font-medium">{opt.label}</span>
                                     <span className="text-[10px] text-muted-foreground">{opt.description}</span>
@@ -468,7 +468,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
                 </SelectTrigger>
                 <SelectContent>
                   {roleOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <SelectItem key={opt.value} value={opt.value} label={opt.label}>
                       <div className="flex flex-col text-left">
                         <span className="font-medium text-xs">{opt.label}</span>
                         <span className="text-[10px] text-muted-foreground">{opt.description}</span>

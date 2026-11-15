@@ -236,7 +236,7 @@ export function StaffManagementView({ initialStaff, currentUserId }: StaffManage
                             </SelectTrigger>
                             <SelectContent align="start">
                               {roleOptions.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                <SelectItem key={opt.value} value={opt.value} label={opt.label} className="text-xs">
                                   <div className="flex flex-col">
                                     <span className="font-medium">{opt.label}</span>
                                     <span className="text-[10px] text-muted-foreground">{opt.description}</span>

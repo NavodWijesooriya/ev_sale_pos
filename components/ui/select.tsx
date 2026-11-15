@@ -5,7 +5,44 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "cn"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+type SelectItemEntry = { value: string; label: React.ReactNode }
+
+/**
+ * Walks the <SelectItem> elements declared inside a <Select> and records each item's
+ * value and label. Handles items inside <SelectContent>, <SelectGroup>, fragments and
+ * arrays produced by .map(). An item may set `label` to override its children as the
+ * text shown in the trigger (useful when the item renders a title plus a description).
+ */
+function collectSelectItems(node: React.ReactNode, found: SelectItemEntry[] = []): SelectItemEntry[] {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const props = child.props as { value?: unknown; label?: unknown; children?: React.ReactNode }
+    if (child.type === SelectItem) {
+      if (typeof props.value === "string") {
+        found.push({
+          value: props.value,
+          label: typeof props.label === "string" ? props.label : props.children,
+        })
+      }
+      return
+    }
+    if (props.children) collectSelectItems(props.children, found)
+  })
+  return found
+}
+
+/**
+ * Base UI only renders an item's label in the trigger when it knows the items up front;
+ * otherwise <SelectValue> falls back to the raw value (for us, a database UUID). So we
+ * derive the items from the declared <SelectItem>s, keeping the form value as the ID while
+ * the trigger shows the human-readable label. Pass `items` explicitly to override.
+ */
+function Select<Value = string, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>,
+) {
+  const items = props.items ?? collectSelectItems(props.children)
+  return <SelectPrimitive.Root<Value, Multiple> {...props} items={items} />
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

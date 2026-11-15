@@ -1138,7 +1138,7 @@ export function NewSaleForm({
                             <SelectContent>
                               <SelectItem value="__none__">Not specified / Dealership</SelectItem>
                               {staff.map((member) => (
-                                <SelectItem key={member.id} value={member.id}>
+                                <SelectItem key={member.id} value={member.id} label={member.name}>
                                   {member.name}
                                   <span className="ml-1 text-xs text-muted-foreground">
                                     ({member.role})
