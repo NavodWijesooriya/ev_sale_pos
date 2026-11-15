@@ -1,5 +1,6 @@
 "use client"
 
+import { downloadCsv } from "@/lib/csv"
 import * as React from "react"
 import { useState, useMemo } from "react"
 import Link from "next/link"
@@ -113,17 +114,18 @@ export function CustomerDirectory({
       "Total Vehicles Purchased",
       "Total Services",
       "Total Spent (LKR)",
-      "Advance Payments",
+      "Advance Paid (LKR)",
+      "Advance Payment Count",
     ]
 
     const rows = filteredCustomers.map((c) => [
-      `"${c.id}"`,
+      c.id,
       c.customerType === CustomerType.SALE ? "Sale Customer" : "CRM Lead",
-      `"${c.name}"`,
-      `"${c.phone}"`,
-      `"${c.nic || ""}"`,
-      `"${c.email || ""}"`,
-      `"${(c.address || "").replace(/"/g, '""')}"`,
+      c.name,
+      c.phone,
+      c.nic || "",
+      c.email || "",
+      c.address || "",
       c.totalPurchases,
       c.totalServices,
       c.totalSpent,
@@ -131,15 +133,7 @@ export function CustomerDirectory({
       c.advancePaymentCount,
     ])
 
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", `ev_crm_customers_${new Date().toISOString().split("T")[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadCsv(`ev_crm_customers_${new Date().toISOString().split("T")[0]}.csv`, [headers, ...rows])
   }
 
   const getInitials = (name: string) => {

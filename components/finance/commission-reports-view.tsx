@@ -1,5 +1,6 @@
 "use client"
 
+import { downloadCsv } from "@/lib/csv"
 import * as React from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import {
@@ -155,31 +156,24 @@ export function CommissionReportsView({
 
       return [
         saleDateFormatted,
-        `"${sale.invoiceNumber}"`,
-        `"${sale.customer.name}"`,
-        `"${sale.customer.phone}"`,
-        `"${vehicleDesc}"`,
-        `"${unitGrnOrChassis}"`,
-        `"${sale.financeCompany?.name || "N/A"}"`,
+        sale.invoiceNumber,
+        sale.customer.name,
+        sale.customer.phone,
+        vehicleDesc,
+        unitGrnOrChassis,
+        sale.financeCompany?.name || "N/A",
         sale.financeAmount || 0,
-        `"${basisLabel}"`,
+        basisLabel,
         sale.commissionRate || 0,
-        `"${recipient}"`,
+        recipient,
         fComm,
-        `"${sale.insuranceCompany?.name || "N/A"}"`,
+        sale.insuranceCompany?.name || "N/A",
         iComm,
         totalComm,
-      ].join(",")
+      ]
     })
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n")
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `commissions_report_${new Date().toISOString().split("T")[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadCsv(`commissions_report_${new Date().toISOString().split("T")[0]}.csv`, [headers, ...rows])
   }
 
   const {

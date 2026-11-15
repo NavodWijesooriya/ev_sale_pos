@@ -1,5 +1,7 @@
 "use client"
 
+import { downloadCsv } from "@/lib/csv"
+import { colomboDateKey } from "@/lib/dates"
 import * as React from "react"
 import {
   Wallet,
@@ -78,35 +80,25 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
       "Transfer Note",
     ]
 
-    const rows = filteredAdvances.map((a) => {
-      const dateStr = new Date(a.advanceDate).toLocaleDateString()
-      return [
-        `"${dateStr}"`,
-        `"${a.customerName}"`,
-        `"${a.customerPhone}"`,
-        `"${a.customerNic}"`,
-        `"${a.allocatedVehicle}"`,
-        `"${a.unitGrnNumber || "N/A"}"`,
-        `"${a.chassisNumber || "N/A"}"`,
-        `"${a.paymentMethod}"`,
-        `"${a.status}"`,
-        a.amount,
-        `"${a.branchName}"`,
-        `"${a.staffName}"`,
-        `"${a.saleInvoiceNumber || "N/A"}"`,
-        `"${a.transferredToCustomer || "N/A"}"`,
-        `"${(a.transferredNote || a.notes || "").replace(/"/g, '""')}"`,
-      ].join(",")
-    })
+    const rows = filteredAdvances.map((a) => [
+      colomboDateKey(new Date(a.advanceDate)),
+      a.customerName,
+      a.customerPhone,
+      a.customerNic,
+      a.allocatedVehicle,
+      a.unitGrnNumber || "N/A",
+      a.chassisNumber || "N/A",
+      a.paymentMethod,
+      a.status,
+      a.amount,
+      a.branchName,
+      a.staffName,
+      a.saleInvoiceNumber || "N/A",
+      a.transferredToCustomer || "N/A",
+      a.transferredNote || a.notes || "",
+    ])
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n")
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `advances_report_${new Date().toISOString().split("T")[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadCsv(`advances_report_${new Date().toISOString().split("T")[0]}.csv`, [headers, ...rows])
   }
 
   return (

@@ -1,5 +1,7 @@
 "use client"
 
+import { downloadCsv } from "@/lib/csv"
+import { colomboDateKey } from "@/lib/dates"
 import * as React from "react"
 import {
   Calendar as CalendarIcon,
@@ -136,38 +138,28 @@ export function DailyMonthlySalesTab({
       "Branch",
     ]
 
-    const rows = sales.map((s) => {
-      const dateStr = new Date(s.saleDate).toLocaleDateString()
-      return [
-        `"${dateStr}"`,
-        `"${s.invoiceNumber}"`,
-        `"${s.customerName}"`,
-        `"${s.customerPhone}"`,
-        `"${s.customerNic}"`,
-        `"${s.vehicleModel}"`,
-        `"${s.unitGrnNumber || "N/A"}"`,
-        `"${s.chassisNumber}"`,
-        `"${s.color || "N/A"}"`,
-        `"${s.paymentType}"`,
-        `"${s.paymentMethod}"`,
-        `"${s.financeCompany || "N/A"}"`,
-        s.advanceDeducted,
-        s.totalAmount,
-        s.grossPrice,
-        `"${s.status}"`,
-        `"${s.soldByName}"`,
-        `"${s.branchName}"`,
-      ].join(",")
-    })
+    const rows = sales.map((s) => [
+      colomboDateKey(new Date(s.saleDate)),
+      s.invoiceNumber,
+      s.customerName,
+      s.customerPhone,
+      s.customerNic,
+      s.vehicleModel,
+      s.unitGrnNumber || "N/A",
+      s.chassisNumber,
+      s.color || "N/A",
+      s.paymentType,
+      s.paymentMethod,
+      s.financeCompany || "N/A",
+      s.advanceDeducted,
+      s.totalAmount,
+      s.grossPrice,
+      s.status,
+      s.soldByName,
+      s.branchName,
+    ])
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n")
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `${title.toLowerCase().replace(/\s+/g, "_")}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadCsv(`${title.toLowerCase().replace(/s+/g, "_")}.csv`, [headers, ...rows])
   }
 
   const handlePrint = () => {
