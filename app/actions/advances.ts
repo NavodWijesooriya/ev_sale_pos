@@ -4,6 +4,7 @@ import { AdvancePaymentStatus, VehicleStatus } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { recordAudit } from "@/lib/audit"
 import {
   createAdvancePaymentSchema,
   type CreateAdvancePaymentInput,
@@ -425,7 +426,8 @@ export async function createAdvancePayment(
 
   let advancePaymentId: string
   try {
-    const advance = await prisma.advancePayment.create({
+    const advance = await prisma.$transaction(async (tx) => {
+      const created = await tx.advancePayment.create({
       data: {
         organizationId,
         customerId: customer.id,
@@ -439,6 +441,19 @@ export async function createAdvancePayment(
         status: AdvancePaymentStatus.PENDING,
       },
       select: { id: true },
+      })
+      await recordAudit(
+        tx,
+        { id: userId, name: session?.user?.name ?? "Unknown", organizationId, branchId: session?.user?.branchId },
+        {
+          action: "ADVANCE_RECORDED",
+          entityType: "AdvancePayment",
+          entityId: created.id,
+          branchId: branch.id,
+          description: `Customer advance of ${data.amount.toFixed(2)} recorded for ${data.bikeModel}`,
+        },
+      )
+      return created
     })
     advancePaymentId = advance.id
   } catch (error) {
@@ -564,6 +579,21 @@ export async function refundAdvancePayment(
           status: "COMPLETED",
         },
       })
+      await recordAudit(
+        tx,
+        {
+          id: session?.user?.id ?? "",
+          name: session?.user?.name ?? "Unknown",
+          organizationId,
+          branchId: session?.user?.branchId,
+        },
+        {
+          action: "ADVANCE_REFUNDED",
+          entityType: "AdvancePayment",
+          entityId: advance.id,
+          description: `Customer advance of ${advance.amount.toFixed(2)} refunded via ${parsedInput.data.paymentMethod}`,
+        },
+      )
       return true
     })
 

@@ -10,6 +10,8 @@ import {
   NewSaleForm,
 } from "@/components/sales/new-sale-form"
 import { getAuthSession } from "@/lib/auth"
+import { loadFullInsuranceCommission } from "@/lib/commission-settings"
+import { prisma } from "@/lib/prisma"
 
 export const instant = false
 
@@ -113,6 +115,11 @@ export default async function NewSalePage() {
         insuranceCompanies={insuranceOptions}
         staff={staffOptions}
         canManageCommission={canManageCommission}
+        fullInsuranceCommission={
+          canManageCommission
+            ? await loadFullInsuranceCommission(prisma, session.user.organizationId)
+            : undefined
+        }
       />
     </div>
   )

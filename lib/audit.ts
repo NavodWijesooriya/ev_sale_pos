@@ -17,6 +17,12 @@ export type AuditAction =
   | "SUPPLIER_UPDATED"
   | "SUPPLIER_DELETED"
   | "STAFF_PERMISSIONS_CHANGED"
+  | "COMMISSION_SETTINGS_CHANGED"
+  | "ADVANCE_RECORDED"
+  | "ADVANCE_REFUNDED"
+  | "BRANCH_CREATED"
+  | "BRANCH_UPDATED"
+  | "BRANCH_DELETED"
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
@@ -32,6 +38,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SUPPLIER_UPDATED: "Supplier updated",
   SUPPLIER_DELETED: "Supplier deleted",
   STAFF_PERMISSIONS_CHANGED: "Staff permissions changed",
+  COMMISSION_SETTINGS_CHANGED: "Commission settings changed",
+  ADVANCE_RECORDED: "Customer advance recorded",
+  ADVANCE_REFUNDED: "Customer advance refunded",
+  BRANCH_CREATED: "Branch created",
+  BRANCH_UPDATED: "Branch updated",
+  BRANCH_DELETED: "Branch deleted",
 }
 
 export interface AuditActor {

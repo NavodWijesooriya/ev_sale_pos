@@ -70,7 +70,18 @@ model Organization {
   spareParts         SparePart[]
   serviceJobs        ServiceJob[]
   auditLogs          AuditLog[]
-  customDomain       String?            @unique
+  commissionSettings CommissionSettings?
+  customDomain       String?             @unique
+}
+
+// Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
+model CommissionSettings {
+  organizationId          String       @id
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Fixed dealer commission (LKR) for Full Insurance issued through the dealership on a cash sale.
+  fullInsuranceCommission Float        @default(2000)
+  updatedAt               DateTime     @updatedAt
+  updatedById             String?
 }
 
 // Append-only record of critical staff actions. Viewable by the owner only.

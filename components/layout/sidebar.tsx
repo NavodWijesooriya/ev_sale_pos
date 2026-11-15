@@ -20,7 +20,6 @@ import {
   Palette,
   PanelLeft,
   PanelLeftClose,
-  ScrollText,
   ShieldAlert,
   ShoppingCart,
   Settings,
@@ -51,7 +50,6 @@ interface NavChild {
 
 export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Branches", href: "/dashboard/settings/branches", icon: Building2, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
   {
     title: "Sales Management",
     href: "/dashboard/sales/new",
@@ -126,9 +124,20 @@ export const navigationItems: NavItem[] = [
     ],
   },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, permission: "VIEW_REPORTS" },
-  { title: "Audit Logs", href: "/dashboard/reports/audit-logs", icon: ScrollText, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
-  { title: "Staff Management", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
+  {
+    title: "Settings",
+    href: "/dashboard/settings/users",
+    icon: Settings,
+    roles: ["OrgAdmin", "SuperAdmin"],
+    children: [
+      { title: "Users", href: "/dashboard/settings/users" },
+      { title: "Permissions", href: "/dashboard/settings/permissions" },
+      { title: "Commissions", href: "/dashboard/settings/commissions" },
+      { title: "Audit Logs", href: "/dashboard/settings/audit-logs" },
+      { title: "Branches", href: "/dashboard/settings/branches" },
+    ],
+  },
   { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },
   { title: "Platform Admin", href: "/super-admin", icon: ShieldAlert, roles: ["SuperAdmin"] },
@@ -167,6 +176,13 @@ export function SidebarContent({
   const [financeExpanded, setFinanceExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/finance/")),
   )
+  const [settingsExpanded, setSettingsExpanded] = React.useState(
+    Boolean(
+      ["users", "permissions", "commissions", "audit-logs", "branches"].some((p) =>
+        pathname?.startsWith("/dashboard/settings/" + p),
+      ),
+    ),
+  )
   const [supplierExpanded, setSupplierExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/suppliers")),
   )
@@ -185,6 +201,7 @@ export function SidebarContent({
     if (title === "Finance Management") return financeExpanded
     if (title === "Service Management") return serviceManagementExpanded
     if (title === "Supplier Management") return supplierExpanded
+    if (title === "Settings") return settingsExpanded
     return false
   }
   const hasActiveChild = (children: NavChild[]): boolean =>
@@ -270,9 +287,7 @@ export function SidebarContent({
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
                   ? Boolean(pathname?.startsWith(item.href) && !pathname.startsWith("/dashboard/services/spare-parts"))
-                  : item.href === "/dashboard/reports"
-                    ? Boolean(pathname?.startsWith(item.href) && !pathname.startsWith("/dashboard/reports/audit-logs"))
-                    : Boolean(pathname?.startsWith(item.href))
+                  : Boolean(pathname?.startsWith(item.href))
 
               return (
                 <div key={item.href}>
@@ -287,6 +302,7 @@ export function SidebarContent({
                           if (item.title === "Finance Management") setFinanceExpanded(true)
                           if (item.title === "Service Management") setServiceManagementExpanded(true)
                           if (item.title === "Supplier Management") setSupplierExpanded(true)
+                          if (item.title === "Settings") setSettingsExpanded(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
@@ -300,6 +316,8 @@ export function SidebarContent({
                           setServiceManagementExpanded((expanded) => !expanded)
                         } else if (item.title === "Supplier Management") {
                           setSupplierExpanded((expanded) => !expanded)
+                        } else if (item.title === "Settings") {
+                          setSettingsExpanded((expanded) => !expanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}

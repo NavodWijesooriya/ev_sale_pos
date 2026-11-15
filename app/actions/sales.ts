@@ -14,6 +14,7 @@ import {
 } from "@prisma/client"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { recordAudit } from "@/lib/audit"
+import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { branchFilter } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
 import {
@@ -129,7 +130,7 @@ export async function createNewSale(
         financeCompanyId
           ? tx.financeCompany.findFirst({
               where: { id: financeCompanyId, organizationId },
-              select: { id: true },
+              select: { id: true, defaultCommissionRate: true },
             })
           : Promise.resolve(null),
         insuranceCompanyId
@@ -198,16 +199,21 @@ export async function createNewSale(
       const downPmt = isFinance ? (data.downPayment ?? 0) : 0
       const financeCommissionApplies = isFinance && commissionsAllowed
       const commBasis = financeCommissionApplies ? (data.commissionBasis ?? "FINANCE_AMOUNT") : "FINANCE_AMOUNT"
-      const commRate = financeCommissionApplies ? (data.commissionRate ?? 0) : 0
+      // Finance commission is auto-calculated from the owner's configured rate for the
+      // finance company; an owner may still override the amount in the form.
+      const configuredRate = financeCompany?.defaultCommissionRate ?? 0
+      const commRate = financeCommissionApplies ? (data.commissionRate ?? configuredRate) : 0
+      const autoFinanceCommission = Math.round((financeAmt * configuredRate) / 100)
       const finalCommissionAmt = financeCommissionApplies
-        ? (data.commissionAmount != null
-            ? data.commissionAmount
-            : (data.financeCommission ?? 0))
+        ? (data.commissionAmount ?? data.financeCommission ?? autoFinanceCommission)
         : 0
       // Insurance commission is computed here, never taken from the client:
       // Rs. 2,000 for Full Insurance on a cash sale, otherwise 0.
       const insuranceType = data.insuranceType
-      const insuranceCommissionAmt = commissionsAllowed ? insuranceCommissionFor(insuranceType, isFinance) : 0
+      const fullInsuranceAmount = commissionsAllowed ? await loadFullInsuranceCommission(tx, organizationId) : 0
+      const insuranceCommissionAmt = commissionsAllowed
+        ? insuranceCommissionFor(insuranceType, isFinance, fullInsuranceAmount)
+        : 0
       const effectiveInsuranceCompanyId = insuranceType === "FULL_DEALER" ? insuranceCompanyId : null
 
       const sale = await tx.sale.create({

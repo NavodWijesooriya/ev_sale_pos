@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { recordAudit } from "@/lib/audit"
 
 /**
  * Enforces session authentication and validates that the user is an OrgAdmin
@@ -25,6 +26,10 @@ async function requireOrgAdmin() {
     currentUserId: session.user.id,
     user: session.user,
   }
+}
+
+function auditActor(user: { id: string; name: string; branchId?: string | null }, organizationId: string) {
+  return { id: user.id, name: user.name, organizationId, branchId: user.branchId }
 }
 
 export interface BranchRecordItem {
@@ -84,7 +89,7 @@ export interface CreateBranchInput {
  */
 export async function createBranch(input: CreateBranchInput) {
   try {
-    const { organizationId } = await requireOrgAdmin()
+    const { organizationId, user } = await requireOrgAdmin()
 
     const name = input.name?.trim()
     if (!name || name.length < 2) {
@@ -109,13 +114,23 @@ export async function createBranch(input: CreateBranchInput) {
       }
     }
 
-    const newBranch = await prisma.branch.create({
-      data: {
-        organizationId,
-        name,
-        location,
-        contactNumber,
-      },
+    const newBranch = await prisma.$transaction(async (tx) => {
+      const created = await tx.branch.create({
+        data: {
+          organizationId,
+          name,
+          location,
+          contactNumber,
+        },
+      })
+      await recordAudit(tx, auditActor(user, organizationId), {
+        action: "BRANCH_CREATED",
+        entityType: "Branch",
+        entityId: created.id,
+        branchId: created.id,
+        description: `Created branch "${created.name}"`,
+      })
+      return created
     })
 
     revalidatePath("/dashboard/settings/branches")
@@ -161,7 +176,7 @@ export interface UpdateBranchInput {
  */
 export async function updateBranch(input: UpdateBranchInput) {
   try {
-    const { organizationId } = await requireOrgAdmin()
+    const { organizationId, user } = await requireOrgAdmin()
 
     if (!input.id) {
       return { success: false, error: "Branch ID is required." }
@@ -200,23 +215,33 @@ export async function updateBranch(input: UpdateBranchInput) {
       }
     }
 
-    const updated = await prisma.branch.update({
-      where: { id: input.id },
-      data: {
-        name,
-        location: input.location?.trim() || null,
-        contactNumber: input.contactNumber?.trim() || null,
-      },
-      include: {
-        _count: {
-          select: {
-            users: true,
-            vehicles: true,
-            sales: true,
-            serviceRecords: true,
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.branch.update({
+        where: { id: input.id },
+        data: {
+          name,
+          location: input.location?.trim() || null,
+          contactNumber: input.contactNumber?.trim() || null,
+        },
+        include: {
+          _count: {
+            select: {
+              users: true,
+              vehicles: true,
+              sales: true,
+              serviceRecords: true,
+            },
           },
         },
-      },
+      })
+      await recordAudit(tx, auditActor(user, organizationId), {
+        action: "BRANCH_UPDATED",
+        entityType: "Branch",
+        entityId: result.id,
+        branchId: result.id,
+        description: `Updated branch "${branch.name}"${branch.name !== result.name ? ` (renamed to "${result.name}")` : ""}`,
+      })
+      return result
     })
 
     revalidatePath("/dashboard/settings/branches")
@@ -255,7 +280,7 @@ export async function updateBranch(input: UpdateBranchInput) {
  */
 export async function deleteBranch(id: string) {
   try {
-    const { organizationId } = await requireOrgAdmin()
+    const { organizationId, user } = await requireOrgAdmin()
 
     if (!id) {
       return { success: false, error: "Branch ID is required." }
@@ -301,8 +326,15 @@ export async function deleteBranch(id: string) {
       }
     }
 
-    await prisma.branch.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      await tx.branch.delete({ where: { id } })
+      await recordAudit(tx, auditActor(user, organizationId), {
+        action: "BRANCH_DELETED",
+        entityType: "Branch",
+        entityId: id,
+        branchId: null,
+        description: `Deleted branch "${branch.name}"`,
+      })
     })
 
     revalidatePath("/dashboard/settings/branches")

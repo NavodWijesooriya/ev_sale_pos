@@ -672,7 +672,10 @@ export async function getSupplierLedger(supplierId: string) {
     }),
     prisma.supplierPayment.findMany({
       where: { organizationId, supplierId },
-      include: { cheque: { select: { chequeNumber: true, status: true } } },
+      include: {
+        cheque: { select: { chequeNumber: true, status: true } },
+        advances: { select: { amount: true } },
+      },
     }),
     prisma.supplierAdvance.aggregate({ where: { organizationId, supplierId }, _sum: { balanceAmount: true } }),
   ])
@@ -691,11 +694,15 @@ export async function getSupplierLedger(supplierId: string) {
       type: p.status === SupplierPaymentStatus.REVERSED ? ("REVERSED_PAYMENT" as const) : ("PAYMENT" as const),
       reference: p.paymentNumber,
       description:
-        p.method === PaymentMethod.CHEQUE
+        (p.method === PaymentMethod.CHEQUE
           ? `Cheque ${p.cheque?.chequeNumber ?? ""} (${p.cheque?.status ?? ""})`.trim()
           : p.method === PaymentMethod.BankTransfer
             ? `Bank transfer${p.referenceNo ? ` ${p.referenceNo}` : ""}`
-            : "Cash payment",
+            : "Cash payment") +
+        // The advance part is already inside this payment's credit, so it is shown as a note, not counted twice.
+        (p.advances.length
+          ? ` · includes ${p.advances.reduce((sum, a) => sum + a.amount, 0).toFixed(2)} paid in advance`
+          : ""),
       debit: 0,
       // reversed payments are listed for audit but do not reduce the balance
       credit: p.status === SupplierPaymentStatus.REVERSED ? 0 : p.amount,

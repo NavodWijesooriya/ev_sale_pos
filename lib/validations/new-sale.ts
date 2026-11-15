@@ -25,7 +25,7 @@ export type CommissionBasis = (typeof commissionBasisOptions)[number]
 export const insuranceTypeOptions = ["NONE", "FULL_DEALER", "CUSTOMER_OWN"] as const
 export type InsuranceTypeOption = (typeof insuranceTypeOptions)[number]
 
-/** Dealer insurance commission, in LKR, for a Full Insurance policy sold on a cash sale. */
+/** Default dealer insurance commission (LKR) for Full Insurance on a cash sale; the owner can change it in settings. */
 export const FULL_INSURANCE_COMMISSION = 2_000
 
 /**
@@ -33,8 +33,12 @@ export const FULL_INSURANCE_COMMISSION = 2_000
  * - only Full Insurance issued through the dealership earns commission
  * - finance sales earn none, customer's own insurance earns none
  */
-export function insuranceCommissionFor(insuranceType: InsuranceTypeOption, isFinance: boolean): number {
-  return insuranceType === "FULL_DEALER" && !isFinance ? FULL_INSURANCE_COMMISSION : 0
+export function insuranceCommissionFor(
+  insuranceType: InsuranceTypeOption,
+  isFinance: boolean,
+  fullInsuranceAmount: number = FULL_INSURANCE_COMMISSION,
+): number {
+  return insuranceType === "FULL_DEALER" && !isFinance ? fullInsuranceAmount : 0
 }
 
 export const createNewSaleSchema = z.object({

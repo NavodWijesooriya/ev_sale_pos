@@ -115,6 +115,8 @@ interface NewSaleFormProps {
   staff?: StaffOption[]
   /** Owner/admin only. When false, every commission field is hidden and never sent. */
   canManageCommission?: boolean
+  /** Owner-configured fixed full-insurance commission (only sent to the owner). */
+  fullInsuranceCommission?: number
   recentSales?: Array<{
     id: string
     customerName: string
@@ -155,6 +157,7 @@ export function NewSaleForm({
   insuranceCompanies = [],
   staff = [],
   canManageCommission = false,
+  fullInsuranceCommission = FULL_INSURANCE_COMMISSION,
   onSaleComplete,
 }: NewSaleFormProps) {
   const router = useRouter()
@@ -182,7 +185,7 @@ export function NewSaleForm({
   const financeCompanyId = useWatch({ control: form.control, name: "financeCompanyId" })
   const insuranceCompanyId = useWatch({ control: form.control, name: "insuranceCompanyId" })
   const insuranceType = (useWatch({ control: form.control, name: "insuranceType" }) ?? "NONE") as InsuranceTypeOption
-  const insuranceCommission = insuranceCommissionFor(insuranceType, paymentType === "FINANCE")
+  const insuranceCommission = insuranceCommissionFor(insuranceType, paymentType === "FINANCE", fullInsuranceCommission)
 
   const selectedCustomer = customers.find((customer) => customer.id === customerId)
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === vehicleId)
@@ -1237,7 +1240,7 @@ export function NewSaleForm({
                     {insuranceType === "FULL_DEALER" && paymentType === "FINANCE"
                       ? "No insurance commission on finance sales."
                       : insuranceType === "FULL_DEALER"
-                        ? `Fixed ${formatLKR(FULL_INSURANCE_COMMISSION)} for full insurance issued through the dealership.`
+                        ? `Fixed ${formatLKR(fullInsuranceCommission)} for full insurance issued through the dealership.`
                         : insuranceType === "CUSTOMER_OWN"
                           ? "No commission when the customer arranges their own insurance."
                           : "No commission without dealership insurance."}
