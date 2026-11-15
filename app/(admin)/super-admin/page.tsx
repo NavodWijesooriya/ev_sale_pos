@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation"
 import { getRegisteredDealerships } from "@/app/actions/dealership"
+import { isPlatformAdmin } from "@/lib/platform-auth"
 import { prisma } from "@/lib/prisma"
 import { VehicleStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
@@ -27,6 +29,10 @@ export const metadata = {
 }
 
 export default async function SuperAdminPage() {
+  // This page shows platform-wide figures across every dealership: platform admins only.
+  if (!(await isPlatformAdmin())) {
+    redirect("/admin-portal/login?callbackUrl=/admin-portal")
+  }
   const [organizations, salesAgg, activeVehiclesCount] = await Promise.all([
     getRegisteredDealerships(),
     prisma.sale.aggregate({ _sum: { totalAmount: true } }),

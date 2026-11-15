@@ -62,6 +62,9 @@ function deriveStatus(total: number, paid: number): GrnPaymentStatus {
 
 /** Applies a signed delta to a GRN's paid amount and re-derives balance/status. */
 async function applyToGrn(tx: Tx, grnId: string, organizationId: string, delta: number) {
+  // Row lock: two concurrent payments to the same GRN must not both read the old paidAmount
+  // and overwrite each other (lost update / over-allocation). Held until the transaction ends.
+  await tx.$queryRaw`SELECT id FROM "GRN" WHERE id = ${grnId} AND "organizationId" = ${organizationId} FOR UPDATE`
   const grn = await tx.gRN.findFirst({
     where: { id: grnId, organizationId },
     select: { id: true, grnNumber: true, totalAmount: true, paidAmount: true },
@@ -305,6 +308,9 @@ export async function allocateAdvanceToGrns(input: AllocateAdvanceInput): Promis
     await prisma.$transaction(async (tx) => {
       await assertSupplier(tx, data.supplierId, organizationId)
       await assertGrnsBelongToSupplier(tx, allocations.map((a) => a.grnId), data.supplierId, organizationId, branchFilter(user))
+
+      // Lock this supplier's advance rows so two concurrent allocations cannot spend the same balance.
+      await tx.$queryRaw`SELECT id FROM "SupplierAdvance" WHERE "supplierId" = ${data.supplierId} AND "organizationId" = ${organizationId} FOR UPDATE`
 
       // Advances funded by a bounced cheque have balance 0, so only live ones remain.
       const advances = await tx.supplierAdvance.findMany({

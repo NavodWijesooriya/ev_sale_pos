@@ -75,7 +75,8 @@ export const navigationItems: NavItem[] = [
     title: "Finance Management",
     href: "/dashboard/finance/companies",
     icon: Landmark,
-    roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
+    // The finance pages and their server actions are owner-only, so don't show dead links to others.
+    roles: ["OrgAdmin", "SuperAdmin"],
     children: [
       { title: "Finance Companies", href: "/dashboard/finance/companies" },
       { title: "Insurance Companies", href: "/dashboard/finance/insurance" },

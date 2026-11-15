@@ -291,7 +291,7 @@ model SupplierPayment {
   supplierId     String
   supplier       Supplier     @relation(fields: [supplierId], references: [id])
 
-  paymentNumber String                @unique
+  paymentNumber String
   amount        Float
   method        PaymentMethod // Cash | BankTransfer | CHEQUE are used for supplier payments
   status        SupplierPaymentStatus @default(COMPLETED)
@@ -306,6 +306,8 @@ model SupplierPayment {
   allocations SupplierPaymentAllocation[]
   advances    SupplierAdvance[]
 
+  // Numbers run per dealership (SP-00001 ...), so uniqueness is per organization, not global.
+  @@unique([organizationId, paymentNumber])
   @@index([organizationId, paymentDate])
   @@index([supplierId])
 }

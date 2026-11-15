@@ -2,6 +2,7 @@ import { connection } from "next/server"
 import { redirect } from "next/navigation"
 import { VehicleStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { branchFilter } from "@/lib/permissions"
 import { createClient } from "@/lib/supabase/server"
 import { formatLKR } from "@/lib/currency"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +42,7 @@ export default async function DashboardPage() {
       name: true,
       role: true,
       organizationId: true,
+      branchId: true,
       organization: { select: { businessName: true } },
       isActive: true,
     },
@@ -51,6 +53,8 @@ export default async function DashboardPage() {
   }
 
   const organizationId = dealershipUser.organizationId
+  // Branch-assigned staff only see their own branch's figures; owners see everything.
+  const scope = { organizationId, ...branchFilter(dealershipUser) }
   const organizationName = dealershipUser.organization.businessName
 
   // 2. Fetch Real Database Metrics & Aggregations
@@ -65,33 +69,33 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     prisma.vehicle.count({
       where: {
-        ...(organizationId ? { organizationId } : {}),
+        ...scope,
         status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
       },
     }),
     prisma.vehicle.count({
-      where: organizationId ? { organizationId } : {},
+      where: scope,
     }),
     prisma.sale.aggregate({
-      where: organizationId ? { organizationId } : {},
+      where: scope,
       _sum: { totalAmount: true },
       _count: true,
     }),
     prisma.branch.count({
-      where: organizationId ? { organizationId } : {},
+      where: { organizationId },
     }),
     prisma.sale.count({
       where: {
-        ...(organizationId ? { organizationId } : {}),
+        ...scope,
         paymentMethod: "Finance",
         status: { not: "Completed" },
       },
     }),
     prisma.sale.count({
-      where: organizationId ? { organizationId } : {},
+      where: scope,
     }),
     prisma.sale.findMany({
-      where: organizationId ? { organizationId } : {},
+      where: scope,
       take: 6,
       orderBy: { saleDate: "desc" },
       include: {

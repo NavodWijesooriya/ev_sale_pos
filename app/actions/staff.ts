@@ -56,6 +56,23 @@ async function requireUserManager() {
   }
 }
 
+/** Records a staff-management event; a failure to log is reported but never undoes the change. */
+async function auditStaff(
+  actor: { id: string; name: string; branchId?: string | null },
+  organizationId: string,
+  entry: { action: "STAFF_CREATED" | "STAFF_UPDATED" | "STAFF_STATUS_CHANGED"; userId: string; description: string },
+) {
+  try {
+    await recordAudit(
+      prisma,
+      { id: actor.id, name: actor.name, organizationId, branchId: actor.branchId },
+      { action: entry.action, entityType: "User", entityId: entry.userId, description: entry.description },
+    )
+  } catch (error) {
+    console.error("auditStaff error:", error)
+  }
+}
+
 /** New users get their role's default permissions, but never more than the person creating them holds. */
 function permissionsForNewUser(actor: { role: string; permissions?: readonly string[] | null }, role: string) {
   const defaults = defaultPermissionsForRole(role)
@@ -290,6 +307,12 @@ export async function createStaffUser(input: CreateStaffUserInput) {
       },
     })
 
+    await auditStaff(actor, organizationId, {
+      action: "STAFF_CREATED",
+      userId: newUser.id,
+      description: `Created ${newUser.role} account for ${newUser.name}`,
+    })
+
     return {
       success: true,
       user: {
@@ -360,6 +383,14 @@ export async function updateStaffUser(input: UpdateStaffUserInput) {
       },
     })
 
+    await auditStaff(actor, organizationId, {
+      action: "STAFF_UPDATED",
+      userId: updated.id,
+      description: `Updated ${updated.name}: role ${targetUser.role} -> ${updated.role}${
+        updated.branchId !== targetUser.branchId ? ", branch changed" : ""
+      }${updateData.passwordHash ? ", password reset" : ""}`,
+    })
+
     return {
       success: true,
       user: {
@@ -401,6 +432,11 @@ export async function toggleStaffStatus(userId: string, isActive: boolean) {
     await prisma.user.update({
       where: { id: userId },
       data: { isActive },
+    })
+    await auditStaff(actor, organizationId, {
+      action: "STAFF_STATUS_CHANGED",
+      userId,
+      description: `${isActive ? "Unblocked" : "Blocked"} ${targetUser.name}`,
     })
 
     return { success: true, isActive }
@@ -470,6 +506,12 @@ export async function updateStaffAccess(userId: string, role: string, isActive: 
         role: validatedRole,
         isActive,
       },
+    })
+
+    await auditStaff(actor, organizationId, {
+      action: "STAFF_STATUS_CHANGED",
+      userId,
+      description: `${updated.name}: role ${targetUser.role} -> ${updated.role}, ${updated.isActive ? "active" : "blocked"}`,
     })
 
     revalidatePath("/dashboard/staff")
@@ -604,6 +646,12 @@ export async function addNewStaff(data: AddNewStaffInput) {
         isActive: true,
         createdAt: true,
       },
+    })
+
+    await auditStaff(actor, organizationId, {
+      action: "STAFF_CREATED",
+      userId: newUser.id,
+      description: `Created ${newUser.role} account for ${newUser.name}`,
     })
 
     revalidatePath("/dashboard/settings/users")

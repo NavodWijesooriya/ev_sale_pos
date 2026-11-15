@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
+import { requirePlatformAdmin } from "@/lib/platform-auth"
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js"
 import bcrypt from "bcrypt"
 import { PlatformRole, SubscriptionPlan, SubscriptionStatus, UserRole } from "@prisma/client"
@@ -43,6 +44,8 @@ export async function registerDealership(
   input: RegisterDealershipInput
 ): Promise<RegisterDealershipResult> {
   try {
+    // Creating a dealership (and its admin login) is a platform-operator action, never public.
+    await requirePlatformAdmin()
     const { businessName, phone, plan, adminName, adminEmail, adminPassword } = input
 
     // Basic Validations
@@ -165,6 +168,8 @@ export async function toggleDealershipStatus(
   targetStatus?: SubscriptionStatus
 ) {
   try {
+    // Suspending or reactivating a dealership is a platform-operator action.
+    await requirePlatformAdmin()
     const org = await prisma.organization.findUnique({
       where: { id: organizationId },
     })
@@ -203,6 +208,8 @@ export async function toggleDealershipStatus(
 
 export async function getRegisteredDealerships() {
   try {
+    // The dealership list includes owner emails: platform administrators only.
+    await requirePlatformAdmin()
     const organizations = await prisma.organization.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -245,10 +252,10 @@ export async function updateDealershipAppearance(input: {
 
     const dealershipUser = await prisma.user.findUnique({
       where: { email: user.email.toLowerCase().trim() },
-      select: { organizationId: true, isActive: true },
+      select: { organizationId: true, isActive: true, role: true },
     })
 
-    if (!dealershipUser?.isActive) {
+    if (!dealershipUser?.isActive || dealershipUser.role !== UserRole.OrgAdmin) {
       return { success: false, message: "Unauthorized. Please log in as Dealership Owner." }
     }
 

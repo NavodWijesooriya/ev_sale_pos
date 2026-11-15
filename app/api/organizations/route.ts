@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server"
+import { isPlatformAdmin } from "@/lib/platform-auth"
 import {
   registerDealership,
   getRegisteredDealerships,
   toggleDealershipStatus,
 } from "@/app/actions/dealership"
 
+const forbidden = () => NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 })
+
 export async function GET() {
   try {
+    if (!(await isPlatformAdmin())) return forbidden()
     const orgs = await getRegisteredDealerships()
     return NextResponse.json({ success: true, data: orgs })
   } catch (error) {
@@ -19,6 +23,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!(await isPlatformAdmin())) return forbidden()
     const body = await req.json()
     const result = await registerDealership(body)
 
@@ -37,6 +42,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    if (!(await isPlatformAdmin())) return forbidden()
     const body = await req.json()
     const { organizationId, status } = body
 
