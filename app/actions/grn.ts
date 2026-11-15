@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { VehicleStatus } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
+import { recordAudit } from "@/lib/audit"
+import { branchFilter } from "@/lib/permissions"
 import { generateNextGRNNumber, lockGRNNumberSequence } from "@/lib/grn-number"
 import { prisma } from "@/lib/prisma"
 
@@ -31,20 +33,21 @@ export interface CreateGRNInput {
   bikes: GRNBikeInput[]
 }
 
-async function requireOrganizationId() {
+async function requireOrgUser() {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
   }
-  return session.user.organizationId
+  return { organizationId: session.user.organizationId, user: session.user }
 }
 
 export async function getGRNFormOptions() {
   try {
-    const organizationId = await requireOrganizationId()
+    const { organizationId, user } = await requireOrgUser()
+    const own = branchFilter(user).branchId
     const [branches, models] = await Promise.all([
       prisma.branch.findMany({
-        where: { organizationId },
+        where: { organizationId, ...(own ? { id: own } : {}) },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
@@ -78,8 +81,13 @@ export async function getGRNFormOptions() {
 
 export async function createGRN(input: CreateGRNInput) {
   try {
-    const organizationId = await requireOrganizationId()
+    const { organizationId, user } = await requireOrgUser()
+    const actor = { id: user.id, name: user.name, organizationId, branchId: user.branchId }
     if (!input.branchId?.trim()) throw new Error("Select a showroom branch.")
+    const ownBranchId = branchFilter(user).branchId
+    if (ownBranchId && input.branchId !== ownBranchId) {
+      throw new Error("You can only receive stock into your assigned branch.")
+    }
     if (!input.date || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
       throw new Error("Enter a valid GRN date.")
     }
@@ -193,6 +201,14 @@ export async function createGRN(input: CreateGRNInput) {
         })
       }
 
+      await recordAudit(tx, actor, {
+        action: "GRN_CREATED",
+        entityType: "GRN",
+        entityId: createdGRN.id,
+        branchId: branch.id,
+        description: `${createdGRN.grnNumber}: received ${input.bikes.length} bike(s)`,
+      })
+
       return createdGRN
     })
 
@@ -219,9 +235,9 @@ export async function createGRN(input: CreateGRNInput) {
 
 export async function getGRNReport() {
   try {
-    const organizationId = await requireOrganizationId()
+    const { organizationId, user } = await requireOrgUser()
     const grns = await prisma.gRN.findMany({
-      where: { organizationId },
+      where: { organizationId, ...branchFilter(user) },
       include: {
         branch: { select: { id: true, name: true } },
         supplier: { select: { name: true } },
@@ -242,9 +258,9 @@ export async function getGRNReport() {
 
 export async function getAvailableBikeStock() {
   try {
-    const organizationId = await requireOrganizationId()
+    const { organizationId, user } = await requireOrgUser()
     const vehicles = await prisma.vehicle.findMany({
-      where: { organizationId, status: VehicleStatus.AVAILABLE },
+      where: { organizationId, ...branchFilter(user), status: VehicleStatus.AVAILABLE },
       include: {
         branch: { select: { id: true, name: true } },
         vehicleModel: { select: { brand: true, modelName: true } },

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { getAuthSession } from "@/lib/auth"
-import { getStaffList } from "@/app/actions/staff"
+import { getStaffInitialData } from "@/app/actions/staff"
 import { UnifiedTeamAccessView } from "@/components/staff/unified-team-access-view"
 
 export const instant = false
@@ -27,13 +27,14 @@ export default async function TeamAccessPage() {
   }
 
   // 3. Fetch staff list
-  const staff = await getStaffList()
+  const { users: staff, branches } = await getStaffInitialData()
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <UnifiedTeamAccessView
         initialStaff={staff}
         currentUserId={session.user.id}
+        branches={branches}
       />
     </div>
   )

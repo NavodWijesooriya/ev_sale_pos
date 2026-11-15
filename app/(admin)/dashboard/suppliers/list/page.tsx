@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { getSuppliers } from "@/app/actions/inventory"
 import { SupplierList } from "@/components/suppliers/supplier-list"
 import { getAuthSession } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { hasPermission } from "@/lib/permissions"
 
 export const instant = false
 
@@ -14,20 +14,13 @@ export const metadata = {
 export default async function SuppliersListPage() {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) redirect("/login?callbackUrl=/dashboard/suppliers/list")
-  if (!["OrgAdmin", "BranchManager", "SuperAdmin"].includes(session.user.role)) redirect("/dashboard")
+  if (!hasPermission(session.user, "MANAGE_SUPPLIERS")) redirect("/dashboard")
 
   const result = await getSuppliers()
   if (!result.success) throw new Error(result.error)
 
-  // Mirrors the server-side rule in requireCatalogManagement (inventory.ts)
-  let canManage = session.user.role === "OrgAdmin"
-  if (!canManage && session.user.role === "BranchManager") {
-    const org = await prisma.organization.findFirst({
-      where: { id: session.user.organizationId },
-      select: { staffCanManageCatalog: true },
-    })
-    canManage = Boolean(org?.staffCanManageCatalog)
-  }
+  // Same rule the server enforces: MANAGE_SUPPLIERS (the page itself already requires it)
+  const canManage = hasPermission(session.user, "MANAGE_SUPPLIERS")
 
   return (
     <SupplierList

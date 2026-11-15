@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import bcrypt from "bcrypt"
 import { UserRole } from "@prisma/client"
+import { recordAudit } from "@/lib/audit"
+import { defaultPermissionsForRole, isOwner, sanitizePermissions, PERMISSION_DEFINITIONS } from "@/lib/permissions"
 
 /**
  * Enforces session authentication and validates that the user is an OrgAdmin
@@ -37,6 +39,8 @@ export interface StaffUserItem {
   branchId?: string | null
   branchName?: string | null
   branchLocation?: string | null
+  /** Granted permission keys (owners implicitly have all). */
+  permissions: string[]
 }
 
 export interface BranchOption {
@@ -100,6 +104,7 @@ export async function getStaffInitialData(): Promise<StaffInitialData> {
     branchId: u.branchId,
     branchName: u.branch ? u.branch.name : "All Branches (HQ)",
     branchLocation: u.branch?.location || null,
+    permissions: u.permissions,
   }))
 
   return {
@@ -214,6 +219,7 @@ export async function createStaffUser(input: CreateStaffUserInput) {
         passwordHash,
         role,
         branchId,
+        permissions: defaultPermissionsForRole(role),
         isActive: true,
       },
       include: {
@@ -235,6 +241,7 @@ export async function createStaffUser(input: CreateStaffUserInput) {
         branchId: newUser.branchId,
         branchName: newUser.branch?.name || "All Branches (HQ)",
         branchLocation: newUser.branch?.location || null,
+        permissions: newUser.permissions,
       },
     }
   } catch (err: any) {
@@ -518,6 +525,7 @@ export async function addNewStaff(data: AddNewStaffInput) {
         passwordHash,
         role: validatedRole,
         branchId,
+        permissions: defaultPermissionsForRole(validatedRole),
         isActive: true,
       },
       select: {
@@ -543,5 +551,76 @@ export async function addNewStaff(data: AddNewStaffInput) {
   } catch (err: any) {
     console.error("addNewStaff error:", err)
     return { success: false, error: err.message || "Failed to create staff member." }
+  }
+}
+/**
+ * Owner-only: set a staff member's fine-grained permissions and assigned branch.
+ * A user with a branch only sees/manages that branch; no branch means all branches.
+ */
+export async function updateStaffPermissions(input: {
+  userId: string
+  permissions: string[]
+  branchId: string | null
+}) {
+  try {
+    const { organizationId, user: actingUser } = await requireOrgAdmin()
+    const permissions = sanitizePermissions(input.permissions)
+    const branchId = input.branchId?.trim() || null
+
+    const result = await prisma.$transaction(async (tx) => {
+      const target = await tx.user.findFirst({
+        where: { id: input.userId, organizationId },
+        select: { id: true, name: true, role: true, permissions: true, branchId: true },
+      })
+      if (!target) throw new Error("Staff member not found.")
+      if (isOwner(target)) {
+        throw new Error("Owners always have every permission and access to all branches.")
+      }
+
+      let branchName = "all branches"
+      if (branchId) {
+        const branch = await tx.branch.findFirst({ where: { id: branchId, organizationId }, select: { name: true } })
+        if (!branch) throw new Error("Selected branch does not belong to your dealership.")
+        branchName = branch.name
+      }
+
+      await tx.user.update({ where: { id: target.id }, data: { permissions, branchId } })
+
+      const before = new Set(target.permissions)
+      const after = new Set<string>(permissions)
+      const label = (key: string) =>
+        PERMISSION_DEFINITIONS[key as keyof typeof PERMISSION_DEFINITIONS]?.label ?? key
+      const granted = permissions.filter((p) => !before.has(p)).map(label)
+      const revoked = target.permissions.filter((p) => !after.has(p)).map(label)
+      const branchChanged = (target.branchId ?? null) !== branchId
+
+      await recordAudit(
+        tx,
+        { id: actingUser.id, name: actingUser.name, organizationId, branchId: actingUser.branchId },
+        {
+          action: "STAFF_PERMISSIONS_CHANGED",
+          entityType: "User",
+          entityId: target.id,
+          branchId,
+          description: [
+            `${target.name}:`,
+            granted.length ? `granted [${granted.join(", ")}]` : "",
+            revoked.length ? `revoked [${revoked.join(", ")}]` : "",
+            branchChanged ? `branch set to ${branchName}` : "",
+            !granted.length && !revoked.length && !branchChanged ? "no changes" : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        },
+      )
+
+      return { permissions, branchId }
+    })
+
+    revalidatePath("/dashboard/settings/users")
+    return { success: true as const, ...result }
+  } catch (err) {
+    console.error("updateStaffPermissions error:", err)
+    return { success: false as const, error: err instanceof Error ? err.message : "Failed to update permissions." }
   }
 }

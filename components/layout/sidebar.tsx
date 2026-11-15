@@ -20,6 +20,7 @@ import {
   Palette,
   PanelLeft,
   PanelLeftClose,
+  ScrollText,
   ShieldAlert,
   ShoppingCart,
   Settings,
@@ -28,6 +29,7 @@ import {
   Zap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { hasPermission, type Permission } from "@/lib/permissions"
 
 export interface NavItem {
   title: string
@@ -36,6 +38,8 @@ export interface NavItem {
   badge?: string
   description?: string
   roles?: string[]
+  /** Visible only to users holding this permission (owners always do). */
+  permission?: Permission
   children?: NavChild[]
 }
 
@@ -103,7 +107,7 @@ export const navigationItems: NavItem[] = [
     title: "Supplier Management",
     href: "/dashboard/suppliers",
     icon: HandCoins,
-    roles: ["OrgAdmin", "BranchManager", "SuperAdmin"],
+    permission: "MANAGE_SUPPLIERS",
     children: [
       { title: "Suppliers", href: "/dashboard/suppliers/list" },
       { title: "Supplier Payments", href: "/dashboard/suppliers/payments" },
@@ -121,7 +125,8 @@ export const navigationItems: NavItem[] = [
       { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts" },
     ],
   },
-  { title: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["OrgAdmin", "BranchManager", "SuperAdmin"] },
+  { title: "Reports", href: "/dashboard/reports", icon: BarChart3, permission: "VIEW_REPORTS" },
+  { title: "Audit Logs", href: "/dashboard/reports/audit-logs", icon: ScrollText, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
   { title: "Staff Management", href: "/dashboard/settings/users", icon: Settings, roles: ["OrgAdmin", "SuperAdmin"] },
   { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
@@ -132,6 +137,7 @@ export const navigationItems: NavItem[] = [
 interface SidebarContentProps {
   organizationName?: string
   userRole?: string
+  userPermissions?: string[]
   isCollapsed?: boolean
   onToggleCollapse?: () => void
   onNavigate?: () => void
@@ -140,6 +146,7 @@ interface SidebarContentProps {
 export function SidebarContent({
   organizationName = "EV Dealership",
   userRole = "OrgAdmin",
+  userPermissions = [],
   isCollapsed = false,
   onToggleCollapse,
   onNavigate,
@@ -166,7 +173,11 @@ export function SidebarContent({
   const [serviceManagementExpanded, setServiceManagementExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/services")),
   )
-  const visibleItems = navigationItems.filter((item) => !item.roles || item.roles.includes(userRole))
+  const visibleItems = navigationItems.filter(
+    (item) =>
+      (!item.roles || item.roles.includes(userRole)) &&
+      (!item.permission || hasPermission({ role: userRole, permissions: userPermissions }, item.permission)),
+  )
   const isExpanded = (title: string) => {
     if (title === "Customers") return customersExpanded
     if (title === "GRN Management") return grnExpanded
@@ -259,7 +270,9 @@ export function SidebarContent({
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
                   ? Boolean(pathname?.startsWith(item.href) && !pathname.startsWith("/dashboard/services/spare-parts"))
-                  : Boolean(pathname?.startsWith(item.href))
+                  : item.href === "/dashboard/reports"
+                    ? Boolean(pathname?.startsWith(item.href) && !pathname.startsWith("/dashboard/reports/audit-logs"))
+                    : Boolean(pathname?.startsWith(item.href))
 
               return (
                 <div key={item.href}>
@@ -466,6 +479,7 @@ export function SidebarContent({
 interface SidebarProps {
   organizationName?: string
   userRole?: string
+  userPermissions?: string[]
   isCollapsed?: boolean
   onToggleCollapse?: () => void
 }
@@ -473,6 +487,7 @@ interface SidebarProps {
 export function Sidebar({
   organizationName = "EV Dealership",
   userRole = "OrgAdmin",
+  userPermissions = [],
   isCollapsed = false,
   onToggleCollapse,
 }: SidebarProps) {
@@ -486,6 +501,7 @@ export function Sidebar({
       <SidebarContent
         organizationName={organizationName}
         userRole={userRole}
+        userPermissions={userPermissions}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
       />

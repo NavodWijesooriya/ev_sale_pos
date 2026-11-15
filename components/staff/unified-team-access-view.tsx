@@ -44,12 +44,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { updateStaffAccess, addNewStaff, type StaffUserItem } from "@/app/actions/staff"
+import { updateStaffAccess, addNewStaff, type BranchOption, type StaffUserItem } from "@/app/actions/staff"
+import { StaffPermissionsDialog } from "@/components/staff/staff-permissions-dialog"
+import { ALL_PERMISSIONS, isOwner } from "@/lib/permissions"
 import { UserRole } from "@prisma/client"
 
 interface UnifiedTeamAccessViewProps {
   initialStaff: StaffUserItem[]
   currentUserId: string
+  branches?: BranchOption[]
 }
 
 const roleOptions: Array<{ value: UserRole; label: string; description: string }> = [
@@ -60,11 +63,12 @@ const roleOptions: Array<{ value: UserRole; label: string; description: string }
   { value: UserRole.Technician, label: "Technician", description: "After-sales services & job cards" },
 ]
 
-export function UnifiedTeamAccessView({ initialStaff, currentUserId }: UnifiedTeamAccessViewProps) {
+export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = [] }: UnifiedTeamAccessViewProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [staffList, setStaffList] = React.useState<StaffUserItem[]>(initialStaff)
   const [pendingUserIds, setPendingUserIds] = React.useState<Record<string, boolean>>({})
+  const [permissionsUserId, setPermissionsUserId] = React.useState<string | null>(null)
 
   // Add Staff Dialog State
   const [isAddStaffOpen, setIsAddStaffOpen] = React.useState(false)
@@ -263,10 +267,11 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId }: UnifiedTe
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="w-[30%]">Name</TableHead>
-                  <TableHead className="w-[25%]">Email Address</TableHead>
-                  <TableHead className="w-[25%]">Role</TableHead>
-                  <TableHead className="w-[20%] text-right">Status</TableHead>
+                  <TableHead className="w-[26%]">Name</TableHead>
+                  <TableHead className="w-[22%]">Email Address</TableHead>
+                  <TableHead className="w-[20%]">Role</TableHead>
+                  <TableHead className="w-[16%]">Permissions</TableHead>
+                  <TableHead className="w-[16%] text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -331,6 +336,24 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId }: UnifiedTe
                         </div>
                       </TableCell>
 
+                      {/* Permissions & branch */}
+                      <TableCell>
+                        {isOwner(user) ? (
+                          <span className="text-xs text-muted-foreground">Full access</span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPermissionsUserId(user.id)}
+                            disabled={isUserBusy}
+                          >
+                            <ShieldCheck className="size-3.5" />
+                            {user.permissions.length}/{ALL_PERMISSIONS.length}
+                          </Button>
+                        )}
+                      </TableCell>
+
                       {/* Status Toggle Switch */}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2.5">
@@ -359,7 +382,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId }: UnifiedTe
 
                 {staffList.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={5} className="h-32 text-center text-sm text-muted-foreground">
                       No staff accounts found in this organization.
                     </TableCell>
                   </TableRow>
@@ -369,6 +392,12 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId }: UnifiedTe
           </div>
         </CardContent>
       </Card>
+
+      <StaffPermissionsDialog
+        user={staffList.find((u) => u.id === permissionsUserId) ?? null}
+        branches={branches}
+        onClose={() => setPermissionsUserId(null)}
+      />
 
       {/* Add Staff Modal Dialog */}
       <Dialog open={isAddStaffOpen} onOpenChange={setIsAddStaffOpen}>

@@ -6,6 +6,7 @@ import {
 } from "@/app/actions/supplier-payments"
 import { SupplierLedgerView } from "@/components/suppliers/supplier-ledger-view"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 
 export const instant = false
 
@@ -21,7 +22,7 @@ export default async function SupplierReportsPage({
 }) {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) redirect("/login?callbackUrl=/dashboard/suppliers/reports")
-  if (!["OrgAdmin", "BranchManager", "SuperAdmin"].includes(session.user.role)) redirect("/dashboard")
+  if (!hasPermission(session.user, "MANAGE_SUPPLIERS")) redirect("/dashboard")
 
   const { supplierId = "" } = await searchParams
   const [report, history, ledger] = await Promise.all([

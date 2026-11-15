@@ -9,6 +9,10 @@ export interface AuthSessionUser {
   role: string
   organizationId?: string
   organizationName?: string
+  /** Assigned branch. Non-owner users with a branch only see that branch's data. */
+  branchId?: string | null
+  /** Fine-grained permission keys (see lib/permissions.ts). */
+  permissions?: string[]
 }
 
 export interface AuthSession {
@@ -43,6 +47,8 @@ export async function getAuthSession(): Promise<AuthSession | null> {
       name: true,
       role: true,
       organizationId: true,
+      branchId: true,
+      permissions: true,
       organization: { select: { businessName: true } },
       isActive: true,
     },
@@ -61,6 +67,8 @@ export async function getAuthSession(): Promise<AuthSession | null> {
         role: dealershipUser.role,
         organizationId: dealershipUser.organizationId,
         organizationName: dealershipUser.organization.businessName,
+        branchId: dealershipUser.branchId,
+        permissions: dealershipUser.permissions,
       },
     }
   }

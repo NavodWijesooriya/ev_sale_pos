@@ -1,0 +1,41 @@
+import { getAuthSession, type AuthSessionUser } from "@/lib/auth"
+import { hasPermission, isOwner, type Permission, PERMISSION_DEFINITIONS } from "@/lib/permissions"
+
+export class PermissionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "PermissionError"
+  }
+}
+
+export interface AuthorizedUser extends AuthSessionUser {
+  organizationId: string
+}
+
+/** Requires a signed-in dealership user. */
+export async function requireUser(): Promise<AuthorizedUser> {
+  const session = await getAuthSession()
+  const user = session?.user
+  if (!user?.organizationId) {
+    throw new PermissionError("Unauthorized. Please log in to your dealership portal.")
+  }
+  return user as AuthorizedUser
+}
+
+/** Requires a signed-in user holding `permission` (owners always pass). */
+export async function requirePermission(permission: Permission): Promise<AuthorizedUser> {
+  const user = await requireUser()
+  if (!hasPermission(user, permission)) {
+    throw new PermissionError(`You do not have permission to ${PERMISSION_DEFINITIONS[permission].label.toLowerCase()}.`)
+  }
+  return user
+}
+
+/** Requires the dealership owner (OrgAdmin) or platform SuperAdmin. */
+export async function requireOwner(): Promise<AuthorizedUser> {
+  const user = await requireUser()
+  if (!isOwner(user)) {
+    throw new PermissionError("Only the dealership owner can do this.")
+  }
+  return user
+}

@@ -33,6 +33,7 @@ export default async function AdminDashboardLayout({
       name: true,
       role: true,
       organizationId: true,
+      permissions: true,
       organization: { select: { businessName: true } },
       isActive: true,
     },
@@ -49,6 +50,7 @@ export default async function AdminDashboardLayout({
     role: dealershipUser.role,
     organizationId: dealershipUser.organizationId,
     organizationName: dealershipUser.organization.businessName,
+    permissions: dealershipUser.permissions,
   }
 
   return (

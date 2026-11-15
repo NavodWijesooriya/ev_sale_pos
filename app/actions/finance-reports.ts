@@ -2,14 +2,16 @@
 
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { isOwner } from "@/lib/permissions"
 
 async function requireOrganization() {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
   }
-  if (!["OrgAdmin", "BranchManager", "SuperAdmin"].includes(session.user.role)) {
-    throw new Error("You do not have permission to view commission reports.")
+  // Commissions are visible to the dealership owner only.
+  if (!isOwner(session.user)) {
+    throw new Error("Only the dealership owner can view commission reports.")
   }
   return { organizationId: session.user.organizationId, role: session.user.role }
 }

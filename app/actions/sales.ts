@@ -13,6 +13,9 @@ import {
   CustomerType,
 } from "@prisma/client"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
+import { recordAudit } from "@/lib/audit"
+import { branchFilter } from "@/lib/permissions"
+import { redactForUser } from "@/lib/redact"
 import {
   createNewSaleSchema,
   extendedWarrantyPrice,
@@ -91,6 +94,7 @@ export async function createNewSale(
 ): Promise<{ success: true; saleId: string; invoiceNumber: string } | { success: false; error: string }> {
   try {
     const { organizationId, userId, user } = await requireAuthOrg()
+    const actor = { id: user.id, name: user.name, organizationId, branchId: user.branchId }
     const commissionsAllowed = canManageCommissions(user.role)
     const parsedInput = createNewSaleSchema.safeParse(input)
     if (!parsedInput.success) {
@@ -116,6 +120,8 @@ export async function createNewSale(
           where: {
             id: data.vehicleId,
             organizationId,
+            // Branch-assigned staff can only sell bikes from their own branch
+            ...branchFilter(user),
             status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
           },
           include: { vehicleModel: true },
@@ -263,6 +269,14 @@ export async function createNewSale(
         select: { id: true, invoiceNumber: true },
       })
 
+      await recordAudit(tx, actor, {
+        action: "SALE_CREATED",
+        entityType: "Sale",
+        entityId: sale.id,
+        branchId: vehicle.branchId,
+        description: `Invoice ${sale.invoiceNumber}: ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (${vehicle.chassisNumber}), ${isFinance ? "finance" : "cash"} sale`,
+      })
+
       await tx.customer.update({
         where: { id: customer.id },
         data: { customerType: CustomerType.SALE, category: "DIRECT" },
@@ -294,13 +308,14 @@ export async function createNewSale(
  */
 export async function getPOSInitialData() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireAuthOrg()
 
     const [vehicles, customers, branches, staff] = await Promise.all([
-      // Only InStock vehicles for this organization
+      // Only InStock vehicles for this organization (and the user's branch, if assigned)
       prisma.vehicle.findMany({
         where: {
           organizationId,
+          ...branchFilter(user),
           status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
         },
         include: {
@@ -324,7 +339,7 @@ export async function getPOSInitialData() {
 
       // Dealership branches
       prisma.branch.findMany({
-        where: { organizationId },
+        where: { organizationId, ...(branchFilter(user).branchId ? { id: branchFilter(user).branchId } : {}) },
         orderBy: { name: "asc" },
       }),
 
@@ -339,7 +354,7 @@ export async function getPOSInitialData() {
     return {
       success: true,
       data: {
-        vehicles,
+        vehicles: redactForUser(vehicles, user),
         customers,
         branches,
         staff,
@@ -360,10 +375,10 @@ export async function getPOSInitialData() {
  */
 export async function getSalesHistory() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireAuthOrg()
 
     const sales = await prisma.sale.findMany({
-      where: { organizationId },
+      where: { organizationId, ...branchFilter(user) },
       orderBy: { saleDate: "desc" },
       include: {
         customer: true,
@@ -409,7 +424,7 @@ export async function getSalesHistory() {
 
     return {
       success: true,
-      data: sales,
+      data: redactForUser(sales, user),
     }
   } catch (error) {
     console.error("getSalesHistory error:", error)
@@ -676,10 +691,10 @@ export async function processSale(input: ProcessSaleInput) {
  */
 export async function getSaleDetails(saleId: string) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireAuthOrg()
 
     const sale = await prisma.sale.findFirst({
-      where: { id: saleId, organizationId },
+      where: { id: saleId, organizationId, ...branchFilter(user) },
       include: {
         organization: true,
         branch: true,
@@ -713,7 +728,7 @@ export async function getSaleDetails(saleId: string) {
       return { success: false, error: "Sale not found in your dealership records.", data: null }
     }
 
-    return { success: true, data: sale }
+    return { success: true, data: redactForUser(sale, user) }
   } catch (error) {
     console.error("getSaleDetails error:", error)
     return { success: false, error: (error as Error).message, data: null }

@@ -21,6 +21,7 @@ interface DashboardShellProps {
     role?: string
     organizationId?: string
     organizationName?: string
+    permissions?: string[]
   }
 }
 
@@ -30,6 +31,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
   const orgName = user.organizationName || "Dealership ERP"
   const orgRole = user.role || "OrgAdmin"
+  const permissions = user.permissions ?? []
 
   return (
     <div className="min-h-screen min-w-0 bg-background text-foreground print:bg-white print:block">
@@ -37,6 +39,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
       <Sidebar
         organizationName={orgName}
         userRole={orgRole}
+        userPermissions={permissions}
         isCollapsed={isCollapsed}
         onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
       />
@@ -51,6 +54,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
           <SidebarContent
             organizationName={orgName}
             userRole={orgRole}
+            userPermissions={permissions}
             isCollapsed={false}
             onNavigate={() => setSidebarOpen(false)}
           />

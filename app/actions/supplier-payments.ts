@@ -8,7 +8,9 @@ import {
   SupplierPaymentStatus,
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
-import { getAuthSession } from "@/lib/auth"
+import { recordAudit, type AuditAction } from "@/lib/audit"
+import { requirePermission } from "@/lib/authorize"
+import { branchFilter } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 import {
   allocateAdvanceSchema,
@@ -33,14 +35,11 @@ type ActionResult<T = object> = ({ success: true; message: string } & T) | { suc
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
+/** Supplier payments, cheques and advances need the MANAGE_SUPPLIERS permission (owners always pass). */
 async function requireOrganizationUser() {
-  const session = await getAuthSession()
-  const organizationId = session?.user?.organizationId
-  const userId = session?.user?.id
-  if (!organizationId || !userId) {
-    throw new Error("Unauthorized. Please log in to your dealership portal.")
-  }
-  return { organizationId, userId }
+  const user = await requirePermission("MANAGE_SUPPLIERS")
+  const actor = { id: user.id, name: user.name, organizationId: user.organizationId, branchId: user.branchId }
+  return { organizationId: user.organizationId, userId: user.id, user, actor }
 }
 
 function failure(label: string, error: unknown): { success: false; message: string } {
@@ -96,8 +95,14 @@ async function assertSupplier(tx: Tx, supplierId: string, organizationId: string
   if (!supplier) throw new Error("Supplier not found.")
 }
 
-async function assertGrnsBelongToSupplier(tx: Tx, grnIds: string[], supplierId: string, organizationId: string) {
-  const count = await tx.gRN.count({ where: { id: { in: grnIds }, supplierId, organizationId } })
+async function assertGrnsBelongToSupplier(
+  tx: Tx,
+  grnIds: string[],
+  supplierId: string,
+  organizationId: string,
+  branch: { branchId?: string },
+) {
+  const count = await tx.gRN.count({ where: { id: { in: grnIds }, supplierId, organizationId, ...branch } })
   if (count !== grnIds.length) throw new Error("One or more GRNs do not belong to this supplier.")
 }
 
@@ -125,14 +130,14 @@ function revalidateSupplierPages() {
  */
 export async function setGrnPayable(input: SetGrnPayableInput): Promise<ActionResult> {
   try {
-    const { organizationId } = await requireOrganizationUser()
+    const { organizationId, user, actor } = await requireOrganizationUser()
     const data = setGrnPayableSchema.parse(input)
 
     await prisma.$transaction(async (tx) => {
       await assertSupplier(tx, data.supplierId, organizationId)
       const grn = await tx.gRN.findFirst({
-        where: { id: data.grnId, organizationId },
-        select: { id: true, supplierId: true, paidAmount: true },
+        where: { id: data.grnId, organizationId, ...branchFilter(user) },
+        select: { id: true, supplierId: true, paidAmount: true, grnNumber: true, branchId: true },
       })
       if (!grn) throw new Error("GRN not found.")
       if (grn.supplierId && grn.supplierId !== data.supplierId && grn.paidAmount > EPSILON) {
@@ -151,6 +156,13 @@ export async function setGrnPayable(input: SetGrnPayableInput): Promise<ActionRe
           paymentStatus: deriveStatus(total, grn.paidAmount),
         },
       })
+      await recordAudit(tx, actor, {
+        action: "GRN_PAYABLE_UPDATED",
+        entityType: "GRN",
+        entityId: grn.id,
+        branchId: grn.branchId,
+        description: `Set ${grn.grnNumber} payable to ${total.toFixed(2)}`,
+      })
     })
 
     revalidateSupplierPages()
@@ -168,7 +180,7 @@ export async function recordSupplierPayment(
   input: RecordSupplierPaymentInput,
 ): Promise<ActionResult<{ paymentId: string; paymentNumber: string; advanceAmount: number }>> {
   try {
-    const { organizationId, userId } = await requireOrganizationUser()
+    const { organizationId, userId, user, actor } = await requireOrganizationUser()
     const data = recordSupplierPaymentSchema.parse(input)
     const amount = round2(data.amount)
     const allocations = data.allocations.map((a) => ({ grnId: a.grnId, amount: round2(a.amount) }))
@@ -181,7 +193,7 @@ export async function recordSupplierPayment(
     const result = await prisma.$transaction(async (tx) => {
       await assertSupplier(tx, data.supplierId, organizationId)
       if (allocations.length) {
-        await assertGrnsBelongToSupplier(tx, allocations.map((a) => a.grnId), data.supplierId, organizationId)
+        await assertGrnsBelongToSupplier(tx, allocations.map((a) => a.grnId), data.supplierId, organizationId, branchFilter(user))
       }
 
       const paymentNumber = await nextPaymentNumber(tx, organizationId)
@@ -239,6 +251,13 @@ export async function recordSupplierPayment(
         })
       }
 
+      await recordAudit(tx, actor, {
+        action: "SUPPLIER_PAYMENT_RECORDED",
+        entityType: "SupplierPayment",
+        entityId: payment.id,
+        description: `${paymentNumber}: ${data.method} ${amount.toFixed(2)} to supplier, ${allocations.length} GRN allocation(s)${advanceAmount > EPSILON ? `, ${advanceAmount.toFixed(2)} kept as advance` : ""}`,
+      })
+
       return { paymentId: payment.id, paymentNumber }
     })
 
@@ -271,14 +290,14 @@ export async function recordSupplierAdvance(
 /** Applies the supplier's advance balance (oldest first) to the chosen GRNs. */
 export async function allocateAdvanceToGrns(input: AllocateAdvanceInput): Promise<ActionResult> {
   try {
-    const { organizationId } = await requireOrganizationUser()
+    const { organizationId, user, actor } = await requireOrganizationUser()
     const data = allocateAdvanceSchema.parse(input)
     const allocations = data.allocations.map((a) => ({ grnId: a.grnId, amount: round2(a.amount) }))
     assertUniqueAllocations(allocations)
 
     await prisma.$transaction(async (tx) => {
       await assertSupplier(tx, data.supplierId, organizationId)
-      await assertGrnsBelongToSupplier(tx, allocations.map((a) => a.grnId), data.supplierId, organizationId)
+      await assertGrnsBelongToSupplier(tx, allocations.map((a) => a.grnId), data.supplierId, organizationId, branchFilter(user))
 
       // Advances funded by a bounced cheque have balance 0, so only live ones remain.
       const advances = await tx.supplierAdvance.findMany({
@@ -309,6 +328,12 @@ export async function allocateAdvanceToGrns(input: AllocateAdvanceInput): Promis
           })
         }
       }
+
+      await recordAudit(tx, actor, {
+        action: "SUPPLIER_ADVANCE_APPLIED",
+        entityType: "SupplierAdvance",
+        description: `Applied ${needed.toFixed(2)} of supplier advance to ${allocations.length} GRN(s)`,
+      })
     })
 
     revalidateSupplierPages()
@@ -375,7 +400,7 @@ async function transitionCheque(
   to: "PRESENTED" | "CLEARED" | "BOUNCED" | "CANCELLED",
   opts: { note?: string; clearedAt?: Date } = {},
 ) {
-  const { organizationId, userId } = await requireOrganizationUser()
+  const { organizationId, userId, actor } = await requireOrganizationUser()
 
   await prisma.$transaction(async (tx) => {
     const current = await tx.cheque.findFirst({
@@ -399,6 +424,12 @@ async function transitionCheque(
 
     await tx.chequeEvent.create({
       data: { chequeId, fromStatus: current.status, toStatus: ChequeStatus[to], note: opts.note || null, userId },
+    })
+    await recordAudit(tx, actor, {
+      action: `CHEQUE_${to}` as AuditAction,
+      entityType: "Cheque",
+      entityId: chequeId,
+      description: `Cheque ${current.status} -> ${to}${opts.note ? `: ${opts.note}` : ""}`,
     })
 
     if (to === "CLEARED") {
@@ -498,13 +529,14 @@ export async function getSupplierPaymentsOverview(filter?: {
   supplierId?: string
   status?: GrnPaymentStatus
 }): Promise<SupplierPaymentsOverview> {
-  const { organizationId } = await requireOrganizationUser()
+  const { organizationId, user } = await requireOrganizationUser()
 
   const [suppliers, grns, advances] = await Promise.all([
     prisma.supplier.findMany({ where: { organizationId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.gRN.findMany({
       where: {
         organizationId,
+        ...branchFilter(user),
         ...(filter?.supplierId ? { supplierId: filter.supplierId } : {}),
         ...(filter?.status ? { paymentStatus: filter.status } : {}),
       },
@@ -557,10 +589,10 @@ export async function getSupplierPaymentsOverview(filter?: {
 
 /** Unpaid/partial GRNs and advance balance for one supplier — feeds the "Make Payment" modal. */
 export async function getSupplierPayableDetails(supplierId: string) {
-  const { organizationId } = await requireOrganizationUser()
+  const { organizationId, user } = await requireOrganizationUser()
   const [grns, advance] = await Promise.all([
     prisma.gRN.findMany({
-      where: { organizationId, supplierId, paymentStatus: { not: GrnPaymentStatus.PAID }, balanceAmount: { gt: EPSILON } },
+      where: { organizationId, ...branchFilter(user), supplierId, paymentStatus: { not: GrnPaymentStatus.PAID }, balanceAmount: { gt: EPSILON } },
       select: { id: true, grnNumber: true, date: true, totalAmount: true, paidAmount: true, balanceAmount: true },
       orderBy: { date: "asc" },
     }),
@@ -629,13 +661,13 @@ export interface LedgerEntry {
 
 /** Chronological supplier account: GRN totals as debits, non-reversed payments as credits. */
 export async function getSupplierLedger(supplierId: string) {
-  const { organizationId } = await requireOrganizationUser()
+  const { organizationId, user } = await requireOrganizationUser()
   const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, organizationId }, select: { id: true, name: true } })
   if (!supplier) throw new Error("Supplier not found.")
 
   const [grns, payments, advance] = await Promise.all([
     prisma.gRN.findMany({
-      where: { organizationId, supplierId, totalAmount: { gt: 0 } },
+      where: { organizationId, ...branchFilter(user), supplierId, totalAmount: { gt: 0 } },
       select: { grnNumber: true, date: true, totalAmount: true },
     }),
     prisma.supplierPayment.findMany({

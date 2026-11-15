@@ -69,7 +69,27 @@ model Organization {
   testRides          TestRide[]
   spareParts         SparePart[]
   serviceJobs        ServiceJob[]
+  auditLogs          AuditLog[]
   customDomain       String?            @unique
+}
+
+// Append-only record of critical staff actions. Viewable by the owner only.
+model AuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String? // acting user (kept as plain text so history survives user deletion)
+  userName       String
+  branchId       String?
+  action         String // e.g. SALE_CREATED, SUPPLIER_PAYMENT_RECORDED
+  entityType     String // e.g. Sale, GRN, SupplierPayment, Cheque, User
+  entityId       String?
+  description    String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
+  @@index([organizationId, userId])
 }
 
 enum UserRole {
@@ -92,6 +112,8 @@ model User {
   role           UserRole
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
+  // Fine-grained permission keys (see lib/permissions.ts). OrgAdmin/SuperAdmin ignore this and have all.
+  permissions    String[]     @default([])
 
   sales            Sale[]           @relation("SoldBy")
   commissionSales  Sale[]           @relation("CommissionRecipient")

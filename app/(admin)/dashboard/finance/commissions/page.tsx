@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { getAuthSession } from "@/lib/auth"
+import { isOwner } from "@/lib/permissions"
 import { getCommissionReports } from "@/app/actions/finance-reports"
 import { CommissionReportsView } from "@/components/finance/commission-reports-view"
 
@@ -26,6 +27,8 @@ export default async function CommissionReportsPage({ searchParams }: PageProps)
   if (!session?.user?.organizationId) {
     redirect("/login?callbackUrl=/dashboard/finance/commissions")
   }
+  // Commissions are visible to the dealership owner only
+  if (!isOwner(session.user)) redirect("/dashboard")
 
   const { from, to, staff } = await searchParams
 

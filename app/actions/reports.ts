@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { branchFilter, hasPermission, isOwner } from "@/lib/permissions"
+import { redactKeys } from "@/lib/redact"
 import { VehicleStatus } from "@prisma/client"
 import { getCommissionReports, type CommissionReportData } from "./finance-reports"
 import {
@@ -15,8 +17,6 @@ import {
   parseMonthKey,
 } from "@/lib/dates"
 
-const REPORT_ROLES = ["OrgAdmin", "BranchManager", "SuperAdmin"]
-
 /**
  * Ensures session authentication and extracts organizationId.
  * Reports expose margins and purchase costs, so only management roles may run them
@@ -27,7 +27,7 @@ async function requireAuthOrg() {
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
   }
-  if (!REPORT_ROLES.includes(session.user.role)) {
+  if (!hasPermission(session.user, "VIEW_REPORTS")) {
     throw new Error("You do not have permission to view reports.")
   }
   return {
@@ -156,7 +156,7 @@ export interface AdvancedReportsData {
  * Fetches all metrics across Financial, Inventory Aging, Pending DMT, and After-Sales
  */
 export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
@@ -176,6 +176,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
   const sales = await prisma.sale.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
     },
     include: {
       customer: {
@@ -291,6 +292,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
   const inStockVehiclesRaw = await prisma.vehicle.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
       status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
     },
     include: {
@@ -478,6 +480,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
   const serviceRecordsRaw = await prisma.serviceRecord.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
     },
     include: {
       customer: {
@@ -670,7 +673,7 @@ const MODEL_COLORS = [
 export async function getAnalyticsData(
   params?: AnalyticsFilterParams
 ): Promise<AnalyticsData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   const now = new Date()
   let start: Date
@@ -709,6 +712,7 @@ export async function getAnalyticsData(
   const salesAggregate = await prisma.sale.aggregate({
     where: {
       organizationId,
+      ...branchFilter(user),
       saleDate: { gte: start, lte: end },
     },
     _sum: {
@@ -736,6 +740,7 @@ export async function getAnalyticsData(
   const currentAvailableStock = await prisma.vehicle.count({
     where: {
       organizationId,
+      ...branchFilter(user),
       status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
     },
   })
@@ -743,6 +748,7 @@ export async function getAnalyticsData(
   const totalServicesCompleted = await prisma.serviceRecord.count({
     where: {
       organizationId,
+      ...branchFilter(user),
       serviceDate: { gte: start, lte: end },
     },
   })
@@ -750,6 +756,7 @@ export async function getAnalyticsData(
   const serviceAggregate = await prisma.serviceRecord.aggregate({
     where: {
       organizationId,
+      ...branchFilter(user),
       serviceDate: { gte: start, lte: end },
     },
     _sum: {
@@ -764,6 +771,7 @@ export async function getAnalyticsData(
   const salesInRange = await prisma.sale.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
       saleDate: { gte: start, lte: end },
     },
     select: {
@@ -779,6 +787,7 @@ export async function getAnalyticsData(
   const servicesInRange = await prisma.serviceRecord.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
       serviceDate: { gte: start, lte: end },
     },
     select: {
@@ -879,6 +888,7 @@ export async function getAnalyticsData(
     by: ["paymentMethod"],
     where: {
       organizationId,
+      ...branchFilter(user),
       saleDate: { gte: start, lte: end },
     },
     _count: { id: true },
@@ -892,7 +902,7 @@ export async function getAnalyticsData(
   }))
 
   const recentSalesRaw = await prisma.sale.findMany({
-    where: { organizationId },
+    where: { organizationId, ...branchFilter(user) },
     include: {
       customer: { select: { name: true, phone: true } },
       branch: { select: { name: true } },
@@ -927,6 +937,7 @@ export async function getAnalyticsData(
   const allFilteredSales = await prisma.sale.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
       saleDate: { gte: start, lte: end },
     },
     include: {
@@ -1061,7 +1072,7 @@ function cashCollectedOnSale(
 }
 
 export async function getDailySalesReport(dateStr?: string): Promise<DailySalesReportData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   // Day boundaries are Colombo calendar days, independent of the server's timezone.
   const target = parseDateKey(dateStr) ?? colomboParts(new Date())
@@ -1070,6 +1081,7 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
   const salesRaw = await prisma.sale.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
       saleDate: { gte: startOfDay, lte: endOfDay },
     },
     include: {
@@ -1153,7 +1165,7 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
 }
 
 export async function getMonthlySalesReport(yearMonthStr?: string): Promise<MonthlySalesReportData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   const selected = parseMonthKey(yearMonthStr) ?? colomboParts(new Date())
   const { year, month } = selected
@@ -1165,6 +1177,7 @@ export async function getMonthlySalesReport(yearMonthStr?: string): Promise<Mont
   const salesRaw = await prisma.sale.findMany({
     where: {
       organizationId,
+      ...branchFilter(user),
       saleDate: { gte: startOfMonth, lte: endOfMonth },
     },
     include: {
@@ -1320,10 +1333,10 @@ export interface AdvancesReportData {
 }
 
 export async function getAdvancesReportData(): Promise<AdvancesReportData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   const advancesRaw = await prisma.advancePayment.findMany({
-    where: { organizationId },
+    where: { organizationId, ...branchFilter(user) },
     include: {
       customer: { select: { id: true, name: true, phone: true, nic: true } },
       branch: { select: { id: true, name: true } },
@@ -1472,11 +1485,11 @@ export interface ServiceAndPartsReportData {
 }
 
 export async function getServiceAndPartsReportData(): Promise<ServiceAndPartsReportData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   const [serviceRecordsRaw, sparePartsRaw] = await Promise.all([
     prisma.serviceRecord.findMany({
-      where: { organizationId },
+      where: { organizationId, ...branchFilter(user) },
       include: {
         customer: { select: { id: true, name: true, phone: true } },
         branch: { select: { id: true, name: true } },
@@ -1501,7 +1514,7 @@ export async function getServiceAndPartsReportData(): Promise<ServiceAndPartsRep
       orderBy: { inDate: "desc" },
     }),
     prisma.sparePart.findMany({
-      where: { organizationId },
+      where: { organizationId, ...branchFilter(user) },
       orderBy: { stockQuantity: "asc" },
     }),
   ])
@@ -1642,10 +1655,10 @@ export interface GRNBatchReportData {
 }
 
 export async function getGRNBatchReportData(): Promise<GRNBatchReportData> {
-  const { organizationId } = await requireAuthOrg()
+  const { organizationId, user } = await requireAuthOrg()
 
   const grnsRaw = await prisma.gRN.findMany({
-    where: { organizationId },
+    where: { organizationId, ...branchFilter(user) },
     include: {
       supplier: { select: { id: true, name: true } },
       branch: { select: { id: true, name: true } },
@@ -1740,7 +1753,34 @@ export interface UnifiedReportsData {
   commissionsData: CommissionReportData
 }
 
+/** Report fields that reveal purchase cost, margin or profit (need VIEW_COST_PRICE). */
+const COST_REPORT_FIELDS = [
+  "acquisitionCost",
+  "grossProfit",
+  "netProfit",
+  "marginPercent",
+  "netGrossProfit",
+  "profitMarginPercent",
+  "totalAcquisitionCost",
+  "totalTiedCapital",
+  "criticalOver90Capital",
+  "warningOver60Capital",
+  "agingOver30Capital",
+  "purchasePrice",
+] as const
+
+const EMPTY_COMMISSIONS: CommissionReportData = {
+  totalFinanceAmount: 0,
+  totalFinanceCommission: 0,
+  totalInsuranceCommission: 0,
+  overallTotal: 0,
+  totalSalesCount: 0,
+  staffOptions: [],
+  sales: [],
+}
+
 export async function getUnifiedReportsData(): Promise<UnifiedReportsData> {
+  const { user } = await requireAuthOrg()
   const [
     advancedData,
     dailySales,
@@ -1756,11 +1796,11 @@ export async function getUnifiedReportsData(): Promise<UnifiedReportsData> {
     getAdvancesReportData(),
     getServiceAndPartsReportData(),
     getGRNBatchReportData(),
-    getCommissionReports(),
+    isOwner(user) ? getCommissionReports() : Promise.resolve(EMPTY_COMMISSIONS),
   ])
 
   return {
-    advancedData,
+    advancedData: hasPermission(user, "VIEW_COST_PRICE") ? advancedData : redactKeys(advancedData, COST_REPORT_FIELDS),
     dailySales,
     monthlySales,
     advancesReport,

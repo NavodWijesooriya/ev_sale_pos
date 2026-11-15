@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { getUnifiedReportsData } from "@/app/actions/reports"
 import { AdvancedReportsDashboard } from "@/components/reports/advanced-reports-dashboard"
 
@@ -16,7 +17,7 @@ export default async function ReportsPage() {
   if (!session?.user?.organizationId) {
     redirect("/login")
   }
-  if (!["OrgAdmin", "BranchManager", "SuperAdmin"].includes(session.user.role)) {
+  if (!hasPermission(session.user, "VIEW_REPORTS")) {
     redirect("/dashboard")
   }
 

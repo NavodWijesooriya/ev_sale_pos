@@ -5,6 +5,17 @@ import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { ChequeStatus, PaymentMethod, PaymentStatus, VehicleStatus } from "@prisma/client"
 import { generateNextGRNNumber, lockGRNNumberSequence } from "@/lib/grn-number"
+import { recordAudit } from "@/lib/audit"
+import { requirePermission } from "@/lib/authorize"
+
+/** Supplier changes need MANAGE_SUPPLIERS (owners always have it). */
+async function requireSupplierManagement() {
+  const user = await requirePermission("MANAGE_SUPPLIERS")
+  return {
+    organizationId: user.organizationId,
+    actor: { id: user.id, name: user.name, organizationId: user.organizationId, branchId: user.branchId },
+  }
+}
 
 /**
  * Enforces session authentication and extracts the user's organizationId
@@ -256,13 +267,22 @@ export async function getSuppliers() {
 
 export async function createSupplier(input: CreateSupplierInput) {
   try {
-    const { organizationId } = await requireCatalogManagement()
+    const { organizationId, actor } = await requireSupplierManagement()
 
-    const supplier = await prisma.supplier.create({
-      data: {
-        organizationId,
-        ...getSupplierData(input),
-      },
+    const supplier = await prisma.$transaction(async (tx) => {
+      const created = await tx.supplier.create({
+        data: {
+          organizationId,
+          ...getSupplierData(input),
+        },
+      })
+      await recordAudit(tx, actor, {
+        action: "SUPPLIER_CREATED",
+        entityType: "Supplier",
+        entityId: created.id,
+        description: `Created supplier "${created.name}"`,
+      })
+      return created
     })
 
     revalidatePath("/dashboard/suppliers/list")
@@ -280,17 +300,23 @@ export async function createSupplier(input: CreateSupplierInput) {
 
 export async function updateSupplier(input: UpdateSupplierInput) {
   try {
-    const { organizationId } = await requireCatalogManagement()
+    const { organizationId, actor } = await requireSupplierManagement()
     if (!input.id?.trim()) throw new Error("Supplier ID is required.")
 
-    const result = await prisma.supplier.updateMany({
-      where: { id: input.id, organizationId },
-      data: getSupplierData(input),
-    })
-
-    if (result.count === 0) throw new Error("Supplier not found in your dealership.")
-    const supplier = await prisma.supplier.findFirstOrThrow({
-      where: { id: input.id, organizationId },
+    const supplier = await prisma.$transaction(async (tx) => {
+      const result = await tx.supplier.updateMany({
+        where: { id: input.id, organizationId },
+        data: getSupplierData(input),
+      })
+      if (result.count === 0) throw new Error("Supplier not found in your dealership.")
+      const updated = await tx.supplier.findFirstOrThrow({ where: { id: input.id, organizationId } })
+      await recordAudit(tx, actor, {
+        action: "SUPPLIER_UPDATED",
+        entityType: "Supplier",
+        entityId: updated.id,
+        description: `Updated supplier "${updated.name}"`,
+      })
+      return updated
     })
 
     revalidatePath("/dashboard/suppliers/list")
@@ -304,7 +330,7 @@ export async function updateSupplier(input: UpdateSupplierInput) {
 
 export async function deleteSupplier(id: string) {
   try {
-    const { organizationId } = await requireCatalogManagement()
+    const { organizationId, actor } = await requireSupplierManagement()
     if (!id?.trim()) throw new Error("Supplier ID is required.")
 
     const supplier = await prisma.supplier.findFirst({
@@ -323,8 +349,16 @@ export async function deleteSupplier(id: string) {
       throw new Error("This supplier has payment records and cannot be deleted.")
     }
 
-    const deleted = await prisma.supplier.deleteMany({ where: { id, organizationId } })
-    if (deleted.count !== 1) throw new Error("Supplier could not be deleted because it no longer exists.")
+    await prisma.$transaction(async (tx) => {
+      const deleted = await tx.supplier.deleteMany({ where: { id, organizationId } })
+      if (deleted.count !== 1) throw new Error("Supplier could not be deleted because it no longer exists.")
+      await recordAudit(tx, actor, {
+        action: "SUPPLIER_DELETED",
+        entityType: "Supplier",
+        entityId: id,
+        description: `Deleted supplier "${supplier.name}"`,
+      })
+    })
     revalidatePath("/dashboard/suppliers/list")
     return { success: true, message: `Supplier "${supplier.name}" deleted successfully!` }
   } catch (error) {
