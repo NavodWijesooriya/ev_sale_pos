@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { getBranches } from "@/app/actions/branch"
 import { BranchManagement } from "@/components/settings/branch-management"
 
@@ -13,11 +14,8 @@ export const metadata = {
 export default async function BranchesPage() {
   const session = await getAuthSession()
 
-  // 1. Route Security: ONLY allow access if the logged-in user's role is OrgAdmin (or SuperAdmin)
-  if (
-    !session?.user ||
-    (session.user.role !== "OrgAdmin" && session.user.role !== "SuperAdmin")
-  ) {
+  // 1. Route Security: owners, or staff granted the Access settings permission
+  if (!session?.user || !hasPermission(session.user, "ACCESS_SETTINGS")) {
     redirect("/dashboard")
   }
 

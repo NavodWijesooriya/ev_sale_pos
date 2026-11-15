@@ -6,7 +6,14 @@ import { getAuthSession } from "@/lib/auth"
 import bcrypt from "bcrypt"
 import { UserRole } from "@prisma/client"
 import { recordAudit } from "@/lib/audit"
-import { defaultPermissionsForRole, isOwner, sanitizePermissions, PERMISSION_DEFINITIONS } from "@/lib/permissions"
+import {
+  branchFilter,
+  defaultPermissionsForRole,
+  hasPermission,
+  isOwner,
+  sanitizePermissions,
+  PERMISSION_DEFINITIONS,
+} from "@/lib/permissions"
 
 /**
  * Enforces session authentication and validates that the user is an OrgAdmin
@@ -26,6 +33,57 @@ async function requireOrgAdmin() {
     organizationId: session.user.organizationId,
     currentUserId: session.user.id,
     user: session.user,
+  }
+}
+
+/**
+ * User management: the owner, or staff holding the Manage users permission.
+ * Non-owners can never create or edit owners, hand out the owner role, change
+ * permissions, or move people outside their own branch (see assertCanManage).
+ */
+async function requireUserManager() {
+  const session = await getAuthSession()
+  if (!session?.user?.organizationId) {
+    throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  if (!hasPermission(session.user, "MANAGE_USERS")) {
+    throw new Error("Forbidden. You do not have permission to manage users.")
+  }
+  return {
+    organizationId: session.user.organizationId,
+    currentUserId: session.user.id,
+    user: session.user,
+  }
+}
+
+/** New users get their role's default permissions, but never more than the person creating them holds. */
+function permissionsForNewUser(actor: { role: string; permissions?: readonly string[] | null }, role: string) {
+  const defaults = defaultPermissionsForRole(role)
+  return isOwner(actor) ? defaults : defaults.filter((permission) => hasPermission(actor, permission))
+}
+
+/** Escalation guard for non-owner user managers. Owners are unrestricted. */
+function assertCanManage(
+  actor: { role: string; branchId?: string | null },
+  target: { role?: string | null; branchId?: string | null },
+  newRole?: string | null,
+  newBranchId?: string | null,
+) {
+  if (isOwner(actor)) return
+  if (target.role && isOwner({ role: target.role })) {
+    throw new Error("Only an owner can change an owner account.")
+  }
+  if (newRole && isOwner({ role: newRole })) {
+    throw new Error("Only an owner can assign the owner role.")
+  }
+  const ownBranch = branchFilter(actor).branchId
+  if (ownBranch) {
+    if (target.branchId && target.branchId !== ownBranch) {
+      throw new Error("You can only manage staff in your own branch.")
+    }
+    if (newBranchId !== undefined && newBranchId !== ownBranch) {
+      throw new Error("You can only assign staff to your own branch.")
+    }
   }
 }
 
@@ -60,11 +118,13 @@ export interface StaffInitialData {
  * Retrieves all staff members and available branches for the current organization
  */
 export async function getStaffInitialData(): Promise<StaffInitialData> {
-  const { organizationId, currentUserId } = await requireOrgAdmin()
+  const { organizationId, currentUserId, user } = await requireUserManager()
+  const own = branchFilter(user).branchId
 
   const [usersRaw, branches, organization] = await Promise.all([
     prisma.user.findMany({
-      where: { organizationId },
+      // a branch-restricted manager only sees staff of their own branch
+      where: { organizationId, ...(own ? { branchId: own } : {}) },
       include: {
         branch: {
           select: {
@@ -157,7 +217,7 @@ export interface CreateStaffUserInput {
  */
 export async function createStaffUser(input: CreateStaffUserInput) {
   try {
-    const { organizationId } = await requireOrgAdmin()
+    const { organizationId, user: actor } = await requireUserManager()
 
     // 1. Validation
     const name = input.name?.trim()
@@ -188,6 +248,7 @@ export async function createStaffUser(input: CreateStaffUserInput) {
     if (!validRoles.includes(role)) {
       return { success: false, error: "Invalid role selected." }
     }
+    assertCanManage(actor, {}, role, branchId)
 
     // 2. Check email uniqueness across all users
     const existingUser = await prisma.user.findUnique({
@@ -219,7 +280,7 @@ export async function createStaffUser(input: CreateStaffUserInput) {
         passwordHash,
         role,
         branchId,
-        permissions: defaultPermissionsForRole(role),
+        permissions: permissionsForNewUser(actor, role),
         isActive: true,
       },
       include: {
@@ -263,7 +324,7 @@ export interface UpdateStaffUserInput {
  */
 export async function updateStaffUser(input: UpdateStaffUserInput) {
   try {
-    const { organizationId, currentUserId } = await requireOrgAdmin()
+    const { organizationId, currentUserId, user: actor } = await requireUserManager()
 
     const targetUser = await prisma.user.findFirst({
       where: { id: input.id, organizationId },
@@ -271,6 +332,8 @@ export async function updateStaffUser(input: UpdateStaffUserInput) {
     if (!targetUser) {
       return { success: false, error: "User account not found." }
     }
+
+    assertCanManage(actor, targetUser, input.role, input.branchId || null)
 
     // Prevent changing your own role away from OrgAdmin
     if (targetUser.id === currentUserId && input.role !== targetUser.role) {
@@ -321,7 +384,7 @@ export async function updateStaffUser(input: UpdateStaffUserInput) {
  */
 export async function toggleStaffStatus(userId: string, isActive: boolean) {
   try {
-    const { organizationId, currentUserId } = await requireOrgAdmin()
+    const { organizationId, currentUserId, user: actor } = await requireUserManager()
 
     if (userId === currentUserId) {
       return { success: false, error: "You cannot disable your own administrator account." }
@@ -333,6 +396,7 @@ export async function toggleStaffStatus(userId: string, isActive: boolean) {
     if (!targetUser) {
       return { success: false, error: "User not found in your dealership." }
     }
+    assertCanManage(actor, targetUser)
 
     await prisma.user.update({
       where: { id: userId },
@@ -358,7 +422,7 @@ export async function getStaffList() {
  */
 export async function updateStaffAccess(userId: string, role: string, isActive: boolean) {
   try {
-    const { organizationId, currentUserId } = await requireOrgAdmin()
+    const { organizationId, currentUserId, user: actor } = await requireUserManager()
 
     const targetUser = await prisma.user.findFirst({
       where: { id: userId, organizationId },
@@ -387,6 +451,8 @@ export async function updateStaffAccess(userId: string, role: string, isActive: 
     } else {
       return { success: false, error: `Invalid role "${role}". Supported: OrgAdmin, BranchManager, SalesRep, Cashier, Technician.` }
     }
+
+    assertCanManage(actor, targetUser, validatedRole)
 
     // Prevent changing your own role or deactivating your own account
     if (targetUser.id === currentUserId) {
@@ -436,7 +502,7 @@ export interface AddNewStaffInput {
 
 export async function addNewStaff(data: AddNewStaffInput) {
   try {
-    const { organizationId } = await requireOrgAdmin()
+    const { organizationId, user: actor } = await requireUserManager()
 
     const name = data.name?.trim()
     const email = data.email?.toLowerCase().trim()
@@ -473,6 +539,8 @@ export async function addNewStaff(data: AddNewStaffInput) {
     } else {
       validatedRole = UserRole.SalesRep
     }
+
+    assertCanManage(actor, {}, validatedRole, branchId)
 
     // Check if user exists in Prisma
     const existing = await prisma.user.findUnique({
@@ -525,7 +593,7 @@ export async function addNewStaff(data: AddNewStaffInput) {
         passwordHash,
         role: validatedRole,
         branchId,
-        permissions: defaultPermissionsForRole(validatedRole),
+        permissions: permissionsForNewUser(actor, validatedRole),
         isActive: true,
       },
       select: {

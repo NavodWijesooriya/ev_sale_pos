@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { recordAudit } from "@/lib/audit"
+import { hasPermission } from "@/lib/permissions"
 
 /**
  * Enforces session authentication and validates that the user is an OrgAdmin
@@ -14,11 +15,9 @@ async function requireOrgAdmin() {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
   }
 
-  // Strictly enforce OrgAdmin role
-  if (session.user.role !== "OrgAdmin" && session.user.role !== "SuperAdmin") {
-    throw new Error(
-      "Forbidden. Only Dealership Administrators (OrgAdmin) can manage branch showrooms."
-    )
+  // Owners always pass; others need the Access settings permission
+  if (!hasPermission(session.user, "ACCESS_SETTINGS")) {
+    throw new Error("Forbidden. You do not have permission to manage branch showrooms.")
   }
 
   return {

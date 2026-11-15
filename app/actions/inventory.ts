@@ -6,7 +6,9 @@ import { getAuthSession } from "@/lib/auth"
 import { ChequeStatus, PaymentMethod, PaymentStatus, VehicleStatus } from "@prisma/client"
 import { generateNextGRNNumber, lockGRNNumberSequence } from "@/lib/grn-number"
 import { recordAudit } from "@/lib/audit"
-import { requirePermission } from "@/lib/authorize"
+import { requireAnyPermission, requirePermission } from "@/lib/authorize"
+import { branchFilter, hasPermission } from "@/lib/permissions"
+import { redactKeys } from "@/lib/redact"
 
 /** Supplier changes need MANAGE_SUPPLIERS (owners always have it). */
 async function requireSupplierManagement() {
@@ -247,7 +249,7 @@ function getSupplierData(input: CreateSupplierInput) {
 
 export async function getSuppliers() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId } = await requireAnyPermission("MANAGE_SUPPLIERS", "RECORD_PAYMENTS", "CREATE_GRN")
 
     const suppliers = await prisma.supplier.findMany({
       where: { organizationId },
@@ -373,11 +375,13 @@ export async function deleteSupplier(id: string) {
 
 export async function getStockVehicles() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const user = await requireAnyPermission("CREATE_GRN", "TRANSFER_STOCK", "VIEW_INVENTORY_COST")
+    const organizationId = user.organizationId
 
     const vehicles = await prisma.vehicle.findMany({
       where: {
         organizationId,
+        ...branchFilter(user),
         status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
       },
       include: {
@@ -398,7 +402,10 @@ export async function getStockVehicles() {
       orderBy: { createdAt: "desc" },
     })
 
-    return { success: true, data: vehicles }
+    return {
+      success: true,
+      data: hasPermission(user, "VIEW_INVENTORY_COST") ? vehicles : redactKeys(vehicles, ["purchasePrice"]),
+    }
   } catch (error) {
     console.error("getStockVehicles error:", error)
     return { success: false, error: (error as Error).message, data: [] }
@@ -411,7 +418,7 @@ export async function getStockVehicles() {
 
 export async function getDealershipBranches() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId } = await requireAnyPermission("CREATE_GRN", "TRANSFER_STOCK", "VIEW_INVENTORY_COST")
 
     const branches = await prisma.branch.findMany({
       where: { organizationId },
@@ -452,10 +459,11 @@ export interface CreateGRNInput {
 
 export async function getGRNs() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const user = await requireAnyPermission("CREATE_GRN", "TRANSFER_STOCK", "VIEW_INVENTORY_COST")
+    const organizationId = user.organizationId
 
     const grns = await prisma.gRN.findMany({
-      where: { organizationId },
+      where: { organizationId, ...branchFilter(user) },
       include: {
         supplier: { select: { id: true, name: true, phone: true } },
         branch: { select: { id: true, name: true } },
@@ -493,7 +501,12 @@ export async function getGRNs() {
 
 export async function createGRN(input: CreateGRNInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const user = await requirePermission("CREATE_GRN")
+    const organizationId = user.organizationId
+    const ownBranchId = branchFilter(user).branchId
+    if (ownBranchId && input.branchId !== ownBranchId) {
+      throw new Error("You can only receive stock into your assigned branch.")
+    }
 
     if (!input.supplierId) throw new Error("Supplier selection is required.")
     if (!input.branchId) throw new Error("Target showroom/branch is required.")

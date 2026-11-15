@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { hasAnyPermission, type Permission } from "@/lib/permissions"
 import { CustomerCategory, CustomerType } from "@prisma/client"
 
 /**
  * Enforces session authentication and extracts the user's organizationId
  */
-async function requireAuthOrg() {
+async function requireAuthOrg(allowed: Permission[] = ["MANAGE_CUSTOMERS"]) {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  if (!hasAnyPermission(session.user, allowed)) {
+    throw new Error("You do not have permission to manage customers.")
   }
   return {
     organizationId: session.user.organizationId,
@@ -435,7 +439,8 @@ export interface CreateCustomerOnTheFlyInput {
 
 export async function createCustomerOnTheFly(data: CreateCustomerOnTheFlyInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    // Sales staff may add a customer while taking an advance or making a sale.
+    const { organizationId } = await requireAuthOrg(["MANAGE_CUSTOMERS", "CREATE_SALE"])
 
     const name = data.name?.trim()
     const phone = data.phone?.trim()

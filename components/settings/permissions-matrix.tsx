@@ -8,7 +8,17 @@ import { updateStaffPermissions, type StaffUserItem } from "@/app/actions/staff"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ALL_PERMISSIONS, PERMISSION_DEFINITIONS, sanitizePermissions } from "@/lib/permissions"
+import {
+  ALL_PERMISSIONS,
+  PERMISSION_DEFINITIONS,
+  PERMISSION_GROUPS,
+  sanitizePermissions,
+} from "@/lib/permissions"
+
+const groupedColumns = PERMISSION_GROUPS.map((group) => ({
+  group,
+  keys: ALL_PERMISSIONS.filter((key) => PERMISSION_DEFINITIONS[key].group === group),
+}))
 
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
 
@@ -75,9 +85,22 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-48">Staff member</TableHead>
+                <TableHead rowSpan={2} className="min-w-48 align-bottom">
+                  Staff member
+                </TableHead>
+                {groupedColumns.map(({ group, keys }) => (
+                  <TableHead
+                    key={group}
+                    colSpan={keys.length}
+                    className="border-l bg-muted/40 text-center text-xs font-semibold uppercase tracking-wide"
+                  >
+                    {group}
+                  </TableHead>
+                ))}
+              </TableRow>
+              <TableRow>
                 {ALL_PERMISSIONS.map((key) => (
-                  <TableHead key={key} className="min-w-28 text-center align-bottom">
+                  <TableHead key={key} className="min-w-28 border-l text-center align-bottom">
                     <span className="block text-xs leading-tight">{PERMISSION_DEFINITIONS[key].label}</span>
                   </TableHead>
                 ))}
@@ -100,7 +123,7 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
                     </p>
                   </TableCell>
                   {ALL_PERMISSIONS.map((key) => (
-                    <TableCell key={key} className="text-center">
+                    <TableCell key={key} className="border-l text-center">
                       <input
                         type="checkbox"
                         className="size-4 accent-[var(--primary)]"

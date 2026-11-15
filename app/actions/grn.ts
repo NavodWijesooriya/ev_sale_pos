@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache"
 import { VehicleStatus } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
 import { recordAudit } from "@/lib/audit"
-import { branchFilter } from "@/lib/permissions"
+import { branchFilter, hasAnyPermission, hasPermission, type Permission } from "@/lib/permissions"
+import { redactKeys } from "@/lib/redact"
 import { generateNextGRNNumber, lockGRNNumberSequence } from "@/lib/grn-number"
 import { prisma } from "@/lib/prisma"
 
@@ -33,10 +34,16 @@ export interface CreateGRNInput {
   bikes: GRNBikeInput[]
 }
 
-async function requireOrgUser() {
+/** GRN screens: anyone with one of these may view GRNs and stock. */
+const GRN_VIEW_PERMISSIONS: Permission[] = ["CREATE_GRN", "TRANSFER_STOCK", "VIEW_INVENTORY_COST"]
+
+async function requireOrgUser(allowed: Permission[] = ["CREATE_GRN"]) {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  if (!hasAnyPermission(session.user, allowed)) {
+    throw new Error("You do not have permission to manage GRNs and stock.")
   }
   return { organizationId: session.user.organizationId, user: session.user }
 }
@@ -235,7 +242,7 @@ export async function createGRN(input: CreateGRNInput) {
 
 export async function getGRNReport() {
   try {
-    const { organizationId, user } = await requireOrgUser()
+    const { organizationId, user } = await requireOrgUser(GRN_VIEW_PERMISSIONS)
     const grns = await prisma.gRN.findMany({
       where: { organizationId, ...branchFilter(user) },
       include: {
@@ -258,7 +265,7 @@ export async function getGRNReport() {
 
 export async function getAvailableBikeStock() {
   try {
-    const { organizationId, user } = await requireOrgUser()
+    const { organizationId, user } = await requireOrgUser(GRN_VIEW_PERMISSIONS)
     const vehicles = await prisma.vehicle.findMany({
       where: { organizationId, ...branchFilter(user), status: VehicleStatus.AVAILABLE },
       include: {
@@ -269,7 +276,11 @@ export async function getAvailableBikeStock() {
       // unitGrnNumber is a direct column on Vehicle, included via findMany by default
       orderBy: [{ createdAt: "desc" }, { chassisNumber: "asc" }],
     })
-    return { success: true, data: vehicles }
+    // Purchase cost is hidden from users without the View inventory cost permission.
+    return {
+      success: true,
+      data: hasPermission(user, "VIEW_INVENTORY_COST") ? vehicles : redactKeys(vehicles, ["purchasePrice"]),
+    }
   } catch (error) {
     console.error("getAvailableBikeStock error:", error)
     return {

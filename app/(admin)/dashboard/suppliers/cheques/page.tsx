@@ -14,7 +14,7 @@ export const metadata = {
 export default async function SupplierChequesPage() {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) redirect("/login?callbackUrl=/dashboard/suppliers/cheques")
-  if (!hasPermission(session.user, "MANAGE_SUPPLIERS")) redirect("/dashboard")
+  if (!hasPermission(session.user, "MANAGE_CHEQUES")) redirect("/dashboard")
 
   const cheques = await getCheques()
   return <ChequeManagement cheques={cheques} />

@@ -1,5 +1,5 @@
 import { getAuthSession, type AuthSessionUser } from "@/lib/auth"
-import { hasPermission, isOwner, type Permission, PERMISSION_DEFINITIONS } from "@/lib/permissions"
+import { hasAnyPermission, hasPermission, isOwner, type Permission, PERMISSION_DEFINITIONS } from "@/lib/permissions"
 
 export class PermissionError extends Error {
   constructor(message: string) {
@@ -27,6 +27,16 @@ export async function requirePermission(permission: Permission): Promise<Authori
   const user = await requireUser()
   if (!hasPermission(user, permission)) {
     throw new PermissionError(`You do not have permission to ${PERMISSION_DEFINITIONS[permission].label.toLowerCase()}.`)
+  }
+  return user
+}
+
+/** Requires a signed-in user holding at least one of `permissions` (owners always pass). */
+export async function requireAnyPermission(...permissions: Permission[]): Promise<AuthorizedUser> {
+  const user = await requireUser()
+  if (!hasAnyPermission(user, permissions)) {
+    const names = permissions.map((p) => PERMISSION_DEFINITIONS[p].label.toLowerCase()).join(" or ")
+    throw new PermissionError(`You do not have permission (${names}).`)
   }
   return user
 }

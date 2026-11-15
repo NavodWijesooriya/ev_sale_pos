@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { UserRole } from "@prisma/client"
 
 async function requireShopOwner() {
@@ -16,16 +17,25 @@ async function requireShopOwner() {
   return session.user.organizationId
 }
 
+/** Viewing the spare-parts list needs the warranty & service permission; changing stock stays owner-only. */
+async function requireSparePartsViewer() {
+  const session = await getAuthSession()
+  if (!session?.user?.organizationId) {
+    throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  if (!hasPermission(session.user, "MANAGE_WARRANTY_SERVICE")) {
+    throw new Error("You do not have permission to view spare parts.")
+  }
+  return session.user.organizationId
+}
+
 export async function getAvailableSpareParts() {
   const session = await getAuthSession()
   const organizationId = session?.user?.organizationId
   if (!organizationId) {
     return { success: false as const, error: "Unauthorized.", data: [] }
   }
-  if (
-    session.user.role !== UserRole.OrgAdmin &&
-    session.user.role !== UserRole.Technician
-  ) {
+  if (!hasPermission(session.user, "MANAGE_WARRANTY_SERVICE")) {
     return { success: false as const, error: "Forbidden.", data: [] }
   }
 
@@ -39,7 +49,7 @@ export async function getAvailableSpareParts() {
 
 export async function getSpareParts() {
   try {
-    const organizationId = await requireShopOwner()
+    const organizationId = await requireSparePartsViewer()
     const data = await prisma.sparePart.findMany({
       where: { organizationId },
       orderBy: { name: "asc" },

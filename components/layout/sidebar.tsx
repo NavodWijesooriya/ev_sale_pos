@@ -28,7 +28,7 @@ import {
   Zap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { hasPermission, type Permission } from "@/lib/permissions"
+import { hasAnyPermission, isOwner, type Permission } from "@/lib/permissions"
 
 export interface NavItem {
   title: string
@@ -37,14 +37,17 @@ export interface NavItem {
   badge?: string
   description?: string
   roles?: string[]
-  /** Visible only to users holding this permission (owners always do). */
-  permission?: Permission
+  /** Visible only to users holding at least one of these permissions (owners always do). */
+  anyPermission?: Permission[]
   children?: NavChild[]
 }
 
 interface NavChild {
   title: string
   href?: string
+  anyPermission?: Permission[]
+  /** Hidden from everyone except the dealership owner. */
+  ownerOnly?: boolean
   children?: NavChild[]
 }
 
@@ -54,7 +57,7 @@ export const navigationItems: NavItem[] = [
     title: "Sales Management",
     href: "/dashboard/sales/new",
     icon: Coins,
-    roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"],
+    anyPermission: ["CREATE_SALE"],
     children: [
       { title: "New Sale (POS)", href: "/dashboard/sales/new" },
       { title: "Sales History", href: "/dashboard/sales/history" },
@@ -83,7 +86,7 @@ export const navigationItems: NavItem[] = [
     title: "Customers",
     href: "/dashboard/customers",
     icon: Users2,
-    roles: ["OrgAdmin", "BranchManager", "SalesRep", "Cashier", "SuperAdmin"],
+    anyPermission: ["MANAGE_CUSTOMERS", "CREATE_SALE"],
     children: [
       { title: "CRM Customers", href: "/dashboard/customers/crm" },
       { title: "Sale Customers", href: "/dashboard/customers/sales" },
@@ -94,7 +97,7 @@ export const navigationItems: NavItem[] = [
     title: "GRN Management",
     href: "/dashboard/grn",
     icon: ClipboardList,
-    roles: ["OrgAdmin", "BranchManager"],
+    anyPermission: ["CREATE_GRN", "TRANSFER_STOCK", "VIEW_INVENTORY_COST"],
     children: [
       { title: "Create GRN", href: "/dashboard/grn/create" },
       { title: "GRN Report", href: "/dashboard/grn/report" },
@@ -105,37 +108,45 @@ export const navigationItems: NavItem[] = [
     title: "Supplier Management",
     href: "/dashboard/suppliers",
     icon: HandCoins,
-    permission: "MANAGE_SUPPLIERS",
+    anyPermission: ["MANAGE_SUPPLIERS", "RECORD_PAYMENTS", "MANAGE_CHEQUES"],
     children: [
-      { title: "Suppliers", href: "/dashboard/suppliers/list" },
-      { title: "Supplier Payments", href: "/dashboard/suppliers/payments" },
-      { title: "Cheque Management", href: "/dashboard/suppliers/cheques" },
-      { title: "Ledger & Reports", href: "/dashboard/suppliers/reports" },
+      { title: "Suppliers", href: "/dashboard/suppliers/list", anyPermission: ["MANAGE_SUPPLIERS"] },
+      {
+        title: "Supplier Payments",
+        href: "/dashboard/suppliers/payments",
+        anyPermission: ["MANAGE_SUPPLIERS", "RECORD_PAYMENTS"],
+      },
+      { title: "Cheque Management", href: "/dashboard/suppliers/cheques", anyPermission: ["MANAGE_CHEQUES"] },
+      {
+        title: "Ledger & Reports",
+        href: "/dashboard/suppliers/reports",
+        anyPermission: ["MANAGE_SUPPLIERS", "RECORD_PAYMENTS"],
+      },
     ],
   },
   {
     title: "Service Management",
     href: "/dashboard/services",
     icon: Wrench,
-    roles: ["OrgAdmin", "BranchManager", "Technician"],
+    anyPermission: ["MANAGE_WARRANTY_SERVICE"],
     children: [
       { title: "Service", href: "/dashboard/services" },
       { title: "Spare Parts Inventory", href: "/dashboard/services/spare-parts" },
     ],
   },
-  { title: "Reports", href: "/dashboard/reports", icon: BarChart3, permission: "VIEW_REPORTS" },
+  { title: "Reports", href: "/dashboard/reports", icon: BarChart3, anyPermission: ["VIEW_REPORTS"] },
   { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
   {
     title: "Settings",
     href: "/dashboard/settings/users",
     icon: Settings,
-    roles: ["OrgAdmin", "SuperAdmin"],
+    anyPermission: ["MANAGE_USERS", "ACCESS_SETTINGS"],
     children: [
-      { title: "Users", href: "/dashboard/settings/users" },
-      { title: "Permissions", href: "/dashboard/settings/permissions" },
-      { title: "Commissions", href: "/dashboard/settings/commissions" },
-      { title: "Audit Logs", href: "/dashboard/settings/audit-logs" },
-      { title: "Branches", href: "/dashboard/settings/branches" },
+      { title: "Users", href: "/dashboard/settings/users", anyPermission: ["MANAGE_USERS"] },
+      { title: "Permissions", href: "/dashboard/settings/permissions", ownerOnly: true },
+      { title: "Commissions", href: "/dashboard/settings/commissions", ownerOnly: true },
+      { title: "Audit Logs", href: "/dashboard/settings/audit-logs", ownerOnly: true },
+      { title: "Branches", href: "/dashboard/settings/branches", anyPermission: ["ACCESS_SETTINGS"] },
     ],
   },
   { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
@@ -189,11 +200,20 @@ export function SidebarContent({
   const [serviceManagementExpanded, setServiceManagementExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/services")),
   )
-  const visibleItems = navigationItems.filter(
-    (item) =>
-      (!item.roles || item.roles.includes(userRole)) &&
-      (!item.permission || hasPermission({ role: userRole, permissions: userPermissions }, item.permission)),
-  )
+  const subject = { role: userRole, permissions: userPermissions }
+  const allowedChild = (child: NavChild) =>
+    (!child.ownerOnly || isOwner(subject)) && (!child.anyPermission || hasAnyPermission(subject, child.anyPermission))
+  const filterChildren = (children: NavChild[]): NavChild[] =>
+    children
+      .filter(allowedChild)
+      .map((child) => (child.children ? { ...child, children: filterChildren(child.children) } : child))
+  const visibleItems = navigationItems
+    .filter(
+      (item) =>
+        (!item.roles || item.roles.includes(userRole)) &&
+        (!item.anyPermission || hasAnyPermission(subject, item.anyPermission)),
+    )
+    .map((item) => (item.children ? { ...item, children: filterChildren(item.children) } : item))
   const isExpanded = (title: string) => {
     if (title === "Customers") return customersExpanded
     if (title === "GRN Management") return grnExpanded

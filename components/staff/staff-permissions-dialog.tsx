@@ -15,7 +15,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { ALL_PERMISSIONS, PERMISSION_DEFINITIONS, sanitizePermissions } from "@/lib/permissions"
+import {
+  ALL_PERMISSIONS,
+  PERMISSION_DEFINITIONS,
+  PERMISSION_GROUPS,
+  sanitizePermissions,
+} from "@/lib/permissions"
 
 const selectClass =
   "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 dark:bg-input/30"
@@ -75,7 +80,7 @@ function PermissionsForm({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Access for {user.name}</DialogTitle>
           <DialogDescription>
@@ -104,9 +109,11 @@ function PermissionsForm({
             </p>
           </div>
 
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Permissions</legend>
-            {ALL_PERMISSIONS.map((key) => {
+          <div className="space-y-4">
+            {PERMISSION_GROUPS.map((group) => (
+            <fieldset key={group} className="space-y-2">
+            <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group}</legend>
+            {ALL_PERMISSIONS.filter((key) => PERMISSION_DEFINITIONS[key].group === group).map((key) => {
               const def = PERMISSION_DEFINITIONS[key]
               return (
                 <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40">
@@ -123,7 +130,9 @@ function PermissionsForm({
                 </label>
               )
             })}
-          </fieldset>
+            </fieldset>
+            ))}
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

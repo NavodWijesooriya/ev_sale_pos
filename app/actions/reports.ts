@@ -1753,8 +1753,8 @@ export interface UnifiedReportsData {
   commissionsData: CommissionReportData
 }
 
-/** Report fields that reveal purchase cost, margin or profit (need VIEW_COST_PRICE). */
-const COST_REPORT_FIELDS = [
+/** Report fields that reveal margin or profit (need VIEW_COST_PRICE). */
+const PROFIT_REPORT_FIELDS = [
   "acquisitionCost",
   "grossProfit",
   "netProfit",
@@ -1762,6 +1762,10 @@ const COST_REPORT_FIELDS = [
   "netGrossProfit",
   "profitMarginPercent",
   "totalAcquisitionCost",
+] as const
+
+/** Report fields that reveal what stock cost or how much capital it ties up (need VIEW_INVENTORY_COST). */
+const INVENTORY_COST_REPORT_FIELDS = [
   "totalTiedCapital",
   "criticalOver90Capital",
   "warningOver60Capital",
@@ -1800,7 +1804,10 @@ export async function getUnifiedReportsData(): Promise<UnifiedReportsData> {
   ])
 
   return {
-    advancedData: hasPermission(user, "VIEW_COST_PRICE") ? advancedData : redactKeys(advancedData, COST_REPORT_FIELDS),
+    advancedData: redactKeys(
+      redactKeys(advancedData, hasPermission(user, "VIEW_COST_PRICE") ? [] : PROFIT_REPORT_FIELDS),
+      hasPermission(user, "VIEW_INVENTORY_COST") ? [] : INVENTORY_COST_REPORT_FIELDS,
+    ),
     dailySales,
     monthlySales,
     advancesReport,

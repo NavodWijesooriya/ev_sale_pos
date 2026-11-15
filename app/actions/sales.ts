@@ -15,7 +15,7 @@ import {
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { recordAudit } from "@/lib/audit"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
-import { branchFilter } from "@/lib/permissions"
+import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
 import {
   createNewSaleSchema,
@@ -36,6 +36,10 @@ async function requireAuthOrg() {
   const session = await getAuthSession()
   if (!session?.user?.organizationId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  // Every sales action (POS, history, invoices, DMT paperwork) needs the Create sales permission.
+  if (!hasPermission(session.user, "CREATE_SALE")) {
+    throw new Error("You do not have permission to create or manage sales.")
   }
   return {
     organizationId: session.user.organizationId,
@@ -456,6 +460,10 @@ export async function processSale(input: ProcessSaleInput) {
     const { organizationId, userId, user } = await requireAuthOrg()
     // Commissions are owner/admin only; ignore any dealerCommission sent by other roles.
     const dealerCommission = canManageCommissions(user.role) ? input.dealerCommission : undefined
+    // A discount may only be given by someone allowed to approve discounts.
+    if ((Number(input.discount) || 0) > 0 && !hasPermission(user, "APPROVE_DISCOUNTS")) {
+      throw new Error("You do not have permission to approve discounts.")
+    }
 
     // 1. Validation
     if (!input.vehicleId?.trim()) {

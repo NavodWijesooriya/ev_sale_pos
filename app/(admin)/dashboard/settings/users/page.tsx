@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { getStaffInitialData } from "@/app/actions/staff"
 import { UnifiedTeamAccessView } from "@/components/staff/unified-team-access-view"
 
@@ -21,8 +22,8 @@ export default async function TeamAccessPage() {
     redirect("/login?callbackUrl=/dashboard/settings/users")
   }
 
-  // 2. Strict Role Access Control: ONLY OrgAdmin (or SuperAdmin) can access User Management
-  if (session.user.role !== "OrgAdmin" && session.user.role !== "SuperAdmin") {
+  // 2. Owners, or staff granted the Manage users permission
+  if (!hasPermission(session.user, "MANAGE_USERS")) {
     redirect("/dashboard")
   }
 

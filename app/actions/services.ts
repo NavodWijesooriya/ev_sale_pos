@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { ServiceType, UserRole, VehicleStatus } from "@prisma/client"
 import type { Prisma } from "@prisma/client"
 
@@ -33,10 +34,10 @@ async function requireServiceAccess() {
       organizationId: auth.organizationId,
       isActive: true,
     },
-    select: { role: true, branchId: true },
+    select: { role: true, branchId: true, permissions: true },
   })
-  if (!user || (user.role !== UserRole.OrgAdmin && user.role !== UserRole.Technician)) {
-    throw new Error("Forbidden. Service job cards are available to service staff and organization admins only.")
+  if (!user || !hasPermission(user, "MANAGE_WARRANTY_SERVICE")) {
+    throw new Error("You do not have permission to manage warranty and service.")
   }
   if (user.role === UserRole.Technician && !user.branchId) {
     throw new Error("Forbidden. A workshop branch must be assigned to your technician account.")

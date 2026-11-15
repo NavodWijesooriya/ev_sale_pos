@@ -11,28 +11,98 @@
  * The UI may hide things with it, but only server-side checks are authoritative.
  */
 
+export const PERMISSION_GROUPS = [
+  "GRN & Inventory",
+  "Sales & Billing",
+  "Payments & Cheques",
+  "Customers & Service",
+  "Reports & Admin",
+] as const
+
+export type PermissionGroup = (typeof PERMISSION_GROUPS)[number]
+
 export const PERMISSION_DEFINITIONS = {
-  VIEW_COST_PRICE: {
-    label: "View cost price & profit",
-    description: "See bike purchase cost, margins and profit figures.",
+  // GRN & Inventory
+  CREATE_GRN: {
+    group: "GRN & Inventory",
+    label: "Create GRN",
+    description: "Receive stock with a GRN and view GRN reports and current stock.",
+  },
+  TRANSFER_STOCK: {
+    group: "GRN & Inventory",
+    label: "Transfer stock",
+    description: "Move bikes between branches.",
+  },
+  VIEW_INVENTORY_COST: {
+    group: "GRN & Inventory",
+    label: "View inventory cost",
+    description: "See purchase cost and tied-up capital of bikes in stock.",
+  },
+  // Sales & Billing
+  CREATE_SALE: {
+    group: "Sales & Billing",
+    label: "Create sales",
+    description: "Use the POS, take customer advances and update sale paperwork.",
   },
   APPROVE_DISCOUNTS: {
+    group: "Sales & Billing",
     label: "Approve discounts",
     description: "Give a discount on a sale.",
   },
   DELETE_SALES: {
+    group: "Sales & Billing",
     label: "Delete sales",
     description: "Delete or void sale records.",
   },
+  VIEW_COST_PRICE: {
+    group: "Sales & Billing",
+    label: "View cost price & profit",
+    description: "See bike purchase cost, margins and profit figures on sales and reports.",
+  },
+  // Payments & Cheques
+  MANAGE_SUPPLIERS: {
+    group: "Payments & Cheques",
+    label: "Manage suppliers",
+    description: "Add, edit and delete suppliers, set GRN payables and view supplier ledgers.",
+  },
+  RECORD_PAYMENTS: {
+    group: "Payments & Cheques",
+    label: "Record supplier payments",
+    description: "Record supplier payments and apply supplier advances.",
+  },
+  MANAGE_CHEQUES: {
+    group: "Payments & Cheques",
+    label: "Manage cheques",
+    description: "Issue cheques, and mark them presented, cleared, bounced or cancelled.",
+  },
+  // Customers & Service
+  MANAGE_CUSTOMERS: {
+    group: "Customers & Service",
+    label: "Manage customers",
+    description: "View, add and edit customers and CRM leads.",
+  },
+  MANAGE_WARRANTY_SERVICE: {
+    group: "Customers & Service",
+    label: "Warranty & service",
+    description: "Service job cards, free-service entitlements and warranty tracking.",
+  },
+  // Reports & Admin
   VIEW_REPORTS: {
+    group: "Reports & Admin",
     label: "View reports",
     description: "Open the Reports & Analytics section.",
   },
-  MANAGE_SUPPLIERS: {
-    label: "Manage suppliers & payments",
-    description: "Add suppliers, record supplier payments and manage cheques.",
+  MANAGE_USERS: {
+    group: "Reports & Admin",
+    label: "Manage users",
+    description: "Create staff, block or unblock them and change roles (never owners or permissions).",
   },
-} as const
+  ACCESS_SETTINGS: {
+    group: "Reports & Admin",
+    label: "Access settings",
+    description: "Open the branch settings. Commissions, permissions and audit logs stay owner-only.",
+  },
+} as const satisfies Record<string, { group: PermissionGroup; label: string; description: string }>
 
 export type Permission = keyof typeof PERMISSION_DEFINITIONS
 
@@ -47,12 +117,28 @@ export function sanitizePermissions(values: readonly string[] | null | undefined
   return Array.from(new Set((values ?? []).filter(isPermission)))
 }
 
-/** Defaults granted when a user is created (and used to back-fill existing users). */
+/**
+ * Defaults granted when a user is created. They mirror what each role could already do
+ * before permissions existed, so introducing them does not change anyone's access.
+ */
 export const ROLE_DEFAULT_PERMISSIONS: Record<string, Permission[]> = {
-  BranchManager: ["VIEW_REPORTS", "MANAGE_SUPPLIERS", "VIEW_COST_PRICE", "APPROVE_DISCOUNTS"],
-  SalesRep: [],
-  Cashier: [],
-  Technician: [],
+  BranchManager: [
+    "CREATE_GRN",
+    "TRANSFER_STOCK",
+    "VIEW_INVENTORY_COST",
+    "CREATE_SALE",
+    "APPROVE_DISCOUNTS",
+    "VIEW_COST_PRICE",
+    "MANAGE_SUPPLIERS",
+    "RECORD_PAYMENTS",
+    "MANAGE_CHEQUES",
+    "MANAGE_CUSTOMERS",
+    "MANAGE_WARRANTY_SERVICE",
+    "VIEW_REPORTS",
+  ],
+  SalesRep: ["CREATE_SALE", "MANAGE_CUSTOMERS"],
+  Cashier: ["CREATE_SALE", "MANAGE_CUSTOMERS"],
+  Technician: ["MANAGE_WARRANTY_SERVICE"],
 }
 
 export function defaultPermissionsForRole(role: string): Permission[] {
@@ -73,6 +159,11 @@ export function isOwner(user: Pick<PermissionSubject, "role">): boolean {
 export function hasPermission(user: PermissionSubject, permission: Permission): boolean {
   if (isOwner(user)) return true
   return (user.permissions ?? []).includes(permission)
+}
+
+/** True when the user holds at least one of the given permissions (owners always do). */
+export function hasAnyPermission(user: PermissionSubject, permissions: readonly Permission[]): boolean {
+  return permissions.some((permission) => hasPermission(user, permission))
 }
 
 /** True when the user must only see data from their own assigned branch. */

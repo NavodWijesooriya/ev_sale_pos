@@ -9,8 +9,8 @@ import {
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { recordAudit, type AuditAction } from "@/lib/audit"
-import { requirePermission } from "@/lib/authorize"
-import { branchFilter } from "@/lib/permissions"
+import { requireAnyPermission } from "@/lib/authorize"
+import { branchFilter, hasPermission, type Permission } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 import {
   allocateAdvanceSchema,
@@ -35,9 +35,12 @@ type ActionResult<T = object> = ({ success: true; message: string } & T) | { suc
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
-/** Supplier payments, cheques and advances need the MANAGE_SUPPLIERS permission (owners always pass). */
-async function requireOrganizationUser() {
-  const user = await requirePermission("MANAGE_SUPPLIERS")
+/** Supplier screens (ledger, balances): Manage suppliers or Record supplier payments. */
+const SUPPLIER_VIEW: Permission[] = ["MANAGE_SUPPLIERS", "RECORD_PAYMENTS"]
+
+/** Owners always pass; everyone else needs at least one of `allowed`. */
+async function requireOrganizationUser(allowed: Permission[] = SUPPLIER_VIEW) {
+  const user = await requireAnyPermission(...allowed)
   const actor = { id: user.id, name: user.name, organizationId: user.organizationId, branchId: user.branchId }
   return { organizationId: user.organizationId, userId: user.id, user, actor }
 }
@@ -130,7 +133,7 @@ function revalidateSupplierPages() {
  */
 export async function setGrnPayable(input: SetGrnPayableInput): Promise<ActionResult> {
   try {
-    const { organizationId, user, actor } = await requireOrganizationUser()
+    const { organizationId, user, actor } = await requireOrganizationUser(["MANAGE_SUPPLIERS"])
     const data = setGrnPayableSchema.parse(input)
 
     await prisma.$transaction(async (tx) => {
@@ -180,8 +183,12 @@ export async function recordSupplierPayment(
   input: RecordSupplierPaymentInput,
 ): Promise<ActionResult<{ paymentId: string; paymentNumber: string; advanceAmount: number }>> {
   try {
-    const { organizationId, userId, user, actor } = await requireOrganizationUser()
+    const { organizationId, userId, user, actor } = await requireOrganizationUser(["RECORD_PAYMENTS"])
     const data = recordSupplierPaymentSchema.parse(input)
+    // Paying by cheque also creates a cheque, which needs the cheque permission.
+    if (data.method === "CHEQUE" && !hasPermission(user, "MANAGE_CHEQUES")) {
+      throw new Error("You do not have permission to issue cheques.")
+    }
     const amount = round2(data.amount)
     const allocations = data.allocations.map((a) => ({ grnId: a.grnId, amount: round2(a.amount) }))
     assertUniqueAllocations(allocations)
@@ -290,7 +297,7 @@ export async function recordSupplierAdvance(
 /** Applies the supplier's advance balance (oldest first) to the chosen GRNs. */
 export async function allocateAdvanceToGrns(input: AllocateAdvanceInput): Promise<ActionResult> {
   try {
-    const { organizationId, user, actor } = await requireOrganizationUser()
+    const { organizationId, user, actor } = await requireOrganizationUser(["RECORD_PAYMENTS"])
     const data = allocateAdvanceSchema.parse(input)
     const allocations = data.allocations.map((a) => ({ grnId: a.grnId, amount: round2(a.amount) }))
     assertUniqueAllocations(allocations)
@@ -400,7 +407,7 @@ async function transitionCheque(
   to: "PRESENTED" | "CLEARED" | "BOUNCED" | "CANCELLED",
   opts: { note?: string; clearedAt?: Date } = {},
 ) {
-  const { organizationId, userId, actor } = await requireOrganizationUser()
+  const { organizationId, userId, actor } = await requireOrganizationUser(["MANAGE_CHEQUES"])
 
   await prisma.$transaction(async (tx) => {
     const current = await tx.cheque.findFirst({
@@ -489,7 +496,7 @@ export async function cancelCheque(input: { chequeId: string; reason?: string })
 }
 
 export async function getChequeHistory(chequeId: string) {
-  const { organizationId } = await requireOrganizationUser()
+  const { organizationId } = await requireOrganizationUser(["MANAGE_CHEQUES"])
   const events = await prisma.chequeEvent.findMany({
     where: { chequeId, cheque: { organizationId } },
     orderBy: { createdAt: "asc" },
@@ -623,7 +630,7 @@ export interface ChequeRow {
 }
 
 export async function getCheques(filter?: { status?: ChequeStatus; supplierId?: string }): Promise<ChequeRow[]> {
-  const { organizationId } = await requireOrganizationUser()
+  const { organizationId } = await requireOrganizationUser(["MANAGE_CHEQUES"])
   const cheques = await prisma.cheque.findMany({
     where: {
       organizationId,

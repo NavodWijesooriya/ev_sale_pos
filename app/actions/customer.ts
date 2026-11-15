@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { hasAnyPermission } from "@/lib/permissions"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { CustomerCategory, CustomerType } from "@prisma/client"
 
@@ -33,6 +34,9 @@ export async function createCustomer(formData: FormData): Promise<CreateCustomer
 
   if (!organizationId) {
     return { success: false, error: "Unauthorized. Please log in to your dealership portal." }
+  }
+  if (!hasAnyPermission(session.user, ["MANAGE_CUSTOMERS", "CREATE_SALE"])) {
+    return { success: false, error: "You do not have permission to manage customers." }
   }
 
   const name = String(formData.get("name") ?? "").trim()
@@ -87,6 +91,9 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
 
   if (!organizationId) {
     return { success: false, error: "Unauthorized. Please log in to your dealership portal." }
+  }
+  if (!hasAnyPermission(session.user, ["MANAGE_CUSTOMERS"])) {
+    return { success: false, error: "You do not have permission to manage customers." }
   }
 
   const name = String(formData.get("name") ?? "").trim()

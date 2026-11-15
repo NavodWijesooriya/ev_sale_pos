@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { recordAudit } from "@/lib/audit"
+import { hasPermission } from "@/lib/permissions"
 import {
   createAdvancePaymentSchema,
   type CreateAdvancePaymentInput,
@@ -21,6 +22,9 @@ async function requireOrganizationUser() {
 
   if (!organizationId || !userId) {
     throw new Error("Unauthorized. Please log in to your dealership portal.")
+  }
+  if (!hasPermission(session.user, "CREATE_SALE")) {
+    throw new Error("You do not have permission to manage customer advances.")
   }
 
   return { organizationId, userId }
@@ -392,6 +396,9 @@ export async function createAdvancePayment(
   if (!organizationId || !userId) {
     return { success: false, error: "Unauthorized. Please log in to your dealership portal." }
   }
+  if (!session?.user || !hasPermission(session.user, "CREATE_SALE")) {
+    return { success: false, error: "You do not have permission to manage customer advances." }
+  }
 
   const parsedInput = createAdvancePaymentSchema.safeParse(input)
   if (!parsedInput.success) {
@@ -475,6 +482,9 @@ export async function updateAdvancePayment(
   if (!organizationId) {
     return { success: false, error: "Unauthorized. Please log in to your dealership portal." }
   }
+  if (!session?.user || !hasPermission(session.user, "CREATE_SALE")) {
+    return { success: false, error: "You do not have permission to manage customer advances." }
+  }
 
   const advanceId = typeof id === "string" ? id.trim() : ""
   if (!advanceId) {
@@ -545,6 +555,9 @@ export async function refundAdvancePayment(
   const organizationId = session?.user?.organizationId
   if (!organizationId) {
     return { success: false, error: "Unauthorized. Please log in to your dealership portal." }
+  }
+  if (!session?.user || !hasPermission(session.user, "CREATE_SALE")) {
+    return { success: false, error: "You do not have permission to manage customer advances." }
   }
 
   const advanceId = typeof id === "string" ? id.trim() : ""
