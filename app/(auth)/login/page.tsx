@@ -16,6 +16,12 @@ function LoginForm() {
   const [password, setPassword] = React.useState("")
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
+  // Block submits until React has hydrated, so a native (non-JS) submit can't happen.
+  const [isHydrated, setIsHydrated] = React.useState(false)
+
+  React.useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -41,15 +47,10 @@ function LoginForm() {
     }
   }
 
-  const fillDemoCredentials = () => {
-    setEmail("admin@voltpos.com")
-    setPassword("password123")
-    setErrorMessage(null)
-  }
-
   return (
     <LoginExperience portal="dealership">
-      <form onSubmit={handleSubmit} className="space-y-5">
+      {/* method="post": if JS ever fails, the browser must never put credentials in the URL */}
+      <form method="post" onSubmit={handleSubmit} className="space-y-5">
         {errorMessage && (
           <div
             role="alert"
@@ -96,7 +97,7 @@ function LoginForm() {
        
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !isHydrated}
           className="h-12 w-full rounded-xl bg-[#183a34] text-sm font-semibold text-white shadow-none transition-colors hover:bg-[#24544a]"
         >
           {isLoading ? (

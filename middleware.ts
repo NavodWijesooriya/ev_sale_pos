@@ -19,6 +19,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // 1b. Never keep credentials in a URL. If a login form was ever submitted
+  // natively (GET), strip them and redirect to the clean URL.
+  if (url.searchParams.has('password')) {
+    url.searchParams.delete('password');
+    url.searchParams.delete('email');
+    return NextResponse.redirect(url);
+  }
+
   // 2. Extract subdomain from host
   // Examples:
   // - "admin.localhost" or "admin.lvh.me" -> "admin"

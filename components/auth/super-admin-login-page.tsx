@@ -13,12 +13,23 @@ import { Label } from "@/components/ui/label"
 function SuperAdminLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin-portal"
+  // Only allow internal paths (blocks "https://evil.com" and "//evil.com" open redirects)
+  const rawCallback = searchParams.get("callbackUrl")
+  const callbackUrl =
+    rawCallback && rawCallback.startsWith("/") && !rawCallback.startsWith("//")
+      ? rawCallback
+      : "/admin-portal"
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  // Block submits until React has hydrated, so a native (non-JS) submit can't happen.
+  const [isHydrated, setIsHydrated] = React.useState(false)
+
+  React.useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -46,7 +57,8 @@ function SuperAdminLoginForm() {
 
   return (
     <LoginExperience portal="platform">
-      <form onSubmit={handleSubmit} className="space-y-5">
+      {/* method="post": if JS ever fails, the browser must never put credentials in the URL */}
+      <form method="post" onSubmit={handleSubmit} className="space-y-5">
         {errorMessage && (
           <div
             role="alert"
@@ -90,7 +102,7 @@ function SuperAdminLoginForm() {
 
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !isHydrated}
           className="h-12 w-full rounded-xl bg-[#183a34] text-sm font-semibold text-white shadow-none transition-colors hover:bg-[#24544a]"
         >
           {isLoading ? (
