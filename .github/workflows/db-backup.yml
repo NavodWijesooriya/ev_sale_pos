@@ -1,0 +1,99 @@
+# Daily Supabase database backup (encrypted), stored as a GitHub Actions artifact.
+#
+# One-time setup — GitHub repo → Settings → Secrets and variables → Actions → New repository secret:
+#   BACKUP_DATABASE_URL  = your DIRECT_URL (Supabase session pooler, port 5432 — NOT the 6543 one)
+#   BACKUP_PASSPHRASE    = a long random password. Keep a copy somewhere safe (password manager).
+#                          Without it the backups cannot be opened.
+#
+# Runs every day at 02:00 Sri Lanka time, and can also be run by hand:
+#   GitHub → Actions → "Daily database backup" → Run workflow
+#
+# Restore (on your own computer, needs PostgreSQL 17 client tools + gpg):
+#   1. Download the artifact zip from the workflow run and unzip it.
+#   2. gpg --decrypt --output backup.tar.gz ev-sale-pos-YYYY-MM-DD_HHMM.tar.gz.gpg
+#   3. tar -xzf backup.tar.gz
+#   4. pg_restore --no-owner --no-privileges --clean --if-exists -d "<TARGET_DATABASE_URL>" public.dump
+#      (auth-data.sql holds login accounts; restore it only into a fresh Supabase project, with psql)
+#   Always test a restore on a NEW/empty Supabase project first, never straight onto the live one.
+
+name: Daily database backup
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 20:30 UTC = 02:00 Asia/Colombo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      PG_IMAGE: postgres:17
+
+    steps:
+      - name: Check secrets are set
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Set BACKUP_DATABASE_URL and BACKUP_PASSPHRASE in the repo's Actions secrets."
+            exit 1
+          fi
+
+      - name: Dump database
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%d_%H%M)"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          mkdir -p out
+
+          # App data: full "public" schema (all Prisma tables) — structure + data.
+          docker run --rm -e DB_URL -v "$PWD/out:/out" "$PG_IMAGE" \
+            pg_dump "$DB_URL" --format=custom --no-owner --no-privileges \
+              --schema=public --file=/out/public.dump
+
+          # Login accounts (Supabase auth.users etc.) — data only. Non-fatal if permissions block it.
+          if ! docker run --rm -e DB_URL -v "$PWD/out:/out" "$PG_IMAGE" \
+               pg_dump "$DB_URL" --data-only --no-owner --no-privileges \
+                 --schema=auth --file=/out/auth-data.sql; then
+            echo "::warning::auth schema dump failed; app data backup still completed."
+            rm -f out/auth-data.sql
+          fi
+
+      - name: Verify dump is readable
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/out:/out" "$PG_IMAGE" pg_restore --list /out/public.dump > out/contents.txt
+          TABLES=$(grep -c "TABLE DATA public" out/contents.txt || true)
+          echo "Tables with data in backup: $TABLES"
+          if [ "$TABLES" -lt 1 ]; then
+            echo "::error::Backup looks empty."
+            exit 1
+          fi
+          ls -lh out
+
+      - name: Compress and encrypt
+        run: |
+          set -euo pipefail
+          FILE="ev-sale-pos-${STAMP}.tar.gz"
+          tar -czf "$FILE" -C out .
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 --output "$FILE.gpg" "$FILE"
+          rm -rf out "$FILE"
+          echo "ENC_FILE=$FILE.gpg" >> "$GITHUB_ENV"
+          ls -lh "$FILE.gpg"
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ env.STAMP }}
+          path: ${{ env.ENC_FILE }}
+          retention-days: 30
+          if-no-files-found: error
