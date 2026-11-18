@@ -3,6 +3,8 @@ import { connection } from "next/server"
 import { getAuthSession } from "@/lib/auth"
 import { isOwner } from "@/lib/permissions"
 import { getCommissionReports } from "@/app/actions/finance-reports"
+import { getCommissionSettlementLines } from "@/app/actions/commission-settlement"
+import { CommissionSettlementPanel } from "@/components/finance/commission-settlement-panel"
 import { CommissionReportsView } from "@/components/finance/commission-reports-view"
 
 export const instant = false
@@ -17,6 +19,8 @@ interface PageProps {
     from?: string
     to?: string
     staff?: string
+    stype?: string
+    sstatus?: string
   }>
 }
 
@@ -30,9 +34,12 @@ export default async function CommissionReportsPage({ searchParams }: PageProps)
   // Commissions are visible to the dealership owner only
   if (!isOwner(session.user)) redirect("/dashboard")
 
-  const { from, to, staff } = await searchParams
+  const { from, to, staff, stype, sstatus } = await searchParams
 
-  const data = await getCommissionReports(from, to, staff)
+  const [data, settlement] = await Promise.all([
+    getCommissionReports(from, to, staff),
+    getCommissionSettlementLines({ type: stype, status: sstatus, from, to }),
+  ])
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -41,6 +48,13 @@ export default async function CommissionReportsPage({ searchParams }: PageProps)
         initialFrom={from}
         initialTo={to}
         initialStaff={staff}
+      />
+      <CommissionSettlementPanel
+        lines={settlement.lines}
+        pendingTotal={settlement.pendingTotal}
+        settledTotal={settlement.settledTotal}
+        initialType={stype ?? ""}
+        initialStatus={sstatus ?? ""}
       />
     </div>
   )

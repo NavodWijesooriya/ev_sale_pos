@@ -28,6 +28,8 @@ export const transferAdvancePaymentSchema = z.object({
   targetCustomerId: z.string().trim().min(1, "Select a destination customer."),
   targetVehicleId: z.string().trim().optional().or(z.literal("")),
   transferNote: z.string().trim().max(1000).optional().or(z.literal("")),
+  /** Part of the advance to move; leave out to transfer the whole remaining balance. */
+  transferAmount: z.number().finite().positive("Enter an amount above zero.").optional(),
 })
 
 export type TransferAdvancePaymentInput = z.infer<typeof transferAdvancePaymentSchema>

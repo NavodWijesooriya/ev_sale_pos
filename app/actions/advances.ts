@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { recordAudit } from "@/lib/audit"
-import { hasPermission } from "@/lib/permissions"
+import { branchFilter, hasPermission } from "@/lib/permissions"
 import {
   createAdvancePaymentSchema,
   type CreateAdvancePaymentInput,
@@ -27,8 +27,10 @@ async function requireOrganizationUser() {
     throw new Error("You do not have permission to manage customer advances.")
   }
 
-  return { organizationId, userId }
+  return { organizationId, userId, user: session.user }
 }
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export interface AdvancePaymentRecord {
   id: string
@@ -129,8 +131,16 @@ export async function getAdvanceTransferOptions(): Promise<{
 export async function transferAdvancePayment(
   id: string,
   input: TransferAdvancePaymentInput,
-): Promise<{ success: true; newAdvanceId: string } | { success: false; error: string }> {
-  const { organizationId } = await requireOrganizationUser()
+): Promise<
+  { success: true; newAdvanceId: string; transferred: number; remaining: number } | { success: false; error: string }
+> {
+  let auth: Awaited<ReturnType<typeof requireOrganizationUser>>
+  try {
+    auth = await requireOrganizationUser()
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Not allowed." }
+  }
+  const { organizationId, userId, user } = auth
   const advanceId = typeof id === "string" ? id.trim() : ""
   if (!advanceId) {
     return { success: false, error: "Select a valid advance payment." }
@@ -145,13 +155,18 @@ export async function transferAdvancePayment(
   }
 
   try {
-    const newAdvanceId = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+      // Row lock: two transfers (or a transfer and a sale) on the same advance run one after the other,
+      // so the balance can never be spent twice.
+      await tx.$queryRaw`SELECT id FROM "AdvancePayment" WHERE id = ${advanceId} AND "organizationId" = ${organizationId} FOR UPDATE`
+
       const sourceAdvance = await tx.advancePayment.findFirst({
         where: {
           id: advanceId,
           organizationId,
           status: AdvancePaymentStatus.PENDING,
           sale: null,
+          ...branchFilter(user),
         },
         select: {
           id: true,
@@ -166,11 +181,22 @@ export async function transferAdvancePayment(
           paymentMethod: true,
           paymentDetails: true,
           notes: true,
+          customer: { select: { name: true } },
         },
       })
       if (!sourceAdvance) {
         throw new Error("This advance is no longer available for transfer.")
       }
+
+      // Partial or full: no amount means the whole remaining balance.
+      const amount = round2(parsedInput.data.transferAmount ?? sourceAdvance.amount)
+      if (!(amount > 0)) throw new Error("Enter an amount above zero.")
+      if (amount > sourceAdvance.amount + 0.005) {
+        throw new Error(
+          `You can transfer at most ${sourceAdvance.amount.toFixed(2)} (the available balance of this advance).`,
+        )
+      }
+      const isFull = amount >= sourceAdvance.amount - 0.005
 
       const targetCustomer = await tx.customer.findFirst({
         where: { id: parsedInput.data.targetCustomerId, organizationId },
@@ -179,7 +205,12 @@ export async function transferAdvancePayment(
       if (!targetCustomer) throw new Error("The selected customer could not be found.")
 
       const targetVehicleId = parsedInput.data.targetVehicleId?.trim() || null
-      let targetVehicle: any = null
+      let targetVehicle: {
+        id: string
+        chassisNumber: string
+        unitGrnNumber: string | null
+        vehicleModel: { brand: string; modelName: string }
+      } | null = null
       if (targetVehicleId) {
         targetVehicle = await tx.vehicle.findFirst({
           where: {
@@ -211,22 +242,26 @@ export async function transferAdvancePayment(
       }
 
       const transferNote = parsedInput.data.transferNote?.trim() || ""
+      const movedNote = `${isFull ? "Transferred" : `Partly transferred (${amount.toFixed(2)})`} to ${targetCustomer.name}${
+        targetVehicle ? ` (Vehicle: ${targetVehicle.chassisNumber})` : ""
+      }: ${transferNote || "Balance reallocated"}`
+      const sourceNotes = sourceAdvance.notes ? `${sourceAdvance.notes} | ${movedNote}` : movedNote
+      const remaining = isFull ? 0 : round2(sourceAdvance.amount - amount)
 
-      const updatedSource = await tx.advancePayment.updateMany({
+      // Compare-and-set debit: succeeds only if the balance is still exactly what we read.
+      const debited = await tx.advancePayment.updateMany({
         where: {
           id: sourceAdvance.id,
           organizationId,
           status: AdvancePaymentStatus.PENDING,
           sale: null,
+          amount: sourceAdvance.amount,
         },
-        data: {
-          status: AdvancePaymentStatus.TRANSFERRED,
-          notes: sourceAdvance.notes
-            ? `${sourceAdvance.notes} | Transferred to ${targetCustomer.name}${targetVehicle ? ` (Vehicle: ${targetVehicle.chassisNumber})` : ""}: ${transferNote || "Balance reallocated"}`
-            : `Transferred to ${targetCustomer.name}${targetVehicle ? ` (Vehicle: ${targetVehicle.chassisNumber})` : ""}: ${transferNote || "Balance reallocated"}`,
-        },
+        data: isFull
+          ? { status: AdvancePaymentStatus.TRANSFERRED, notes: sourceNotes }
+          : { amount: remaining, notes: sourceNotes },
       })
-      if (updatedSource.count !== 1) {
+      if (debited.count !== 1) {
         throw new Error("This advance was just updated. Refresh and try again.")
       }
 
@@ -241,7 +276,7 @@ export async function transferAdvancePayment(
           vehicleId: targetVehicle ? targetVehicle.id : null,
           nicNumber: targetCustomer.nic ?? sourceAdvance.nicNumber,
           bikeModel: targetBikeModel,
-          amount: sourceAdvance.amount,
+          amount,
           advanceDate: sourceAdvance.advanceDate,
           branchId: sourceAdvance.branchId,
           staffId: sourceAdvance.staffId,
@@ -258,19 +293,34 @@ export async function transferAdvancePayment(
           fromAdvanceId: sourceAdvance.id,
           toCustomerId: targetCustomer.id,
           toAdvanceId: destinationAdvance.id,
-          transferAmount: sourceAdvance.amount,
+          transferAmount: amount,
           note: transferNote || null,
+          fromCustomerId: sourceAdvance.customerId,
+          createdById: userId,
+          createdByName: user.name,
         },
       })
 
-      return destinationAdvance.id
+      await recordAudit(
+        tx,
+        { id: userId, name: user.name, organizationId, branchId: user.branchId },
+        {
+          action: "ADVANCE_TRANSFERRED",
+          entityType: "AdvancePayment",
+          entityId: sourceAdvance.id,
+          branchId: sourceAdvance.branchId,
+          description: `Transferred ${amount.toFixed(2)} from ${sourceAdvance.customer.name} (${sourceAdvance.nicNumber}) to ${targetCustomer.name} (${targetCustomer.nic ?? "no NIC"}); ${remaining.toFixed(2)} left on the source advance`,
+        },
+      )
+
+      return { newAdvanceId: destinationAdvance.id, transferred: amount, remaining }
     })
 
     revalidatePath("/dashboard/sales/advances")
     revalidatePath("/dashboard/sales/advances/reports")
     revalidatePath("/dashboard/sales/advances/transfers")
     revalidatePath("/dashboard/reports")
-    return { success: true, newAdvanceId }
+    return { success: true, ...result }
   } catch (error) {
     console.error("transferAdvancePayment error:", error)
     return {
@@ -278,6 +328,91 @@ export async function transferAdvancePayment(
       error: error instanceof Error ? error.message : "Unable to transfer this advance.",
     }
   }
+}
+
+export interface NicAdvanceMatch {
+  id: string
+  name: string
+  nic: string | null
+  phone: string
+  /** Pending advances that are not yet used by a sale. */
+  availableBalance: number
+  advances: Array<{ id: string; amount: number; advanceDate: string; bikeModel: string }>
+}
+
+/** Finds customers by (part of) their NIC with the unallocated advance balance each one holds. */
+export async function searchAdvanceBalancesByNic(nic: string): Promise<NicAdvanceMatch[]> {
+  const { organizationId, user } = await requireOrganizationUser()
+  const term = typeof nic === "string" ? nic.trim() : ""
+  if (term.length < 4) return []
+
+  const customers = await prisma.customer.findMany({
+    where: { organizationId, nic: { contains: term, mode: "insensitive" } },
+    select: {
+      id: true,
+      name: true,
+      nic: true,
+      phone: true,
+      advancePayments: {
+        where: { status: AdvancePaymentStatus.PENDING, sale: null, ...branchFilter(user) },
+        select: { id: true, amount: true, advanceDate: true, bikeModel: true },
+        orderBy: { advanceDate: "asc" },
+      },
+    },
+    orderBy: { name: "asc" },
+    take: 10,
+  })
+
+  return customers.map((customer) => ({
+    id: customer.id,
+    name: customer.name,
+    nic: customer.nic,
+    phone: customer.phone,
+    availableBalance: round2(customer.advancePayments.reduce((sum, a) => sum + a.amount, 0)),
+    advances: customer.advancePayments.map((a) => ({
+      id: a.id,
+      amount: a.amount,
+      advanceDate: a.advanceDate.toISOString(),
+      bikeModel: a.bikeModel,
+    })),
+  }))
+}
+
+export interface AdvanceTransferHistoryRow {
+  id: string
+  transferDate: string
+  fromCustomer: string
+  fromNic: string
+  toCustomer: string
+  toNic: string | null
+  amount: number
+  note: string | null
+  transferredBy: string | null
+}
+
+/** Every advance transfer, newest first. Branch-assigned staff only see their own branch's transfers. */
+export async function getAdvanceTransferHistory(): Promise<AdvanceTransferHistoryRow[]> {
+  const { organizationId, user } = await requireOrganizationUser()
+  const rows = await prisma.advanceTransfer.findMany({
+    where: { fromAdvance: { organizationId, ...branchFilter(user) } },
+    include: {
+      fromAdvance: { select: { nicNumber: true, customer: { select: { name: true } } } },
+      toCustomer: { select: { name: true, nic: true } },
+    },
+    orderBy: { transferDate: "desc" },
+    take: 200,
+  })
+  return rows.map((row) => ({
+    id: row.id,
+    transferDate: row.transferDate.toISOString(),
+    fromCustomer: row.fromAdvance.customer.name,
+    fromNic: row.fromAdvance.nicNumber,
+    toCustomer: row.toCustomer.name,
+    toNic: row.toCustomer.nic,
+    amount: row.transferAmount,
+    note: row.note,
+    transferredBy: row.createdByName,
+  }))
 }
 
 export async function getAdvancePayments(): Promise<AdvancePaymentRecord[]> {

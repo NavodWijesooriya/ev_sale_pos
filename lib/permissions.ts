@@ -75,6 +75,11 @@ export const PERMISSION_DEFINITIONS = {
     label: "Manage cheques",
     description: "Issue cheques, and mark them presented, cleared, bounced or cancelled.",
   },
+  MANAGE_BANK_DEPOSITS: {
+    group: "Payments & Cheques",
+    label: "Daily bank deposits",
+    description: "Record cash paid into the bank and view the bank deposit report.",
+  },
   // Customers & Service
   MANAGE_CUSTOMERS: {
     group: "Customers & Service",
@@ -132,12 +137,13 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, Permission[]> = {
     "MANAGE_SUPPLIERS",
     "RECORD_PAYMENTS",
     "MANAGE_CHEQUES",
+    "MANAGE_BANK_DEPOSITS",
     "MANAGE_CUSTOMERS",
     "MANAGE_WARRANTY_SERVICE",
     "VIEW_REPORTS",
   ],
   SalesRep: ["CREATE_SALE", "MANAGE_CUSTOMERS"],
-  Cashier: ["CREATE_SALE", "MANAGE_CUSTOMERS"],
+  Cashier: ["CREATE_SALE", "MANAGE_CUSTOMERS", "MANAGE_BANK_DEPOSITS"],
   Technician: ["MANAGE_WARRANTY_SERVICE"],
 }
 

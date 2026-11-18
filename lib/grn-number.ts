@@ -1,8 +1,13 @@
 import type { Prisma } from "@prisma/client"
 
-export async function generateNextGRNNumber(client: Prisma.TransactionClient) {
+/**
+ * Next batch ("round") number for ONE dealership: JM 01, JM 02 ...
+ * Batches are counted per organization, so two dealerships never share a sequence or its
+ * 99-batch limit. Call lockGRNNumberSequence first, inside the same transaction.
+ */
+export async function generateNextGRNNumber(client: Prisma.TransactionClient, organizationId: string) {
   const existingGRNs = await client.gRN.findMany({
-    where: { grnNumber: { startsWith: "JM " } },
+    where: { organizationId, grnNumber: { startsWith: "JM " } },
     select: { grnNumber: true },
   })
 
@@ -20,6 +25,7 @@ export async function generateNextGRNNumber(client: Prisma.TransactionClient) {
   return `JM ${String(highestNumber + 1).padStart(2, "0")}`
 }
 
-export async function lockGRNNumberSequence(transaction: Prisma.TransactionClient) {
-  await transaction.$executeRaw`SELECT pg_advisory_xact_lock(874230601)`
+/** Serialises batch-number generation per dealership (other dealerships are not blocked). */
+export async function lockGRNNumberSequence(transaction: Prisma.TransactionClient, organizationId: string) {
+  await transaction.$executeRaw`SELECT pg_advisory_xact_lock(874230601, hashtext(${organizationId}))`
 }

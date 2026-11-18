@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { batchVehicleWhere } from "@/lib/batch"
 import { branchFilter, hasPermission, isOwner } from "@/lib/permissions"
 import { redactKeys } from "@/lib/redact"
 import { VehicleStatus } from "@prisma/client"
@@ -382,8 +383,10 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
   // ==========================================
   const pendingDMTRegistrationsRaw = await prisma.dMTRegistration.findMany({
     where: {
+      // Branch-assigned staff only see their own branch's registrations, like every other report
       sale: {
         organizationId,
+        ...branchFilter(user),
       },
       status: {
         not: "Completed",
@@ -1071,7 +1074,8 @@ function cashCollectedOnSale(
   return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0)) : invoiced
 }
 
-export async function getDailySalesReport(dateStr?: string): Promise<DailySalesReportData> {
+/** `batch` limits the report to sales of bikes from one round / batch (e.g. "JM 01" or "JM0102"). */
+export async function getDailySalesReport(dateStr?: string, batch?: string): Promise<DailySalesReportData> {
   const { organizationId, user } = await requireAuthOrg()
 
   // Day boundaries are Colombo calendar days, independent of the server's timezone.
@@ -1083,6 +1087,7 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
       organizationId,
       ...branchFilter(user),
       saleDate: { gte: startOfDay, lte: endOfDay },
+      ...(batch?.trim() ? { items: { some: { vehicle: batchVehicleWhere(batch) } } } : {}),
     },
     include: {
       customer: { select: { id: true, name: true, phone: true, nic: true } },
@@ -1164,7 +1169,7 @@ export async function getDailySalesReport(dateStr?: string): Promise<DailySalesR
   }
 }
 
-export async function getMonthlySalesReport(yearMonthStr?: string): Promise<MonthlySalesReportData> {
+export async function getMonthlySalesReport(yearMonthStr?: string, batch?: string): Promise<MonthlySalesReportData> {
   const { organizationId, user } = await requireAuthOrg()
 
   const selected = parseMonthKey(yearMonthStr) ?? colomboParts(new Date())
@@ -1179,6 +1184,7 @@ export async function getMonthlySalesReport(yearMonthStr?: string): Promise<Mont
       organizationId,
       ...branchFilter(user),
       saleDate: { gte: startOfMonth, lte: endOfMonth },
+      ...(batch?.trim() ? { items: { some: { vehicle: batchVehicleWhere(batch) } } } : {}),
     },
     include: {
       customer: { select: { id: true, name: true, phone: true, nic: true } },

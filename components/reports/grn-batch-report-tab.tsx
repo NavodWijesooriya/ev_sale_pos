@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { matchesBatch } from "@/lib/batch"
 import {
   ClipboardList,
   CheckCircle2,
@@ -64,6 +65,7 @@ export function GRNBatchReportTab({ data }: GRNBatchReportTabProps) {
 
     return batches.filter((b) => {
       const matchBatch =
+        matchesBatch(q, b.grnNumber) ||
         b.grnNumber.toLowerCase().includes(q) ||
         b.supplierName.toLowerCase().includes(q) ||
         b.branchName.toLowerCase().includes(q)
@@ -71,6 +73,7 @@ export function GRNBatchReportTab({ data }: GRNBatchReportTabProps) {
       const matchBikes = b.vehicles.some(
         (v) =>
           (v.unitGrnNumber && v.unitGrnNumber.toLowerCase().includes(q)) ||
+          matchesBatch(q, v.unitGrnNumber) ||
           v.chassisNumber.toLowerCase().includes(q) ||
           v.modelName.toLowerCase().includes(q) ||
           (v.buyerName && v.buyerName.toLowerCase().includes(q)),

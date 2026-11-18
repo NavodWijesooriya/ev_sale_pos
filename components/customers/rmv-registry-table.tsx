@@ -345,6 +345,13 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
                           Sale Dossier
                         </Button>
                       </Link>
+                      {v && (
+                        <Link href={`/dashboard/bikes/${v.id}`}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs font-semibold">
+                            Bike details & DMT
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </div>
 

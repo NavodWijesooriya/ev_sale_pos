@@ -3,9 +3,11 @@ import { redirect } from "next/navigation"
 import { ArrowRightLeft } from "lucide-react"
 import {
   getAdvancePayments,
+  getAdvanceTransferHistory,
   getAdvanceTransferOptions,
   type PendingAdvanceTransferRecord,
 } from "@/app/actions/advances"
+import { AdvanceTransferByNic } from "@/components/sales/advances/advance-transfer-by-nic"
 import { AdvanceTransferTable } from "@/components/sales/advances/advance-transfer-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth"
@@ -24,9 +26,10 @@ export default async function AdvanceTransfersPage() {
     redirect("/login?callbackUrl=/dashboard/sales/advances/transfers")
   }
 
-  const [{ customers, vehicles }, allAdvances] = await Promise.all([
+  const [{ customers, vehicles }, allAdvances, history] = await Promise.all([
     getAdvanceTransferOptions(),
     getAdvancePayments(),
+    getAdvanceTransferHistory(),
   ])
   const advances: PendingAdvanceTransferRecord[] = allAdvances
     .filter((advance) => advance.status === "PENDING")
@@ -62,6 +65,8 @@ export default async function AdvanceTransfersPage() {
           Transfers retain the original record for audit and create a new pending advance for the selected destination.
         </CardContent>
       </Card>
+
+      <AdvanceTransferByNic history={history} />
 
       <AdvanceTransferTable
         advances={advances}

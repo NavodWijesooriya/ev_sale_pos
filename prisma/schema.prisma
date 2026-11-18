@@ -51,27 +51,30 @@ model Organization {
   staffCanManageCatalog Boolean            @default(false)
   createdAt             DateTime           @default(now())
 
-  users              User[]
-  branches           Branch[]
-  suppliers          Supplier[]
-  vehicleModels      VehicleModel[]
-  vehicles           Vehicle[]
-  grns               GRN[]
-  supplierPayments   SupplierPayment[]
-  cheques            Cheque[]
-  supplierAdvances   SupplierAdvance[]
-  customers          Customer[]
-  sales              Sale[]
-  financeCompanies   FinanceCompany[]
-  insuranceCompanies InsuranceCompany[]
-  advancePayments    AdvancePayment[]
-  serviceRecords     ServiceRecord[]
-  testRides          TestRide[]
-  spareParts         SparePart[]
-  serviceJobs        ServiceJob[]
-  auditLogs          AuditLog[]
-  commissionSettings CommissionSettings?
-  customDomain       String?             @unique
+  users                 User[]
+  branches              Branch[]
+  suppliers             Supplier[]
+  vehicleModels         VehicleModel[]
+  vehicles              Vehicle[]
+  grns                  GRN[]
+  supplierPayments      SupplierPayment[]
+  cheques               Cheque[]
+  supplierAdvances      SupplierAdvance[]
+  customers             Customer[]
+  sales                 Sale[]
+  financeCompanies      FinanceCompany[]
+  insuranceCompanies    InsuranceCompany[]
+  advancePayments       AdvancePayment[]
+  serviceRecords        ServiceRecord[]
+  testRides             TestRide[]
+  spareParts            SparePart[]
+  serviceJobs           ServiceJob[]
+  auditLogs             AuditLog[]
+  commissionSettings    CommissionSettings?
+  commissionSettlements CommissionSettlement[]
+  bankAccounts          BankAccount[]
+  bankDeposits          BankDeposit[]
+  customDomain          String?                @unique
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
@@ -145,6 +148,7 @@ model Branch {
   vehicles         Vehicle[]
   grns             GRN[]
   supplierPayments SupplierPayment[]
+  bankDeposits     BankDeposit[]
   sales            Sale[]
   advancePayments  AdvancePayment[]
   serviceRecords   ServiceRecord[]
@@ -210,7 +214,7 @@ model Vehicle {
   vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
 
   chassisNumber          String        @unique
-  unitGrnNumber          String?       @unique
+  unitGrnNumber          String?
   registrationNumber     String? // Actual bike license plate number once assigned (e.g. WP BHE-1234)
   motorNumber            String?
   chargingSerialNumber   String?
@@ -234,6 +238,10 @@ model Vehicle {
   sales           Sale[]           @relation("SaleVehicle")
   serviceRecords  ServiceRecord[]
   advancePayments AdvancePayment[]
+
+  // Unit numbers (JM0101 ...) derive from the dealership's batch number, so they are unique per dealership.
+  @@unique([organizationId, unitGrnNumber])
+  @@index([organizationId, status])
 }
 
 model GRN {
@@ -245,7 +253,7 @@ model GRN {
   supplierId     String?
   supplier       Supplier?    @relation(fields: [supplierId], references: [id])
 
-  grnNumber          String   @unique
+  grnNumber          String
   date               DateTime @default(now())
   transportRefNumber String?
   orderNumber        String?
@@ -264,6 +272,8 @@ model GRN {
   paymentAllocations SupplierPaymentAllocation[]
   advanceAllocations SupplierAdvanceAllocation[]
 
+  // Batch numbers (JM 01, JM 02 ...) run per dealership, so they only need to be unique within one.
+  @@unique([organizationId, grnNumber])
   @@index([organizationId, date])
   @@index([supplierId, paymentStatus])
 }
@@ -519,37 +529,38 @@ model Sale {
   userId         String
   soldBy         User         @relation("SoldBy", fields: [userId], references: [id])
 
-  saleDate              DateTime          @default(now())
-  invoiceNumber         String            @unique
+  saleDate              DateTime               @default(now())
+  invoiceNumber         String                 @unique
   vehicleId             String
-  vehicle               Vehicle           @relation("SaleVehicle", fields: [vehicleId], references: [id])
-  advancePaymentId      String?           @unique
-  advancePayment        AdvancePayment?   @relation(fields: [advancePaymentId], references: [id])
+  vehicle               Vehicle                @relation("SaleVehicle", fields: [vehicleId], references: [id])
+  advancePaymentId      String?                @unique
+  advancePayment        AdvancePayment?        @relation(fields: [advancePaymentId], references: [id])
   financeCompanyId      String?
-  financeCompany        FinanceCompany?   @relation("SaleFinanceCompany", fields: [financeCompanyId], references: [id], onDelete: SetNull)
+  financeCompany        FinanceCompany?        @relation("SaleFinanceCompany", fields: [financeCompanyId], references: [id], onDelete: SetNull)
   insuranceCompanyId    String?
-  insuranceCompany      InsuranceCompany? @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
-  paymentType           String?           @default("CASH") // CASH or FINANCE
-  financeAmount         Float             @default(0) // The loan amount provided by the finance company
-  downPayment           Float             @default(0) // The cash down payment paid by the customer
-  commissionBasis       String            @default("FINANCE_AMOUNT") // "FINANCE_AMOUNT", "VEHICLE_PRICE", or "FIXED"
-  commissionRate        Float             @default(0) // percentage or fixed multiplier
-  commissionAmount      Float             @default(0) // final calculated or manually overridden commission value in LKR
+  insuranceCompany      InsuranceCompany?      @relation("SaleInsuranceCompany", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
+  paymentType           String?                @default("CASH") // CASH or FINANCE
+  financeAmount         Float                  @default(0) // The loan amount provided by the finance company
+  downPayment           Float                  @default(0) // The cash down payment paid by the customer
+  commissionBasis       String                 @default("FINANCE_AMOUNT") // "FINANCE_AMOUNT", "VEHICLE_PRICE", or "FIXED"
+  commissionRate        Float                  @default(0) // percentage or fixed multiplier
+  commissionAmount      Float                  @default(0) // final calculated or manually overridden commission value in LKR
   totalAmount           Float
-  discount              Float             @default(0) // අලුතින් එකතු කළ කොටස
-  additionalCharges     Float             @default(0) // අලුතින් එකතු කළ කොටස
-  advanceDeducted       Float             @default(0) // Amount deducted from advance payment at checkout
+  discount              Float                  @default(0) // අලුතින් එකතු කළ කොටස
+  additionalCharges     Float                  @default(0) // අලුතින් එකතු කළ කොටස
+  advanceDeducted       Float                  @default(0) // Amount deducted from advance payment at checkout
   financeCommission     Float?
   insuranceCommission   Float?
-  insuranceType         InsuranceType     @default(NONE)
+  insuranceType         InsuranceType          @default(NONE)
+  commissionSettlements CommissionSettlement[]
   commissionRecipientId String? // Staff member credited with finance commission
-  commissionRecipient   User?             @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
+  commissionRecipient   User?                  @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
   deliveryDate          DateTime? // අලුතින් එකතු කළ කොටස
   paymentMethod         String?
   warrantyOption        String?
-  status                String            @default("Completed")
-  freeItems             String[]          @default([])
-  freeServices          Int               @default(0)
+  status                String                 @default("Completed")
+  freeItems             String[]               @default([])
+  freeServices          Int                    @default(0)
 
   items           SaleItem[]
   financeDetail   FinanceDetail?
@@ -666,6 +677,10 @@ model AdvanceTransfer {
   transferAmount Float
   transferDate   DateTime       @default(now())
   note           String?
+  // Who moved the money and from which customer (kept for a complete transfer history)
+  fromCustomerId String?
+  createdById    String?
+  createdByName  String?
 
   @@index([fromAdvanceId, transferDate])
   @@index([toCustomerId, transferDate])
@@ -842,4 +857,78 @@ model TestRide {
 
   @@index([organizationId, scheduledDate])
   @@index([branchId, scheduledDate])
+}
+
+// ==========================================
+// Commission settlement, bank deposits
+// ==========================================
+
+enum SettlementType {
+  FINANCE
+  INSURANCE
+  RMV
+}
+
+enum SettlementStatus {
+  PENDING
+  SETTLED
+}
+
+// Whether a commission has actually been received/paid out. One row per sale and commission type;
+// a missing row means PENDING. Owner-only (see app/actions/commission-settlement.ts).
+model CommissionSettlement {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleId         String
+  sale           Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  type           SettlementType
+  status         SettlementStatus @default(PENDING)
+  amount         Float            @default(0) // snapshot at settlement time (RMV: entered by the owner)
+  settledAt      DateTime?
+  reference      String?
+  updatedById    String?
+  updatedAt      DateTime         @updatedAt
+  createdAt      DateTime         @default(now())
+
+  @@unique([saleId, type])
+  @@index([organizationId, type, status])
+}
+
+model BankAccount {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankName       String
+  accountNumber  String
+  accountName    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  deposits BankDeposit[]
+
+  @@unique([organizationId, accountNumber])
+}
+
+// Cash from a day's sales paid into a bank account.
+model BankDeposit {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  bankAccountId  String
+  bankAccount    BankAccount  @relation(fields: [bankAccountId], references: [id])
+  depositDate    DateTime // Colombo calendar day the cash belongs to (stored at UTC midnight of that date)
+  cashSalesTotal Float // snapshot of that day's cash sales for the branch when recorded (reference only)
+  depositAmount  Float
+  slipNumber     String
+  description    String?
+  createdById    String
+  createdByName  String
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, bankAccountId, slipNumber])
+  @@index([organizationId, depositDate])
+  @@index([branchId, depositDate])
 }

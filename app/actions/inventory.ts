@@ -600,8 +600,8 @@ export async function createGRN(input: CreateGRNInput) {
     // Generate readable GRN sequence number
     // Run atomic Prisma Transaction
     const grnRecord = await prisma.$transaction(async (tx) => {
-      await lockGRNNumberSequence(tx)
-      const grnNumber = await generateNextGRNNumber(tx)
+      await lockGRNNumberSequence(tx, organizationId)
+      const grnNumber = await generateNextGRNNumber(tx, organizationId)
 
       // a) Create the GRN record
       const grn = await tx.gRN.create({

@@ -1,7 +1,7 @@
 "use client"
 
 import { downloadCsv } from "@/lib/csv"
-import { colomboDateKey } from "@/lib/dates"
+import { colomboDateKey, colomboMonthKey, colomboParts } from "@/lib/dates"
 import * as React from "react"
 import {
   Calendar as CalendarIcon,
@@ -61,12 +61,15 @@ export function DailyMonthlySalesTab({
   const [selectedMonth, setSelectedMonth] = React.useState<string>(initialMonthly.selectedYearMonth)
   const [isMonthlyLoading, setIsMonthlyLoading] = React.useState(false)
 
+  // Round / batch filter (e.g. "JM 01"): applied on the server so the totals match the list
+  const [batch, setBatch] = React.useState("")
+
   // Handler for changing daily date
-  const handleDateChange = async (newDate: string) => {
+  const handleDateChange = async (newDate: string, batchFilter: string = batch) => {
     setSelectedDate(newDate)
     setIsDailyLoading(true)
     try {
-      const res = await getDailySalesReport(newDate)
+      const res = await getDailySalesReport(newDate, batchFilter)
       setDailyData(res)
     } catch (err: any) {
       toast.error(err.message || "Failed to load sales for date")
@@ -77,22 +80,19 @@ export function DailyMonthlySalesTab({
 
   // Quick Daily Presets
   const setToday = () => {
-    const today = new Date().toISOString().split("T")[0]
-    handleDateChange(today)
+    handleDateChange(colomboDateKey(new Date()))
   }
 
   const setYesterday = () => {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    handleDateChange(d.toISOString().split("T")[0])
+    handleDateChange(colomboDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000)))
   }
 
   // Handler for changing monthly date
-  const handleMonthChange = async (newMonth: string) => {
+  const handleMonthChange = async (newMonth: string, batchFilter: string = batch) => {
     setSelectedMonth(newMonth)
     setIsMonthlyLoading(true)
     try {
-      const res = await getMonthlySalesReport(newMonth)
+      const res = await getMonthlySalesReport(newMonth, batchFilter)
       setMonthlyData(res)
     } catch (err: any) {
       toast.error(err.message || "Failed to load sales for month")
@@ -103,16 +103,13 @@ export function DailyMonthlySalesTab({
 
   // Quick Monthly Presets
   const setThisMonth = () => {
-    const now = new Date()
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-    handleMonthChange(ym)
+    handleMonthChange(colomboMonthKey(new Date()))
   }
 
   const setLastMonth = () => {
-    const now = new Date()
-    now.setMonth(now.getMonth() - 1)
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-    handleMonthChange(ym)
+    const { year, month } = colomboParts(new Date())
+    const last = new Date(Date.UTC(year, month - 1, 1))
+    handleMonthChange(`${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, "0")}`)
   }
 
   // CSV Export for Sales
@@ -159,7 +156,7 @@ export function DailyMonthlySalesTab({
       s.branchName,
     ])
 
-    downloadCsv(`${title.toLowerCase().replace(/s+/g, "_")}.csv`, [headers, ...rows])
+    downloadCsv(`${title.toLowerCase().replace(/\s+/g, "_")}.csv`, [headers, ...rows])
   }
 
   const handlePrint = () => {
@@ -181,6 +178,23 @@ export function DailyMonthlySalesTab({
           </TabsList>
 
           <div className="flex items-center gap-2">
+            <Input
+              value={batch}
+              onChange={(event) => setBatch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleDateChange(selectedDate, batch)
+                  handleMonthChange(selectedMonth, batch)
+                }
+              }}
+              onBlur={() => {
+                handleDateChange(selectedDate, batch)
+                handleMonthChange(selectedMonth, batch)
+              }}
+              placeholder="Round / batch (e.g. JM 01)"
+              aria-label="Filter sales by round or batch number"
+              className="h-9 w-48 text-xs"
+            />
             <Button
               variant="outline"
               size="sm"

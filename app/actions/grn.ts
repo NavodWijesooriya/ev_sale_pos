@@ -1,5 +1,6 @@
 "use server"
 
+import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { VehicleStatus } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
@@ -160,8 +161,8 @@ export async function createGRN(input: CreateGRNInput) {
     }
 
     const grn = await prisma.$transaction(async (tx) => {
-      await lockGRNNumberSequence(tx)
-      const grnNumber = await generateNextGRNNumber(tx)
+      await lockGRNNumberSequence(tx, organizationId)
+      const grnNumber = await generateNextGRNNumber(tx, organizationId)
       const createdGRN = await tx.gRN.create({
         data: {
           organizationId,
@@ -176,37 +177,29 @@ export async function createGRN(input: CreateGRNInput) {
         },
       })
 
-      for (let index = 0; index < input.bikes.length; index += 1) {
-        const bike = input.bikes[index]
-        // Generate per-bike unit GRN code: strip spaces from batch number, then append 2-digit index
-        // e.g. grnNumber 'JM 01', bike index 2 → 'JM0102'
-        const batchCode = grnNumber.replace(/\s+/g, '')
-        const bikeIndex = String(index + 1).padStart(2, '0')
-        const unitGrnNumber = `${batchCode}${bikeIndex}`
-        const vehicle = await tx.vehicle.create({
-          data: {
-            organizationId,
-            branchId: branch.id,
-            grnId: createdGRN.id,
-            vehicleModelId: bike.vehicleModelId,
-            chassisNumber: chassisNumbers[index],
-            unitGrnNumber,
-            motorNumber: bike.motorNumber?.trim() || null,
-            chargingSerialNumber: bike.chargingSerialNumber?.trim() || null,
-            year: bike.year ?? null,
-            color: bike.color,
-            status: VehicleStatus.AVAILABLE,
-            purchasePrice: 0,
-          },
-        })
-        await tx.gRNItem.create({
-          data: {
-            grnId: createdGRN.id,
-            vehicleId: vehicle.id,
-            unitPrice: 0,
-          },
-        })
-      }
+      // Bulk insert: two queries for the whole batch instead of two per bike (a 99-bike GRN used to
+      // need ~200 sequential round trips and could not finish inside the transaction timeout).
+      // Per-bike unit code: batch number without spaces + 2-digit index, e.g. 'JM 01', bike 2 -> 'JM0102'.
+      const batchCode = grnNumber.replace(/\s+/g, "")
+      const vehicleRows = input.bikes.map((bike, index) => ({
+        id: randomUUID(),
+        organizationId,
+        branchId: branch.id,
+        grnId: createdGRN.id,
+        vehicleModelId: bike.vehicleModelId,
+        chassisNumber: chassisNumbers[index],
+        unitGrnNumber: `${batchCode}${String(index + 1).padStart(2, "0")}`,
+        motorNumber: bike.motorNumber?.trim() || null,
+        chargingSerialNumber: bike.chargingSerialNumber?.trim() || null,
+        year: bike.year ?? null,
+        color: bike.color,
+        status: VehicleStatus.AVAILABLE,
+        purchasePrice: 0,
+      }))
+      await tx.vehicle.createMany({ data: vehicleRows })
+      await tx.gRNItem.createMany({
+        data: vehicleRows.map((vehicle) => ({ grnId: createdGRN.id, vehicleId: vehicle.id, unitPrice: 0 })),
+      })
 
       await recordAudit(tx, actor, {
         action: "GRN_CREATED",

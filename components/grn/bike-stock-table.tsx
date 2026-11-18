@@ -10,7 +10,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { matchesBatch } from "@/lib/batch"
 
 interface BikeStockRow {
   id: string
@@ -31,22 +33,30 @@ interface BikeStockTableProps {
 
 export function BikeStockTable({ vehicles }: BikeStockTableProps) {
   const [search, setSearch] = useState("")
+  const [batch, setBatch] = useState("")
+  const batches = useMemo(
+    () => Array.from(new Set(vehicles.map((vehicle) => vehicle.grn?.grnNumber).filter((n): n is string => Boolean(n)))).sort(),
+    [vehicles],
+  )
   const filteredVehicles = useMemo(() => {
     const query = search.trim().toLocaleLowerCase()
-    if (!query) return vehicles
-    return vehicles.filter((vehicle) =>
-      vehicle.unitGrnNumber?.toLocaleLowerCase().includes(query) ||
-      vehicle.grn?.grnNumber.toLocaleLowerCase().includes(query) ||
-      vehicle.chassisNumber.toLocaleLowerCase().includes(query) ||
-      vehicle.vehicleModel.brand.toLocaleLowerCase().includes(query) ||
-      vehicle.vehicleModel.modelName.toLocaleLowerCase().includes(query) ||
-      vehicle.color?.toLocaleLowerCase().includes(query),
-    )
-  }, [search, vehicles])
+    return vehicles.filter((vehicle) => {
+      if (batch && vehicle.grn?.grnNumber !== batch) return false
+      if (!query) return true
+      return (
+        // "jm01", "JM 01" and "jm0102" all find the right batch / unit
+        matchesBatch(query, vehicle.unitGrnNumber, vehicle.grn?.grnNumber) ||
+        vehicle.chassisNumber.toLocaleLowerCase().includes(query) ||
+        vehicle.vehicleModel.brand.toLocaleLowerCase().includes(query) ||
+        vehicle.vehicleModel.modelName.toLocaleLowerCase().includes(query) ||
+        vehicle.color?.toLocaleLowerCase().includes(query)
+      )
+    })
+  }, [search, batch, vehicles])
 
   return (
     <div className="space-y-3">
-      <div className="px-4 pt-4">
+      <div className="flex flex-wrap gap-3 px-4 pt-4">
         <Input
           type="search"
           value={search}
@@ -55,6 +65,19 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
           aria-label="Search by Unit GRN, batch, or chassis number"
           className="max-w-md"
         />
+        <select
+          value={batch}
+          onChange={(event) => setBatch(event.target.value)}
+          aria-label="Filter by round / batch"
+          className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
+        >
+          <option value="">All rounds / batches</option>
+          {batches.map((b) => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -75,7 +98,7 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
             {filteredVehicles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="h-28 text-center text-muted-foreground">
-                  {search.trim() ? "No bikes match this search query." : "No available bikes are currently in stock."}
+                  {search.trim() || batch ? "No bikes match this search query." : "No available bikes are currently in stock."}
                 </TableCell>
               </TableRow>
             ) : filteredVehicles.map((vehicle) => (
@@ -89,7 +112,11 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="font-mono font-medium">{vehicle.chassisNumber}</TableCell>
+                <TableCell className="font-mono font-medium">
+                  <Link href={`/dashboard/bikes/${vehicle.id}`} className="text-primary hover:underline">
+                    {vehicle.chassisNumber}
+                  </Link>
+                </TableCell>
                 <TableCell className="font-mono text-muted-foreground">{vehicle.grn?.grnNumber || "—"}</TableCell>
                 <TableCell className="font-medium">{vehicle.vehicleModel.brand} {vehicle.vehicleModel.modelName}</TableCell>
                 <TableCell>{vehicle.color || "—"}</TableCell>

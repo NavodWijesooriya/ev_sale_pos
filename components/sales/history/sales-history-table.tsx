@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { batchOfUnit, matchesBatch } from "@/lib/batch"
 import { Eye, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,7 +38,9 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
       return (
         sale.invoiceNumber.toLocaleLowerCase().includes(search) ||
         sale.customer.name.toLocaleLowerCase().includes(search) ||
-        vehicleText.includes(search)
+        vehicleText.includes(search) ||
+        // round / batch or unit number: "JM 01", "jm01", "JM0102"
+        sale.items.some(({ vehicle }) => matchesBatch(search, vehicle.unitGrnNumber, batchOfUnit(vehicle.unitGrnNumber)))
       )
     })
   }, [query, sales])

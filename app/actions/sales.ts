@@ -14,6 +14,7 @@ import {
 } from "@prisma/client"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { recordAudit } from "@/lib/audit"
+import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
@@ -24,6 +25,8 @@ import {
   saleWarrantyOptions,
   type CreateNewSaleInput,
 } from "@/lib/validations/new-sale"
+
+type AuthorizedSaleUser = Parameters<typeof applyDmtPatch>[0]
 
 /** Only the dealership owner / platform admin may see or set commissions. */
 const COMMISSION_ROLES = ["OrgAdmin", "SuperAdmin"]
@@ -768,93 +771,27 @@ export interface UpdateDMTRegistrationInput {
  */
 export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { user } = await requireAuthOrg()
+    if (!input.saleId) throw new Error("Sale ID is required.")
 
-    if (!input.saleId) {
-      throw new Error("Sale ID is required.")
-    }
-
-    // Verify sale ownership
-    const sale = await prisma.sale.findFirst({
-      where: { id: input.saleId, organizationId },
-      include: {
-        items: {
-          select: { vehicleId: true },
-        },
-      },
+    // The DMT workflow rules (and the derived status) live in lib/dmt-server.ts.
+    const { dmt, customerId, vehicleIds } = await applyDmtPatch(user as AuthorizedSaleUser, input.saleId, {
+      status: input.status,
+      hasMTA2: input.hasMTA2,
+      hasNIC: input.hasNIC,
+      hasPhotos: input.hasPhotos,
+      hasTIN: input.hasTIN,
+      registrationNumber: input.registrationNumber ?? input.registeredNumber,
+      isBookOk: input.isBookOk,
+      isNumberPlateOk: input.isNumberPlateOk,
+      isInsuranceOk: input.isInsuranceOk,
     })
+    for (const path of dmtRevalidationPaths(input.saleId, customerId, vehicleIds)) revalidatePath(path)
 
-    if (!sale) {
-      throw new Error("Sale not found in your dealership records.")
-    }
-
-    const regNo =
-      input.registrationNumber !== undefined
-        ? input.registrationNumber
-        : input.registeredNumber
-    const formattedRegNo =
-      regNo !== undefined
-        ? regNo.trim()
-          ? regNo.trim().toUpperCase()
-          : null
-        : undefined
-
-    const dmt = await prisma.dMTRegistration.upsert({
-      where: { saleId: input.saleId },
-      update: {
-        ...(input.status !== undefined && { status: input.status }),
-        ...(input.hasMTA2 !== undefined && { hasMTA2: input.hasMTA2 }),
-        ...(input.hasNIC !== undefined && { hasNIC: input.hasNIC }),
-        ...(input.hasPhotos !== undefined && { hasPhotos: input.hasPhotos }),
-        ...(input.hasTIN !== undefined && { hasTIN: input.hasTIN }),
-        ...(formattedRegNo !== undefined && {
-          registeredNumber: formattedRegNo,
-          registrationNumber: formattedRegNo,
-        }),
-        ...(input.isBookOk !== undefined && { isBookOk: input.isBookOk }),
-        ...(input.isNumberPlateOk !== undefined && { isNumberPlateOk: input.isNumberPlateOk }),
-        ...(input.isInsuranceOk !== undefined && { isInsuranceOk: input.isInsuranceOk }),
-      },
-      create: {
-        saleId: input.saleId,
-        status: input.status || DMTStatus.Pending,
-        hasMTA2: input.hasMTA2 ?? false,
-        hasNIC: input.hasNIC ?? false,
-        hasPhotos: input.hasPhotos ?? false,
-        hasTIN: input.hasTIN ?? false,
-        registeredNumber: formattedRegNo ?? null,
-        registrationNumber: formattedRegNo ?? null,
-        isBookOk: input.isBookOk ?? false,
-        isNumberPlateOk: input.isNumberPlateOk ?? false,
-        isInsuranceOk: input.isInsuranceOk ?? false,
-      },
-    })
-
-    if (formattedRegNo !== undefined && sale.items.length > 0) {
-      await prisma.vehicle.updateMany({
-        where: { id: { in: sale.items.map((i) => i.vehicleId) } },
-        data: { registrationNumber: formattedRegNo },
-      })
-    }
-
-    revalidatePath(`/dashboard/customers/${sale.customerId}`)
-    revalidatePath("/dashboard/customers")
-    revalidatePath("/dashboard/customers/rmv")
-    revalidatePath(`/dashboard/sales/${input.saleId}`)
-    revalidatePath(`/dashboard/sales/${input.saleId}/invoice`)
-    revalidatePath("/dashboard/sales")
-
-    return {
-      success: true,
-      message: "DMT registration status updated successfully!",
-      data: dmt,
-    }
+    return { success: true, message: "DMT registration status updated successfully!", data: dmt }
   } catch (error) {
     console.error("updateDMTRegistration error:", error)
-    return {
-      success: false,
-      error: (error as Error).message || "Failed to update DMT registration.",
-    }
+    return { success: false, error: (error as Error).message || "Failed to update DMT registration." }
   }
 }
 
@@ -871,77 +808,21 @@ export interface UpdateVehicleDocumentStatusInput {
  */
 export async function updateVehicleDocumentStatus(input: UpdateVehicleDocumentStatusInput) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { user } = await requireAuthOrg()
+    if (!input.saleId) throw new Error("Sale ID is required.")
 
-    if (!input.saleId) {
-      throw new Error("Sale ID is required.")
-    }
-
-    const sale = await prisma.sale.findFirst({
-      where: { id: input.saleId, organizationId },
-      include: {
-        items: {
-          select: { vehicleId: true },
-        },
-      },
+    const { dmt, customerId, vehicleIds } = await applyDmtPatch(user as AuthorizedSaleUser, input.saleId, {
+      isBookOk: input.isBookOk,
+      isNumberPlateOk: input.isNumberPlateOk,
+      isInsuranceOk: input.isInsuranceOk,
+      registrationNumber: input.registrationNumber,
     })
+    for (const path of dmtRevalidationPaths(input.saleId, customerId, vehicleIds)) revalidatePath(path)
 
-    if (!sale) {
-      throw new Error("Sale not found in your dealership records.")
-    }
-
-    const regNo =
-      input.registrationNumber !== undefined
-        ? input.registrationNumber.trim()
-          ? input.registrationNumber.trim().toUpperCase()
-          : null
-        : undefined
-
-    const dmt = await prisma.dMTRegistration.upsert({
-      where: { saleId: input.saleId },
-      update: {
-        ...(input.isBookOk !== undefined && { isBookOk: input.isBookOk }),
-        ...(input.isNumberPlateOk !== undefined && { isNumberPlateOk: input.isNumberPlateOk }),
-        ...(input.isInsuranceOk !== undefined && { isInsuranceOk: input.isInsuranceOk }),
-        ...(regNo !== undefined && {
-          registrationNumber: regNo,
-          registeredNumber: regNo,
-        }),
-      },
-      create: {
-        saleId: input.saleId,
-        isBookOk: input.isBookOk ?? false,
-        isNumberPlateOk: input.isNumberPlateOk ?? false,
-        isInsuranceOk: input.isInsuranceOk ?? false,
-        registrationNumber: regNo ?? null,
-        registeredNumber: regNo ?? null,
-      },
-    })
-
-    if (regNo !== undefined && sale.items.length > 0) {
-      await prisma.vehicle.updateMany({
-        where: { id: { in: sale.items.map((i) => i.vehicleId) } },
-        data: { registrationNumber: regNo },
-      })
-    }
-
-    revalidatePath(`/dashboard/customers/${sale.customerId}`)
-    revalidatePath("/dashboard/customers")
-    revalidatePath("/dashboard/customers/rmv")
-    revalidatePath(`/dashboard/sales/${input.saleId}`)
-    revalidatePath("/dashboard/sales")
-
-    return {
-      success: true,
-      message: "Vehicle document tracking status updated successfully!",
-      data: dmt,
-    }
+    return { success: true, message: "Vehicle document tracking status updated successfully!", data: dmt }
   } catch (error) {
     console.error("updateVehicleDocumentStatus error:", error)
-    return {
-      success: false,
-      error: (error as Error).message || "Failed to update vehicle document status.",
-    }
+    return { success: false, error: (error as Error).message || "Failed to update vehicle document status." }
   }
 }
 
@@ -1003,10 +884,10 @@ export async function logCustomerNotification({ saleId }: { saleId: string }) {
  */
 export async function getRMVRegistry() {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireAuthOrg()
 
     const sales = await prisma.sale.findMany({
-      where: { organizationId },
+      where: { organizationId, ...branchFilter(user) },
       orderBy: { saleDate: "desc" },
       include: {
         customer: {

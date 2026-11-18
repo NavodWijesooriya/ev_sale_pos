@@ -26,6 +26,12 @@ export type AuditAction =
   | "BRANCH_CREATED"
   | "BRANCH_UPDATED"
   | "BRANCH_DELETED"
+  | "BANK_DEPOSIT_RECORDED"
+  | "BANK_DEPOSIT_DELETED"
+  | "BANK_ACCOUNT_SAVED"
+  | "ADVANCE_TRANSFERRED"
+  | "DMT_UPDATED"
+  | "COMMISSION_SETTLEMENT_CHANGED"
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
@@ -50,6 +56,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   BRANCH_CREATED: "Branch created",
   BRANCH_UPDATED: "Branch updated",
   BRANCH_DELETED: "Branch deleted",
+  BANK_DEPOSIT_RECORDED: "Bank deposit recorded",
+  BANK_DEPOSIT_DELETED: "Bank deposit deleted",
+  BANK_ACCOUNT_SAVED: "Bank account saved",
+  ADVANCE_TRANSFERRED: "Customer advance transferred",
+  DMT_UPDATED: "DMT / RMV tracking updated",
+  COMMISSION_SETTLEMENT_CHANGED: "Commission settlement changed",
 }
 
 export interface AuditActor {

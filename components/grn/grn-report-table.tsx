@@ -1,7 +1,10 @@
 "use client"
 
+import { useMemo, useState } from "react"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { matchesBatch } from "@/lib/batch"
 import {
   Table,
   TableBody,
@@ -31,7 +34,14 @@ function escapeCsvValue(value: string) {
   return `"${safeValue.replaceAll('"', '""')}"`
 }
 
-export function GRNReportTable({ grns }: GRNReportTableProps) {
+export function GRNReportTable({ grns: allGrns }: GRNReportTableProps) {
+  const [search, setSearch] = useState("")
+  // The export below uses exactly the rows shown on screen.
+  const grns = useMemo(
+    () => allGrns.filter((grn) => matchesBatch(search, grn.grnNumber, grn.orderNumber, grn.transportRefNumber, grn.branch.name)),
+    [allGrns, search],
+  )
+
   function exportToCsv() {
     const rows = [
       ["GRN Number", "Date", "Showroom", "Order Number", "Transport Cost"],
@@ -57,7 +67,15 @@ export function GRNReportTable({ grns }: GRNReportTableProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end px-4 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
+        <Input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search round / batch (e.g. JM 01), order or showroom..."
+          aria-label="Search GRNs by round or batch number"
+          className="max-w-sm"
+        />
         <Button type="button" variant="outline" size="sm" onClick={exportToCsv} disabled={grns.length === 0}>
           <Download />
           Export to Excel
@@ -80,7 +98,7 @@ export function GRNReportTable({ grns }: GRNReportTableProps) {
             {grns.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
-                  No GRNs have been created yet.
+                  {search.trim() ? "No GRNs match this search." : "No GRNs have been created yet."}
                 </TableCell>
               </TableRow>
             ) : grns.map((grn) => (

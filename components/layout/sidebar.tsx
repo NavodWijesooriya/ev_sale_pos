@@ -84,6 +84,12 @@ export const navigationItems: NavItem[] = [
     ],
   },
   {
+    title: "Bank Deposits",
+    href: "/dashboard/finance/bank-deposits",
+    icon: Landmark,
+    anyPermission: ["MANAGE_BANK_DEPOSITS"],
+  },
+  {
     title: "Customers",
     href: "/dashboard/customers",
     icon: Users2,
