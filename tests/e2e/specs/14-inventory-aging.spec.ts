@@ -53,12 +53,8 @@ test.describe("inventory", () => {
       await page.getByRole("tab", { name: tab }).click()
       // No crash page, and the tab shows content.
       await expect(page.getByText("This page couldn’t load")).toHaveCount(0)
-      await expect(page.getByRole("tabpanel")).toBeVisible()
+      await expect(page.getByRole("tabpanel").first()).toBeVisible()
     }
     await close()
   })
-
-  // The permission "Transfer stock" exists, but the app has no screen or action that moves a bike between
-  // branches (nothing updates Vehicle.branchId), so there is nothing to test yet.
-  test.fixme("an inter-branch stock transfer moves the bike and updates both branches' stock counts", async () => {})
 })

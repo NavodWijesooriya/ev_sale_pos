@@ -106,6 +106,7 @@ export const navigationItems: NavItem[] = [
       { title: "Create GRN", href: "/dashboard/grn/create" },
       { title: "GRN Report", href: "/dashboard/grn/report" },
       { title: "Current Bike Stock", href: "/dashboard/grn/stock" },
+      { title: "Stock Transfers", href: "/dashboard/grn/transfers", anyPermission: ["TRANSFER_STOCK"] },
     ],
   },
   {

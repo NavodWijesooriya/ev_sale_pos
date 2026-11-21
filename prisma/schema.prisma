@@ -76,6 +76,7 @@ model Organization {
   incomingCheques       IncomingCheque[]
   bankAccounts          BankAccount[]
   bankDeposits          BankDeposit[]
+  stockTransfers        StockTransfer[]
   customDomain          String?                @unique
 }
 
@@ -156,8 +157,9 @@ model Branch {
   advancePayments  AdvancePayment[]
   serviceRecords   ServiceRecord[]
   testRides        TestRide[]
+  transfersOut     StockTransfer[]   @relation("StockTransferFrom")
+  transfersIn      StockTransfer[]   @relation("StockTransferTo")
 }
-
 // ==========================================
 // 2. Inventory & Procurement
 // ==========================================
@@ -237,9 +239,10 @@ model Vehicle {
 
   grnItems        GRNItem[]
   saleItems       SaleItem[]
-  sales           Sale[]           @relation("SaleVehicle")
+  sales           Sale[]              @relation("SaleVehicle")
   serviceRecords  ServiceRecord[]
   advancePayments AdvancePayment[]
+  transferItems   StockTransferItem[]
 
   // Unit numbers (JM0101 ...) derive from the dealership's batch number, so they are unique per dealership.
   @@unique([organizationId, unitGrnNumber])
@@ -1060,4 +1063,57 @@ model IncomingChequeEvent {
   createdAt  DateTime              @default(now())
 
   @@index([chequeId])
+}
+
+// ==========================================
+// INTER-BRANCH STOCK TRANSFERS
+// ==========================================
+
+enum StockTransferStatus {
+  IN_TRANSIT // dispatched: the bikes are InTransit and not in either branch's stock
+  RECEIVED // received at the destination: the bikes are AVAILABLE there
+  CANCELLED // cancelled before receipt: the bikes are back in the source branch
+}
+
+// A batch of bikes moved from one branch to another. The bikes keep their GRN, so inventory aging
+// still counts from the original received date.
+model StockTransfer {
+  id               String              @id @default(uuid())
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transferNumber   String // ST-00001 per dealership
+  fromBranchId     String
+  fromBranch       Branch              @relation("StockTransferFrom", fields: [fromBranchId], references: [id])
+  toBranchId       String
+  toBranch         Branch              @relation("StockTransferTo", fields: [toBranchId], references: [id])
+  status           StockTransferStatus @default(IN_TRANSIT)
+  notes            String?
+  dispatchedById   String
+  dispatchedByName String
+  dispatchedAt     DateTime            @default(now())
+  receivedById     String?
+  receivedByName   String?
+  receivedAt       DateTime?
+  cancelledById    String?
+  cancelledByName  String?
+  cancelledAt      DateTime?
+  cancelReason     String?
+
+  items StockTransferItem[]
+
+  @@unique([organizationId, transferNumber])
+  @@index([organizationId, status])
+  @@index([fromBranchId, status])
+  @@index([toBranchId, status])
+}
+
+model StockTransferItem {
+  id         String        @id @default(uuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  vehicleId  String
+  vehicle    Vehicle       @relation(fields: [vehicleId], references: [id])
+
+  @@unique([transferId, vehicleId])
+  @@index([vehicleId])
 }

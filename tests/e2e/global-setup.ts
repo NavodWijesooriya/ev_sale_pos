@@ -13,6 +13,7 @@ export const ROLES: RoleKey[] = [
   "supplierViewer",
   "depositStaffA",
   "depositStaffB",
+  "transferStaffB",
 ]
 
 export default async function globalSetup(config: FullConfig) {

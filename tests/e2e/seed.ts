@@ -32,6 +32,7 @@ export type RoleKey =
   | "supplierViewer"
   | "depositStaffA"
   | "depositStaffB"
+  | "transferStaffB"
 
 export interface E2EFixtures {
   orgId: string
@@ -262,6 +263,14 @@ export async function seedE2E(): Promise<E2EFixtures> {
       permissions: ["MANAGE_BANK_DEPOSITS"],
       envKey: "E2E_PASSWORD_DEPOSIT_STAFF_A",
     },
+    // Receives stock into Branch B (and may only dispatch out of Branch B).
+    transferStaffB: {
+      role: "Cashier",
+      name: "E2E Transfer Staff B",
+      branchId: branchB.id,
+      permissions: ["TRANSFER_STOCK"],
+      envKey: "E2E_PASSWORD_TRANSFER_STAFF_B",
+    },
     depositStaffB: {
       role: "Cashier",
       name: "E2E Deposit Staff B",
@@ -349,6 +358,10 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["E2E-STOCK-DEP-01", branchB.id],
     ["E2E-STOCK-COMM-01", branchA.id],
     ["E2E-STOCK-COMM-02", branchA.id],
+    ["E2E-STOCK-XFER-01", branchA.id],
+    ["E2E-STOCK-XFER-02", branchA.id],
+    ["E2E-STOCK-XFER-03", branchA.id],
+    ["E2E-STOCK-XFER-04", branchA.id],
   ]
   for (const [chassis, branchId] of stock) {
     await prisma.vehicle.create({
