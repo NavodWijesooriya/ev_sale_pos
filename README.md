@@ -52,3 +52,20 @@ npx prisma migrate deploy
 The migration history was reset to a single `init` migration on 2026-11-21. The earlier migrations are kept in `prisma/migrations_archive/` for reference only; Prisma does not read them.
 
 To seed the minimum data for local sign-in (Supabase Auth users plus database rows), run `node --experimental-strip-types prisma/seed.ts`, then `SEED_ORG_SUBDOMAIN=jayakodi node --experimental-strip-types prisma/seed-vehicles.ts`.
+
+## Database connection (Supabase + Prisma, serverless)
+
+Two connection strings, two jobs:
+
+| Variable | Used for | Should point at |
+|---|---|---|
+| `DATABASE_URL` | the running app (Prisma Client) | Supabase **transaction pooler**, port **6543**, with `?pgbouncer=true&connection_limit=1` |
+| `DIRECT_URL` | `prisma migrate` only | Supabase **session pooler** (port 5432) or the direct connection |
+
+- `pgbouncer=true` turns off prepared statements, which the transaction pooler does not support.
+- `connection_limit=1` keeps each serverless instance to one connection so many instances do not exhaust the pooler.
+  Add `pool_timeout=30` locally if you run several requests at once.
+- Set both variables in the Vercel project (Settings → Environment Variables) for Production and Preview. Run
+  `npx prisma migrate deploy` with `DIRECT_URL` available (a build step or a CI job), never against the transaction pooler.
+- `lib/prisma.ts` keeps a single `PrismaClient` per instance and retries read-only queries (not writes, and not anything
+  inside a transaction) up to three times when the connection drops (`P1001`, `P1017`).
