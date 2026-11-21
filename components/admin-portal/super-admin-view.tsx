@@ -33,9 +33,12 @@ import {
   RefreshCw,
   HelpCircle,
   Plus,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import { formatLKR } from "@/lib/currency"
 import { CreateDealershipDialog } from "./create-dealership-dialog"
+import { DealershipOwners } from "./dealership-owners"
 
 export interface OrganizationRow {
   id: string
@@ -72,6 +75,14 @@ export function SuperAdminView({
   const [orgList, setOrgList] = React.useState<OrganizationRow[]>(organizations)
   const [previousOrganizations, setPreviousOrganizations] = React.useState(organizations)
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+  const [expandedOrgs, setExpandedOrgs] = React.useState<Set<string>>(new Set())
+  const toggleOwners = (id: string) =>
+    setExpandedOrgs((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   if (previousOrganizations !== organizations) {
     setPreviousOrganizations(organizations)
@@ -354,11 +365,13 @@ export function SuperAdminView({
                     <TableHead className="text-xs font-semibold text-center">EV Bikes</TableHead>
                     <TableHead className="text-xs font-semibold text-center">Staff</TableHead>
                     <TableHead className="text-xs font-semibold">Created Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-right">Owners</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredOrgs.map((org) => (
-                    <TableRow key={org.id} className="hover:bg-muted/40 transition-colors">
+                    <React.Fragment key={org.id}>
+                    <TableRow className="hover:bg-muted/40 transition-colors">
                       {/* Business Name */}
                       <TableCell className="text-xs">
                         <div className="font-bold text-foreground flex items-center gap-1.5">
@@ -422,7 +435,30 @@ export function SuperAdminView({
                           day: "numeric",
                         })}
                       </TableCell>
+
+                      {/* Owners */}
+                      <TableCell className="text-xs text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          aria-expanded={expandedOrgs.has(org.id)}
+                          aria-label={`${expandedOrgs.has(org.id) ? "Hide" : "Show"} owners of ${org.businessName}`}
+                          onClick={() => toggleOwners(org.id)}
+                        >
+                          {expandedOrgs.has(org.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                          Owners
+                        </Button>
+                      </TableCell>
                     </TableRow>
+                    {expandedOrgs.has(org.id) && (
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell colSpan={9} className="p-0">
+                          <DealershipOwners organizationId={org.id} businessName={org.businessName} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
