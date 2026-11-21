@@ -37,6 +37,9 @@ export type AuditAction =
   | "FINANCE_CHEQUE_PRESENTED"
   | "FINANCE_CHEQUE_CLEARED"
   | "FINANCE_CHEQUE_BOUNCED"
+  | "OWNER_ACCOUNT_DISABLED"
+  | "OWNER_ACCOUNT_ENABLED"
+  | "OWNER_ACCOUNT_DELETED"
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
@@ -72,6 +75,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   FINANCE_CHEQUE_PRESENTED: "Finance cheque presented",
   FINANCE_CHEQUE_CLEARED: "Finance cheque cleared",
   FINANCE_CHEQUE_BOUNCED: "Finance cheque bounced",
+  OWNER_ACCOUNT_DISABLED: "Owner account disabled (platform)",
+  OWNER_ACCOUNT_ENABLED: "Owner account enabled (platform)",
+  OWNER_ACCOUNT_DELETED: "Owner account deleted (platform)",
 }
 
 export interface AuditActor {
