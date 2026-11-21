@@ -2,7 +2,8 @@ import { connection } from "next/server"
 import { redirect } from "next/navigation"
 import { VehicleStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
-import { branchFilter } from "@/lib/permissions"
+import { branchFilter, hasPermission } from "@/lib/permissions"
+import { EPSILON, isFinanceSale } from "@/lib/finance-receivables"
 import { createClient } from "@/lib/supabase/server"
 import { formatLKR } from "@/lib/currency"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,6 +44,7 @@ export default async function DashboardPage() {
       role: true,
       organizationId: true,
       branchId: true,
+      permissions: true,
       organization: { select: { businessName: true } },
       isActive: true,
     },
@@ -55,6 +57,9 @@ export default async function DashboardPage() {
   const organizationId = dealershipUser.organizationId
   // Branch-assigned staff only see their own branch's figures; owners see everything.
   const scope = { organizationId, ...branchFilter(dealershipUser) }
+  // What finance companies owe is shown only to users who may work with finance receivables (same
+  // permission as the Finance Receivables page). Everyone else gets no card, and no query is run.
+  const canSeeReceivables = hasPermission(dealershipUser, "MANAGE_FINANCE_RECEIVABLES")
   const organizationName = dealershipUser.organization.businessName
 
   // 2. Fetch Real Database Metrics & Aggregations
@@ -63,7 +68,7 @@ export default async function DashboardPage() {
     totalVehiclesCount,
     salesAgg,
     branchCount,
-    pendingFinanceCount,
+    financeReceivables,
     totalSalesCount,
     recentSalesRaw,
   ] = await Promise.all([
@@ -84,13 +89,14 @@ export default async function DashboardPage() {
     prisma.branch.count({
       where: { organizationId },
     }),
-    prisma.sale.count({
-      where: {
-        ...scope,
-        paymentMethod: "Finance",
-        status: { not: "Completed" },
-      },
-    }),
+    // Money still owed by finance companies: finance records of this dealership (and branch) with a balance.
+    canSeeReceivables
+      ? prisma.financeDetail.aggregate({
+          where: { sale: scope, balanceAmount: { gt: EPSILON } },
+          _count: true,
+          _sum: { balanceAmount: true },
+        })
+      : Promise.resolve(null),
     prisma.sale.count({
       where: scope,
     }),
@@ -117,7 +123,16 @@ export default async function DashboardPage() {
   const totalSalesRevenue = salesAgg._sum.totalAmount || 0
 
   // 3. Dynamic Real Stats Cards
-  const stats = [
+  type Stat = {
+    title: string
+    value: string
+    change: string
+    icon: typeof Bike
+    iconColor: string
+    bgColor: string
+    href?: string
+  }
+  const stats: Stat[] = [
     {
       title: "EV Bikes In Stock",
       value: `${inStockCount} Units`,
@@ -142,14 +157,22 @@ export default async function DashboardPage() {
       iconColor: "text-primary",
       bgColor: "bg-primary/10 border-primary/20",
     },
-    {
-      title: "Pending Finance / Leases",
-      value: `${pendingFinanceCount} Applications`,
-      change: pendingFinanceCount > 0 ? "Awaiting bank clearance" : "All leases cleared",
-      icon: Clock,
-      iconColor: "text-amber-500",
-      bgColor: "bg-amber-500/10 border-amber-500/20",
-    },
+    ...(financeReceivables
+      ? [
+          {
+            title: "Pending Finance / Leases",
+            value: formatLKR(financeReceivables._sum.balanceAmount ?? 0),
+            change:
+              financeReceivables._count > 0
+                ? `${financeReceivables._count} ${financeReceivables._count === 1 ? "sale" : "sales"} awaiting finance payment`
+                : "All finance payments received",
+            icon: Clock,
+            iconColor: "text-amber-500",
+            bgColor: "bg-amber-500/10 border-amber-500/20",
+            href: "/dashboard/finance/receivables",
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -190,8 +213,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat, idx) => {
           const Icon = stat.icon
-          return (
-            <Card key={idx} className="rounded-2xl bg-card shadow-sm">
+          const card = (
+            <Card className={`h-full rounded-2xl bg-card shadow-sm${stat.href ? " transition-colors hover:border-primary/40" : ""}`}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
@@ -208,6 +231,13 @@ export default async function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+          )
+          return stat.href ? (
+            <Link key={idx} href={stat.href} className="block">
+              {card}
+            </Link>
+          ) : (
+            <div key={idx}>{card}</div>
           )
         })}
       </div>
@@ -263,7 +293,7 @@ export default async function DashboardPage() {
                   })
 
                   const paymentMethodLabel =
-                    sale.paymentMethod === "Finance"
+                    isFinanceSale(sale)
                       ? "Bank Lease / Finance"
                       : sale.paymentMethod === "SplitPayment"
                       ? "Split Payment"
