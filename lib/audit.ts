@@ -32,6 +32,11 @@ export type AuditAction =
   | "ADVANCE_TRANSFERRED"
   | "DMT_UPDATED"
   | "COMMISSION_SETTLEMENT_CHANGED"
+  | "FINANCE_RECEIPT_RECORDED"
+  | "FINANCE_RECEIPT_REVERSED"
+  | "FINANCE_CHEQUE_PRESENTED"
+  | "FINANCE_CHEQUE_CLEARED"
+  | "FINANCE_CHEQUE_BOUNCED"
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
@@ -62,6 +67,11 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   ADVANCE_TRANSFERRED: "Customer advance transferred",
   DMT_UPDATED: "DMT / RMV tracking updated",
   COMMISSION_SETTLEMENT_CHANGED: "Commission settlement changed",
+  FINANCE_RECEIPT_RECORDED: "Finance payment received",
+  FINANCE_RECEIPT_REVERSED: "Finance payment reversed",
+  FINANCE_CHEQUE_PRESENTED: "Finance cheque presented",
+  FINANCE_CHEQUE_CLEARED: "Finance cheque cleared",
+  FINANCE_CHEQUE_BOUNCED: "Finance cheque bounced",
 }
 
 export interface AuditActor {

@@ -146,6 +146,17 @@ export async function updateFinanceCompany(input: CompanyInput & { id: string })
 export async function deleteFinanceCompany(id: string) {
   try {
     const { organizationId } = await requireFinanceAdmin()
+    // A company with receivables or receipts on record cannot be removed: the money owed would be orphaned.
+    const [receivables, receipts] = await Promise.all([
+      prisma.financeDetail.count({ where: { financeCompanyId: id, sale: { organizationId } } }),
+      prisma.financeReceipt.count({ where: { financeCompanyId: id, organizationId } }),
+    ])
+    if (receivables + receipts > 0) {
+      return {
+        success: false as const,
+        error: "This finance company has finance sales or payments on record and cannot be deleted.",
+      }
+    }
     const deleted = await prisma.financeCompany.deleteMany({ where: { id, organizationId } })
     if (deleted.count !== 1) return { success: false as const, error: "Finance company not found." }
     revalidateFinancePages()

@@ -75,6 +75,11 @@ export const PERMISSION_DEFINITIONS = {
     label: "Manage cheques",
     description: "Issue cheques, and mark them presented, cleared, bounced or cancelled.",
   },
+  MANAGE_FINANCE_RECEIVABLES: {
+    group: "Payments & Cheques",
+    label: "Finance receivables",
+    description: "See what finance companies still owe and record the payments they make.",
+  },
   MANAGE_BANK_DEPOSITS: {
     group: "Payments & Cheques",
     label: "Daily bank deposits",
@@ -137,6 +142,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, Permission[]> = {
     "MANAGE_SUPPLIERS",
     "RECORD_PAYMENTS",
     "MANAGE_CHEQUES",
+    "MANAGE_FINANCE_RECEIVABLES",
     "MANAGE_BANK_DEPOSITS",
     "MANAGE_CUSTOMERS",
     "MANAGE_WARRANTY_SERVICE",
