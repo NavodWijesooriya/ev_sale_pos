@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "node scripts/patch-html2canvas.js && prisma generate && (prisma skills sync || exit 0)"
+    "postinstall": "node scripts/patch-html2canvas.js && prisma generate && (prisma skills sync || exit 0)",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -35,6 +37,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
