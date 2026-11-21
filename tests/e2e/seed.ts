@@ -249,6 +249,8 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["financeFive", "E2E Finance Customer Five", "900000006V"],
     ["financeSix", "E2E Finance Customer Six", "900000007V"],
     ["duplicateNic", "E2E Existing NIC Customer", "900000099V"],
+    ["raceOne", "E2E Race Customer One", "900000010V"],
+    ["raceTwo", "E2E Race Customer Two", "900000011V"],
   ] as const
   const customers: E2EFixtures["customers"] = {}
   for (const [key, name, nic] of customerDefs) {
@@ -277,6 +279,7 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["E2E-STOCK-FIN-05", branchA.id],
     ["E2E-STOCK-FIN-06", branchA.id],
     ["E2E-STOCK-B-01", branchB.id],
+    ["E2E-STOCK-RACE-01", branchA.id],
   ]
   for (const [chassis, branchId] of stock) {
     await prisma.vehicle.create({

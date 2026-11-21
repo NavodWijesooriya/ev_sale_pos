@@ -120,59 +120,66 @@ export async function createNewSale(
     const insuranceCompanyId = data.insuranceCompanyId?.trim() || null
     // Non-owner/admin users can never set commissions: anything sent by the client is ignored.
     const commissionRecipientId = commissionsAllowed ? data.commissionRecipientId?.trim() || null : null
+    // All read-only lookups happen BEFORE the transaction so it only holds the writes (a slow database
+    // used to push the whole checkout past the interactive-transaction timeout). The vehicle and advance
+    // guards below are compare-and-set updates inside the transaction, so a stale read here can never
+    // sell a bike twice or use an advance twice.
+    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount] = await Promise.all([
+      prisma.customer.findFirst({
+        where: { id: data.customerId, organizationId },
+        select: { id: true },
+      }),
+      prisma.vehicle.findFirst({
+        where: {
+          id: data.vehicleId,
+          organizationId,
+          // Branch-assigned staff can only sell bikes from their own branch
+          ...branchFilter(user),
+          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+        },
+        include: { vehicleModel: true },
+      }),
+      financeCompanyId
+        ? prisma.financeCompany.findFirst({
+            where: { id: financeCompanyId, organizationId },
+            select: { id: true, name: true, defaultCommissionRate: true },
+          })
+        : Promise.resolve(null),
+      insuranceCompanyId
+        ? prisma.insuranceCompany.findFirst({
+            where: { id: insuranceCompanyId, organizationId },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+      advancePaymentId
+        ? prisma.advancePayment.findFirst({
+            where: {
+              id: advancePaymentId,
+              customerId: data.customerId,
+              organizationId,
+              status: AdvancePaymentStatus.PENDING,
+            },
+            select: { id: true, amount: true },
+          })
+        : Promise.resolve(null),
+      commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
+    ])
+
+    if (!customer) throw new Error("The selected customer was not found.")
+    if (!vehicle) throw new Error("This vehicle is no longer available. Refresh stock and choose another vehicle.")
+    if (financeCompanyId && !financeCompany) {
+      throw new Error("The selected finance company was not found.")
+    }
+    if (insuranceCompanyId && !insuranceCompany) {
+      throw new Error("The selected insurance company was not found.")
+    }
+    if (advancePaymentId && !pendingAdvance) throw new Error("The selected customer advance is no longer pending.")
+
+    const subtotal = vehicle.vehicleModel.defaultPrice
+    const advanceAmount = pendingAdvance?.amount ?? 0
     const result = await prisma.$transaction(async (tx) => {
-      const [customer, vehicle, financeCompany, insuranceCompany] = await Promise.all([
-        tx.customer.findFirst({
-          where: { id: data.customerId, organizationId },
-          select: { id: true },
-        }),
-        tx.vehicle.findFirst({
-          where: {
-            id: data.vehicleId,
-            organizationId,
-            // Branch-assigned staff can only sell bikes from their own branch
-            ...branchFilter(user),
-            status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
-          },
-          include: { vehicleModel: true },
-        }),
-        financeCompanyId
-          ? tx.financeCompany.findFirst({
-              where: { id: financeCompanyId, organizationId },
-              select: { id: true, defaultCommissionRate: true },
-            })
-          : Promise.resolve(null),
-        insuranceCompanyId
-          ? tx.insuranceCompany.findFirst({
-              where: { id: insuranceCompanyId, organizationId },
-              select: { id: true },
-            })
-          : Promise.resolve(null),
-      ])
-
-      if (!customer) throw new Error("The selected customer was not found.")
-      if (!vehicle) throw new Error("This vehicle is no longer available. Refresh stock and choose another vehicle.")
-      if (financeCompanyId && !financeCompany) {
-        throw new Error("The selected finance company was not found.")
-      }
-      if (insuranceCompanyId && !insuranceCompany) {
-        throw new Error("The selected insurance company was not found.")
-      }
-
-      const subtotal = vehicle.vehicleModel.defaultPrice
-      let advanceAmount = 0
-      if (advancePaymentId) {
-        const advance = await tx.advancePayment.findFirst({
-          where: {
-            id: advancePaymentId,
-            customerId: customer.id,
-            organizationId,
-            status: AdvancePaymentStatus.PENDING,
-          },
-          select: { id: true, amount: true },
-        })
-        if (!advance) throw new Error("The selected customer advance is no longer pending.")
-
+      if (pendingAdvance) {
+        const advance = pendingAdvance
         const updatedAdvance = await tx.advancePayment.updateMany({
           where: {
             id: advance.id,
@@ -185,7 +192,6 @@ export async function createNewSale(
         if (updatedAdvance.count !== 1) {
           throw new Error("The selected advance was already used by another sale.")
         }
-        advanceAmount = advance.amount
       }
 
       const reservedVehicle = await tx.vehicle.updateMany({
@@ -219,7 +225,6 @@ export async function createNewSale(
       // Insurance commission is computed here, never taken from the client:
       // Rs. 2,000 for Full Insurance on a cash sale, otherwise 0.
       const insuranceType = data.insuranceType
-      const fullInsuranceAmount = commissionsAllowed ? await loadFullInsuranceCommission(tx, organizationId) : 0
       const insuranceCommissionAmt = commissionsAllowed
         ? insuranceCommissionFor(insuranceType, isFinance, fullInsuranceAmount)
         : 0
@@ -263,7 +268,7 @@ export async function createNewSale(
           ...(isFinance && financeCompanyId ? {
             financeDetail: {
               create: {
-                financeCompany: (await tx.financeCompany.findUnique({ where: { id: financeCompanyId }, select: { name: true } }))?.name || "Finance Company",
+                financeCompany: financeCompany?.name || "Finance Company",
                 totalFinanceAmount: financeAmt,
                 downPaymentPaid: downPmt,
                 dealerCommission: finalCommissionAmt || null,
@@ -300,7 +305,7 @@ export async function createNewSale(
       })
 
       return { saleId: sale.id, invoiceNumber: sale.invoiceNumber }
-    }, { maxWait: 5000, timeout: 20000 })
+    }, { maxWait: 10000, timeout: 30000 })
 
     revalidatePath("/dashboard/sales")
     revalidatePath("/dashboard/sales/new")
@@ -507,33 +512,14 @@ export async function processSale(input: ProcessSaleInput) {
 
     const inputNic = normalizeNic(input.customerNic)
 
-    // 2. Atomic Prisma Transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Step A: Customer resolution
-      let customerId = input.customerId
-
-      if (customerId) {
-        // Validate customer belongs to this organization
-        const existingCust = await tx.customer.findFirst({
-          where: { id: customerId, organizationId },
-        })
-        if (existingCust) {
-          const promotedCustomer = await tx.customer.update({
-            where: { id: existingCust.id },
-            data: {
-              customerType: CustomerType.SALE,
-              category: "DIRECT",
-            },
-          })
-          customerId = promotedCustomer.id
-        } else {
-          customerId = undefined
-        }
-      }
-
-      if (!customerId) {
-        // Check if customer already exists with this phone or NIC within tenant
-        const matchingCust = await tx.customer.findFirst({
+    // 2. Read-only lookups BEFORE the transaction, so it only holds the writes (see createNewSale).
+    // The vehicle claim below is a compare-and-set update, so a stale read here cannot double-sell a bike.
+    const existingCust = input.customerId
+      ? await prisma.customer.findFirst({ where: { id: input.customerId, organizationId } })
+      : null
+    const matchingCust = existingCust
+      ? null
+      : await prisma.customer.findFirst({
           where: {
             organizationId,
             OR: [
@@ -542,13 +528,51 @@ export async function processSale(input: ProcessSaleInput) {
             ],
           },
         })
+    // The NIC may already belong to a different customer than the one matched by phone.
+    if (matchingCust && inputNic && inputNic !== matchingCust.nic) {
+      const clash = await findNicConflict(prisma, organizationId, inputNic, matchingCust.id)
+      if (clash) throw new Error(nicConflictMessage(clash))
+    }
 
+    // Step B: Verify vehicle is InStock and belongs to this organization
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id: input.vehicleId, organizationId },
+      include: { vehicleModel: true },
+    })
+    if (!vehicle) {
+      throw new Error("Vehicle not found in your dealership inventory.")
+    }
+    if (vehicle.status !== VehicleStatus.AVAILABLE && vehicle.status !== VehicleStatus.InStock) {
+      throw new Error(`Vehicle (${vehicle.chassisNumber}) cannot be sold. Current status is ${vehicle.status}.`)
+    }
+
+    // Link the receivable to the registered finance company when the name matches one
+    const financeCompanyName = isFinance ? input.financeCompany!.trim() : ""
+    const matchedCompany = isFinance
+      ? await prisma.financeCompany.findFirst({
+          where: { organizationId, name: { equals: financeCompanyName, mode: "insensitive" } },
+          select: { id: true },
+        })
+      : null
+
+    // 3. Atomic Prisma Transaction: writes only
+    const result = await prisma.$transaction(async (tx) => {
+      // Step A: Customer resolution
+      let customerId: string | undefined
+
+      if (existingCust) {
+        const promotedCustomer = await tx.customer.update({
+          where: { id: existingCust.id },
+          data: {
+            customerType: CustomerType.SALE,
+            category: "DIRECT",
+          },
+        })
+        customerId = promotedCustomer.id
+      }
+
+      if (!customerId) {
         if (matchingCust) {
-          // The NIC may already belong to a different customer than the one matched by phone.
-          if (inputNic && inputNic !== matchingCust.nic) {
-            const clash = await findNicConflict(tx, organizationId, inputNic, matchingCust.id)
-            if (clash) throw new Error(nicConflictMessage(clash))
-          }
           // Update customer information
           const updatedCust = await tx.customer.update({
             where: { id: matchingCust.id },
@@ -580,27 +604,6 @@ export async function processSale(input: ProcessSaleInput) {
           })
           customerId = newCust.id
         }
-      }
-
-      // Step B: Verify vehicle is InStock and belongs to this organization
-      const vehicle = await tx.vehicle.findFirst({
-        where: {
-          id: input.vehicleId,
-          organizationId,
-        },
-        include: {
-          vehicleModel: true,
-        },
-      })
-
-      if (!vehicle) {
-        throw new Error("Vehicle not found in your dealership inventory.")
-      }
-
-      if (vehicle.status !== VehicleStatus.AVAILABLE && vehicle.status !== VehicleStatus.InStock) {
-        throw new Error(
-          `Vehicle (${vehicle.chassisNumber}) cannot be sold. Current status is ${vehicle.status}.`
-        )
       }
 
       // Dynamic financial calculation: (Vehicle Price + Additional Charges) - Discount
@@ -658,12 +661,7 @@ export async function processSale(input: ProcessSaleInput) {
       // Step F: Create FinanceDetail record if applicable
       let financeRecord = null
       if (isFinance) {
-        const companyName = input.financeCompany!.trim()
-        // Link the receivable to the registered finance company when the name matches one
-        const matchedCompany = await tx.financeCompany.findFirst({
-          where: { organizationId, name: { equals: companyName, mode: "insensitive" } },
-          select: { id: true },
-        })
+        const companyName = financeCompanyName
         const loanAmount = Number(input.totalFinanceAmount) || 0
         financeRecord = await tx.financeDetail.create({
           data: {
@@ -698,7 +696,7 @@ export async function processSale(input: ProcessSaleInput) {
         financeRecord,
         dmtRecord,
       }
-    })
+    }, { maxWait: 10000, timeout: 30000 })
 
     // Revalidate affected pages
     revalidatePath("/dashboard/sales")

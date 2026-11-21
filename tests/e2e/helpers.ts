@@ -27,8 +27,8 @@ export interface SaleOptions {
   financeAmount?: number
 }
 
-/** Complete a sale through the real POS form. Returns saleId and invoice number. */
-export async function createSale(page: Page, o: SaleOptions): Promise<{ saleId: string; invoiceNumber: string }> {
+/** Fill the POS form for a sale without submitting it. */
+export async function fillSaleForm(page: Page, o: SaleOptions) {
   await page.goto("/dashboard/sales/new")
   const customer = page.getByRole("combobox", { name: "Customer" })
   await customer.click()
@@ -64,6 +64,11 @@ export async function createSale(page: Page, o: SaleOptions): Promise<{ saleId: 
     }
   }
 
+}
+
+/** Complete a sale through the real POS form. Returns saleId and invoice number. */
+export async function createSale(page: Page, o: SaleOptions): Promise<{ saleId: string; invoiceNumber: string }> {
+  await fillSaleForm(page, o)
   await page.getByRole("button", { name: /Complete Sale/ }).click()
   await page.waitForURL(/\/dashboard\/sales\/[^/]+\/invoice/, { timeout: 60_000 })
   const saleId = page.url().match(/sales\/([^/]+)\/invoice/)![1]
