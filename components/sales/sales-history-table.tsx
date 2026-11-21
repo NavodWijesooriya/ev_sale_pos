@@ -157,6 +157,8 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
           </Badge>
         )
       case PaymentMethod.Finance:
+      // Finance sales are saved with the method "Leasing", which is not a PaymentMethod value
+      case "Leasing" as PaymentMethod:
         return (
           <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
             Full Finance / Lease
