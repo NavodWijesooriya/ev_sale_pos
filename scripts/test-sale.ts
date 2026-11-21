@@ -129,6 +129,7 @@ async function main() {
         downPaymentPaid: downPayment,
         dealerCommission: 750,
         status: FinanceStatus.Pending,
+        balanceAmount: financedAmount, // nothing received yet
       },
     })
 

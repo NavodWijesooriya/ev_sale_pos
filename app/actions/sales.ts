@@ -16,6 +16,7 @@ import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { recordAudit } from "@/lib/audit"
 import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
+import { initialFinanceTracking } from "@/lib/finance-receivables"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
 import {
@@ -265,7 +266,9 @@ export async function createNewSale(
                 totalFinanceAmount: financeAmt,
                 downPaymentPaid: downPmt,
                 dealerCommission: finalCommissionAmt || null,
-                status: FinanceStatus.Pending,
+                // The finance company now owes the dealership the finance amount (tracked as a receivable)
+                financeCompanyId,
+                ...initialFinanceTracking(financeAmt),
               },
             },
           } : {}),
@@ -647,14 +650,22 @@ export async function processSale(input: ProcessSaleInput) {
       // Step F: Create FinanceDetail record if applicable
       let financeRecord = null
       if (isFinance) {
+        const companyName = input.financeCompany!.trim()
+        // Link the receivable to the registered finance company when the name matches one
+        const matchedCompany = await tx.financeCompany.findFirst({
+          where: { organizationId, name: { equals: companyName, mode: "insensitive" } },
+          select: { id: true },
+        })
+        const loanAmount = Number(input.totalFinanceAmount) || 0
         financeRecord = await tx.financeDetail.create({
           data: {
             saleId: sale.id,
-            financeCompany: input.financeCompany!.trim(),
-            totalFinanceAmount: Number(input.totalFinanceAmount) || 0,
+            financeCompany: companyName,
+            totalFinanceAmount: loanAmount,
             downPaymentPaid: Number(input.downPaymentPaid) || 0,
             dealerCommission: dealerCommission !== undefined ? Number(dealerCommission) : null,
-            status: FinanceStatus.Pending,
+            financeCompanyId: matchedCompany?.id ?? null,
+            ...initialFinanceTracking(loanAmount),
           },
         })
       }

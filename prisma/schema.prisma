@@ -72,6 +72,8 @@ model Organization {
   auditLogs             AuditLog[]
   commissionSettings    CommissionSettings?
   commissionSettlements CommissionSettlement[]
+  financeReceipts       FinanceReceipt[]
+  incomingCheques       IncomingCheque[]
   bankAccounts          BankAccount[]
   bankDeposits          BankDeposit[]
   customDomain          String?                @unique
@@ -148,6 +150,7 @@ model Branch {
   vehicles         Vehicle[]
   grns             GRN[]
   supplierPayments SupplierPayment[]
+  financeReceipts  FinanceReceipt[]
   bankDeposits     BankDeposit[]
   sales            Sale[]
   advancePayments  AdvancePayment[]
@@ -585,6 +588,10 @@ model FinanceCompany {
   sales    Sale[]           @relation("SaleFinanceCompany")
   officers FinanceOfficer[]
 
+  financeDetails  FinanceDetail[]
+  receipts        FinanceReceipt[]
+  incomingCheques IncomingCheque[]
+
   @@unique([organizationId, name])
 }
 
@@ -698,17 +705,30 @@ model SaleItem {
 enum FinanceStatus {
   Pending
   Received
+  Partial // some of the finance amount has been received, a balance remains
 }
 
 model FinanceDetail {
   id                 String        @id @default(uuid())
   saleId             String        @unique
   sale               Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  financeCompany     String
-  totalFinanceAmount Float
+  financeCompany     String // company name as it was when the sale was made
+  totalFinanceAmount Float // the finance (loan) amount the company owes the dealership
   downPaymentPaid    Float
   dealerCommission   Float?
   status             FinanceStatus @default(Pending)
+
+  // Receivable tracking. Commission is NOT part of this (see CommissionSettlement).
+  financeCompanyId String? // null only for legacy rows that could not be matched to a company
+  company          FinanceCompany? @relation(fields: [financeCompanyId], references: [id], onDelete: Restrict)
+  receivedAmount   Float           @default(0)
+  balanceAmount    Float // totalFinanceAmount - receivedAmount (backfilled)
+  expectedDate     DateTime?
+  receivedAt       DateTime? // set when the balance reaches zero
+
+  allocations FinanceReceiptAllocation[]
+
+  @@index([financeCompanyId, status])
 }
 
 enum DMTStatus {
@@ -931,4 +951,111 @@ model BankDeposit {
   @@unique([organizationId, bankAccountId, slipNumber])
   @@index([organizationId, depositDate])
   @@index([branchId, depositDate])
+}
+
+// ==========================================
+// Finance (leasing) receivables
+// ==========================================
+
+enum FinanceReceiptMethod {
+  BankTransfer
+  CHEQUE
+  Cash
+}
+
+enum FinanceReceiptStatus {
+  COMPLETED // applied to the sales' balances
+  PENDING // cheque not cleared yet: allocations are only reserved, balances unchanged
+  REVERSED // voided or bounced after being applied
+}
+
+// Money received from a finance company, allocated across that company's sales.
+model FinanceReceipt {
+  id               String         @id @default(uuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?        @relation(fields: [branchId], references: [id])
+  financeCompanyId String
+  financeCompany   FinanceCompany @relation(fields: [financeCompanyId], references: [id])
+
+  receiptNumber String // FR-00001 per dealership
+  amount        Float
+  method        FinanceReceiptMethod
+  status        FinanceReceiptStatus @default(COMPLETED)
+  receiptDate   DateTime             @default(now())
+  referenceNo   String?
+  notes         String?
+  createdById   String
+  createdByName String
+  createdAt     DateTime             @default(now())
+  appliedAt     DateTime? // when the allocations were applied to the balances
+  reversedAt    DateTime?
+
+  allocations    FinanceReceiptAllocation[]
+  incomingCheque IncomingCheque?
+
+  @@unique([organizationId, receiptNumber])
+  @@index([organizationId, receiptDate])
+  @@index([financeCompanyId, status])
+}
+
+model FinanceReceiptAllocation {
+  id              String         @id @default(uuid())
+  receiptId       String
+  receipt         FinanceReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  financeDetailId String
+  financeDetail   FinanceDetail  @relation(fields: [financeDetailId], references: [id])
+  amount          Float
+  createdAt       DateTime       @default(now())
+
+  @@index([receiptId])
+  @@index([financeDetailId])
+}
+
+enum IncomingChequeStatus {
+  RECEIVED
+  PRESENTED
+  CLEARED
+  BOUNCED
+}
+
+// A cheque received from a finance company. Kept apart from the supplier Cheque model, which is
+// tied to supplier payments; the lifecycle mirrors it (PRESENTED then CLEARED or BOUNCED).
+model IncomingCheque {
+  id               String         @id @default(uuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  financeCompanyId String
+  financeCompany   FinanceCompany @relation(fields: [financeCompanyId], references: [id])
+  receiptId        String         @unique
+  receipt          FinanceReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  chequeNumber String
+  bankName     String
+  amount       Float
+  chequeDate   DateTime
+  status       IncomingChequeStatus @default(RECEIVED)
+  presentedAt  DateTime?
+  clearedAt    DateTime?
+  bouncedAt    DateTime?
+  bounceReason String?
+  createdAt    DateTime             @default(now())
+
+  events IncomingChequeEvent[]
+
+  @@index([organizationId, status])
+}
+
+model IncomingChequeEvent {
+  id         String                @id @default(uuid())
+  chequeId   String
+  cheque     IncomingCheque        @relation(fields: [chequeId], references: [id], onDelete: Cascade)
+  fromStatus IncomingChequeStatus?
+  toStatus   IncomingChequeStatus
+  note       String?
+  userId     String?
+  createdAt  DateTime              @default(now())
+
+  @@index([chequeId])
 }
