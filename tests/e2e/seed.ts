@@ -22,7 +22,22 @@ export const E2E_SUBDOMAIN = "e2e"
 export const E2E_ORG_NAME = "E2E Motors"
 export const FIXTURES_PATH = path.resolve(process.cwd(), "tests/e2e/.auth/fixtures.json")
 
-export type RoleKey = "owner" | "branchManager" | "cashier" | "receivablesStaff" | "noAccessStaff"
+export const E2E_OTHER_SUBDOMAIN = "e2e-other"
+export const E2E_OTHER_ORG_NAME = "E2E Other Motors"
+export const E2E_LAB_SUBDOMAIN = "e2e-owners"
+export const E2E_LAB_ORG_NAME = "E2E Owner Lab"
+
+export type RoleKey =
+  | "owner"
+  | "branchManager"
+  | "cashier"
+  | "receivablesStaff"
+  | "noAccessStaff"
+  // platform operator (signs in at /admin-portal/login) and the owners of the two extra e2e dealerships
+  | "platformAdmin"
+  | "otherOwner"
+  | "labOwnerA"
+  | "labOwnerB"
 
 export interface E2EFixtures {
   orgId: string
@@ -34,7 +49,9 @@ export interface E2EFixtures {
   users: Record<RoleKey, { email: string; name: string; password: string }>
   customers: Record<string, { id: string; name: string; nic: string }>
   /** Read-only probe of another dealership's data (e.g. Jayakodi Motors) for tenant isolation checks. */
-  otherOrg: { name: string; chassisNumber: string | null; modelName: string | null } | null
+  otherOrg: { id: string; name: string; chassisNumber: string | null; modelName: string | null } | null
+  /** Dealership with two owners: A has a sale (history), B has none. */
+  labOrg: { id: string; name: string } | null
 }
 
 function required(name: string): string {
@@ -73,11 +90,12 @@ async function loadForeignKeys(): Promise<Fk[]> {
  * leads to such a row. The root condition is always "organizationId = <e2e org id>", so nothing outside
  * the E2E organization can match.
  */
-async function wipeE2EOrganization() {
-  const org = await prisma.organization.findUnique({ where: { subdomain: E2E_SUBDOMAIN } })
+/** Wipes one e2e dealership, found by its fixed subdomain AND exact name (anything else is never touched). */
+async function wipeE2EOrganization(subdomain: string, expectedName: string) {
+  const org = await prisma.organization.findUnique({ where: { subdomain } })
   if (!org) return
-  if (org.businessName !== E2E_ORG_NAME) {
-    throw new Error(`Refusing to wipe: organization with subdomain "${E2E_SUBDOMAIN}" is named "${org.businessName}".`)
+  if (org.businessName !== expectedName) {
+    throw new Error(`Refusing to wipe: organization with subdomain "${subdomain}" is named "${org.businessName}".`)
   }
   const fks = await loadForeignKeys()
   const orgTables = (
@@ -130,7 +148,12 @@ async function wipeE2EOrganization() {
     pending = failed
   }
   if (pending.length > 0) throw new Error(`Could not wipe E2E data from: ${pending.join(", ")}`)
-  await prisma.organization.deleteMany({ where: { id: org.id, subdomain: E2E_SUBDOMAIN, businessName: E2E_ORG_NAME } })
+  await prisma.organization.deleteMany({ where: { id: org.id, subdomain, businessName: expectedName } })
+}
+
+/** Platform admin rows for e2e logins, removed by e2e email domain only. */
+async function wipeE2EPlatformUsers(domain: string) {
+  await prisma.platformUser.deleteMany({ where: { email: { endsWith: `@${domain}`.toLowerCase() } } })
 }
 
 async function wipeE2EAuthUsers(domain: string) {
@@ -160,7 +183,10 @@ export async function seedE2E(): Promise<E2EFixtures> {
   const domain = required("E2E_EMAIL_DOMAIN")
   if (domain.toLowerCase().includes("gmail.com")) throw new Error("E2E_EMAIL_DOMAIN must be a dedicated test domain.")
 
-  await wipeE2EOrganization()
+  await wipeE2EOrganization(E2E_SUBDOMAIN, E2E_ORG_NAME)
+  await wipeE2EOrganization(E2E_OTHER_SUBDOMAIN, E2E_OTHER_ORG_NAME)
+  await wipeE2EOrganization(E2E_LAB_SUBDOMAIN, E2E_LAB_ORG_NAME)
+  await wipeE2EPlatformUsers(domain)
   await wipeE2EAuthUsers(domain)
 
   const org = await prisma.organization.create({
@@ -190,7 +216,7 @@ export async function seedE2E(): Promise<E2EFixtures> {
   })
   await prisma.commissionSettings.create({ data: { organizationId: org.id, fullInsuranceCommission: 2000 } })
 
-  const userDefs: Record<RoleKey, { role: "OrgAdmin" | "BranchManager" | "Cashier" | "SalesRep"; name: string; branchId: string | null; permissions: string[]; envKey: string }> = {
+  const userDefs: Record<Exclude<RoleKey, "platformAdmin" | "otherOwner" | "labOwnerA" | "labOwnerB">, { role: "OrgAdmin" | "BranchManager" | "Cashier" | "SalesRep"; name: string; branchId: string | null; permissions: string[]; envKey: string }> = {
     owner: { role: "OrgAdmin", name: "E2E Owner", branchId: null, permissions: [], envKey: "E2E_PASSWORD_OWNER" },
     branchManager: {
       role: "BranchManager",
@@ -220,7 +246,7 @@ export async function seedE2E(): Promise<E2EFixtures> {
   }
 
   const users = {} as E2EFixtures["users"]
-  for (const key of Object.keys(userDefs) as RoleKey[]) {
+  for (const key of Object.keys(userDefs) as Array<keyof typeof userDefs>) {
     const def = userDefs[key]
     const email = `${key.toLowerCase()}@${domain}`
     const password = required(def.envKey)
@@ -298,18 +324,109 @@ export async function seedE2E(): Promise<E2EFixtures> {
     })
   }
 
-  // Another dealership, only to prove tenant isolation. Read-only: we never write to it.
-  const other = await prisma.organization.findFirst({
-    where: { OR: [{ subdomain: null }, { subdomain: { not: E2E_SUBDOMAIN } }] },
-    orderBy: { createdAt: "asc" },
-    select: { businessName: true, id: true },
+  // A second dealership owned by the suite ("E2E Other Motors"), used to prove tenant isolation and as a target for
+  // owner enable/disable. No real dealership (e.g. Jayakodi Motors) is ever read or written.
+  const otherOrg = await prisma.organization.create({
+    data: {
+      businessName: E2E_OTHER_ORG_NAME,
+      domain: "e2e-other.local",
+      subdomain: E2E_OTHER_SUBDOMAIN,
+      subscriptionPlan: "Pro",
+      subscriptionStatus: "Active",
+    },
   })
-  const otherVehicle = other
-    ? await prisma.vehicle.findFirst({
-        where: { organizationId: other.id },
-        select: { chassisNumber: true, vehicleModel: { select: { modelName: true } } },
-      })
-    : null
+  const otherBranch = await prisma.branch.create({ data: { organizationId: otherOrg.id, name: "E2E Other Branch", location: "Galle" } })
+  const otherModel = await prisma.vehicleModel.create({
+    data: { organizationId: otherOrg.id, brand: "E2E Other", modelName: "Other Scooter", defaultPrice: 450000 },
+  })
+  await prisma.vehicle.create({
+    data: {
+      organizationId: otherOrg.id,
+      branchId: otherBranch.id,
+      vehicleModelId: otherModel.id,
+      chassisNumber: "E2E-OTHER-ORG-01",
+      motorNumber: "M-E2E-OTHER-ORG-01",
+      batterySerialNumber: "BAT-E2E-OTHER-ORG-01",
+      color: "Black",
+      status: "AVAILABLE",
+      purchasePrice: 350000,
+    },
+  })
+  const otherOwnerPassword = required("E2E_PASSWORD_OTHER_OWNER")
+  const otherOwnerEmail = `otherowner@${domain}`
+  await createAuthUser(otherOwnerEmail, otherOwnerPassword, "E2E Other Owner")
+  await prisma.user.create({
+    data: { organizationId: otherOrg.id, branchId: otherBranch.id, email: otherOwnerEmail, name: "E2E Other Owner", passwordHash: "", role: "OrgAdmin" },
+  })
+  users.otherOwner = { email: otherOwnerEmail, name: "E2E Other Owner", password: otherOwnerPassword }
+
+  // "E2E Owner Lab": two owners to delete. Owner A has made a sale (history); owner B has no records at all.
+  const labOrg = await prisma.organization.create({
+    data: {
+      businessName: E2E_LAB_ORG_NAME,
+      domain: "e2e-owners.local",
+      subdomain: E2E_LAB_SUBDOMAIN,
+      subscriptionPlan: "Pro",
+      subscriptionStatus: "Active",
+    },
+  })
+  const labBranch = await prisma.branch.create({ data: { organizationId: labOrg.id, name: "E2E Lab Branch", location: "Matara" } })
+  const labModel = await prisma.vehicleModel.create({
+    data: { organizationId: labOrg.id, brand: "E2E Lab", modelName: "Lab Scooter", defaultPrice: 400000 },
+  })
+  const labOwnerDefs = [
+    ["labOwnerA", "E2E Lab Owner A", "E2E_PASSWORD_LAB_OWNER_A"],
+    ["labOwnerB", "E2E Lab Owner B", "E2E_PASSWORD_LAB_OWNER_B"],
+  ] as const
+  const labUsers: Record<string, string> = {}
+  for (const [key, name, envKey] of labOwnerDefs) {
+    const email = `${key.toLowerCase()}@${domain}`
+    const password = required(envKey)
+    await createAuthUser(email, password, name)
+    const created = await prisma.user.create({
+      data: { organizationId: labOrg.id, branchId: labBranch.id, email, name, passwordHash: "", role: "OrgAdmin" },
+    })
+    labUsers[key] = created.id
+    users[key] = { email, name, password }
+  }
+  const labCustomer = await prisma.customer.create({
+    data: { organizationId: labOrg.id, category: "DIRECT", customerType: "SALE", name: "E2E Lab Customer", phone: "0770000000", nic: "930000001V" },
+  })
+  const labVehicle = await prisma.vehicle.create({
+    data: {
+      organizationId: labOrg.id,
+      branchId: labBranch.id,
+      vehicleModelId: labModel.id,
+      chassisNumber: "E2E-LAB-ORG-01",
+      motorNumber: "M-E2E-LAB-ORG-01",
+      batterySerialNumber: "BAT-E2E-LAB-ORG-01",
+      color: "Black",
+      status: "Sold",
+      purchasePrice: 300000,
+    },
+  })
+  await prisma.sale.create({
+    data: {
+      organizationId: labOrg.id,
+      branchId: labBranch.id,
+      customerId: labCustomer.id,
+      userId: labUsers.labOwnerA,
+      vehicleId: labVehicle.id,
+      invoiceNumber: `INV-E2E-LAB-${Date.now()}`,
+      totalAmount: 400000,
+      paymentMethod: "Cash",
+      paymentType: "CASH",
+    },
+  })
+
+  // The platform operator used by the owner-management specs (signs in at /admin-portal/login).
+  const platformPassword = required("E2E_PASSWORD_PLATFORM_ADMIN")
+  const platformEmail = `platformadmin@${domain}`
+  await createAuthUser(platformEmail, platformPassword, "E2E Platform Admin")
+  await prisma.platformUser.create({
+    data: { email: platformEmail, name: "E2E Platform Admin", passwordHash: "", role: "PlatformAdmin" },
+  })
+  users.platformAdmin = { email: platformEmail, name: "E2E Platform Admin", password: platformPassword }
 
   const fixtures: E2EFixtures = {
     orgId: org.id,
@@ -320,9 +437,8 @@ export async function seedE2E(): Promise<E2EFixtures> {
     fullInsuranceCommission: 2000,
     users,
     customers,
-    otherOrg: other
-      ? { name: other.businessName, chassisNumber: otherVehicle?.chassisNumber ?? null, modelName: otherVehicle?.vehicleModel.modelName ?? null }
-      : null,
+    otherOrg: { id: otherOrg.id, name: otherOrg.businessName, chassisNumber: "E2E-OTHER-ORG-01", modelName: otherModel.modelName },
+    labOrg: { id: labOrg.id, name: labOrg.businessName },
   }
   fs.mkdirSync(path.dirname(FIXTURES_PATH), { recursive: true })
   fs.writeFileSync(FIXTURES_PATH, JSON.stringify(fixtures, null, 2))

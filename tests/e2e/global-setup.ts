@@ -4,7 +4,7 @@ import { chromium, type FullConfig } from "@playwright/test"
 import { disconnectSeed, seedE2E, type RoleKey } from "./seed"
 
 export const AUTH_DIR = path.resolve(process.cwd(), "tests/e2e/.auth")
-export const ROLES: RoleKey[] = ["owner", "branchManager", "cashier", "receivablesStaff", "noAccessStaff"]
+export const ROLES: RoleKey[] = ["owner", "branchManager", "cashier", "receivablesStaff", "noAccessStaff", "otherOwner", "platformAdmin"]
 
 export default async function globalSetup(config: FullConfig) {
   fs.mkdirSync(AUTH_DIR, { recursive: true })
@@ -19,11 +19,12 @@ export default async function globalSetup(config: FullConfig) {
     for (const role of ROLES) {
       const context = await browser.newContext({ baseURL })
       const page = await context.newPage()
-      await page.goto("/login")
-      await page.getByLabel("Work email").fill(fixtures.users[role].email)
+      const platform = role === "platformAdmin"
+      await page.goto(platform ? "/admin-portal/login" : "/login")
+      await page.getByLabel(platform ? "Administrator email" : "Work email").fill(fixtures.users[role].email)
       await page.getByRole("textbox", { name: "Password" }).fill(fixtures.users[role].password)
       await page.getByRole("button", { name: /sign in|log in|continue/i }).click()
-      await page.waitForURL(/\/dashboard/, { timeout: 60_000 })
+      await page.waitForURL(platform ? /\/admin-portal(?!\/login)/ : /\/dashboard/, { timeout: 60_000 })
       await context.storageState({ path: path.join(AUTH_DIR, `${role}.json`) })
       await context.close()
     }
