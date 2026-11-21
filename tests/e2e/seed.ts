@@ -241,14 +241,14 @@ export async function seedE2E(): Promise<E2EFixtures> {
 
   // Customers (SALE type) used by the sale scenarios; NICs are unique and obviously fake.
   const customerDefs = [
-    ["cashSale", "E2E Cash Customer", "E2E0000001V"],
-    ["financeOne", "E2E Finance Customer One", "E2E0000002V"],
-    ["financeTwo", "E2E Finance Customer Two", "E2E0000003V"],
-    ["financeThree", "E2E Finance Customer Three", "E2E0000004V"],
-    ["financeFour", "E2E Finance Customer Four", "E2E0000005V"],
-    ["financeFive", "E2E Finance Customer Five", "E2E0000006V"],
-    ["financeSix", "E2E Finance Customer Six", "E2E0000007V"],
-    ["duplicateNic", "E2E Existing NIC Customer", "E2E0000099V"],
+    ["cashSale", "E2E Cash Customer", "900000001V"],
+    ["financeOne", "E2E Finance Customer One", "900000002V"],
+    ["financeTwo", "E2E Finance Customer Two", "900000003V"],
+    ["financeThree", "E2E Finance Customer Three", "900000004V"],
+    ["financeFour", "E2E Finance Customer Four", "900000005V"],
+    ["financeFive", "E2E Finance Customer Five", "900000006V"],
+    ["financeSix", "E2E Finance Customer Six", "900000007V"],
+    ["duplicateNic", "E2E Existing NIC Customer", "900000099V"],
   ] as const
   const customers: E2EFixtures["customers"] = {}
   for (const [key, name, nic] of customerDefs) {

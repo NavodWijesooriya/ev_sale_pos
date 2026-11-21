@@ -437,7 +437,7 @@ model Customer {
   name                String
   phone               String
   email               String?
-  nic                 String?
+  nic                 String? // normalised: no spaces, upper-case; unique per organization when set
   address             String?
   crn                 String?          @unique
   title               String?
@@ -458,6 +458,9 @@ model Customer {
   advanceTransfersReceived AdvanceTransfer[] @relation("AdvanceTransferToCustomer")
   serviceRecords           ServiceRecord[]
   testRides                TestRide[]
+
+  // A NIC identifies one customer per dealership (NULL stays allowed many times).
+  @@unique([organizationId, nic])
 }
 
 enum CustomerCategory {

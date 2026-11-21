@@ -17,6 +17,7 @@ import { recordAudit } from "@/lib/audit"
 import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { initialFinanceTracking } from "@/lib/finance-receivables"
+import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
 import {
@@ -504,6 +505,8 @@ export async function processSale(input: ProcessSaleInput) {
       }
     }
 
+    const inputNic = normalizeNic(input.customerNic)
+
     // 2. Atomic Prisma Transaction
     const result = await prisma.$transaction(async (tx) => {
       // Step A: Customer resolution
@@ -535,12 +538,17 @@ export async function processSale(input: ProcessSaleInput) {
             organizationId,
             OR: [
               { phone: input.customerPhone.trim() },
-              ...(input.customerNic?.trim() ? [{ nic: input.customerNic.trim() }] : []),
+              ...(inputNic ? [{ nic: inputNic }] : []),
             ],
           },
         })
 
         if (matchingCust) {
+          // The NIC may already belong to a different customer than the one matched by phone.
+          if (inputNic && inputNic !== matchingCust.nic) {
+            const clash = await findNicConflict(tx, organizationId, inputNic, matchingCust.id)
+            if (clash) throw new Error(nicConflictMessage(clash))
+          }
           // Update customer information
           const updatedCust = await tx.customer.update({
             where: { id: matchingCust.id },
@@ -548,7 +556,7 @@ export async function processSale(input: ProcessSaleInput) {
               name: input.customerName.trim(),
               email: input.customerEmail?.trim() || matchingCust.email,
               address: input.customerAddress?.trim() || matchingCust.address,
-              nic: input.customerNic?.trim() || matchingCust.nic,
+              nic: inputNic ?? matchingCust.nic,
               customerType: CustomerType.SALE,
               category: "DIRECT",
             },
@@ -565,7 +573,7 @@ export async function processSale(input: ProcessSaleInput) {
               name: input.customerName.trim(),
               phone: input.customerPhone.trim(),
               email: input.customerEmail?.trim() || null,
-              nic: input.customerNic?.trim() || null,
+              nic: inputNic,
               address: input.customerAddress?.trim() || null,
               crn,
             },
@@ -707,6 +715,7 @@ export async function processSale(input: ProcessSaleInput) {
     }
   } catch (error) {
     console.error("processSale error:", error)
+    if (isNicUniqueViolation(error)) return { success: false, error: NIC_RACE_MESSAGE }
     return {
       success: false,
       error: (error as Error).message || "Failed to process sale.",
