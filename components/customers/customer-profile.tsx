@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { FinanceReceivableSummary } from "@/components/finance/finance-receivable-summary"
 import {
   Card,
   CardContent,
@@ -108,6 +109,8 @@ export interface CustomerProfileData {
       totalFinanceAmount: number
       downPaymentPaid: number
       status: string
+      receivedAmount?: number | null
+      balanceAmount?: number | null
     } | null
     dmtRegistration?: {
       id: string
@@ -541,6 +544,7 @@ export function CustomerProfile({
                               <Badge variant="outline" className="text-xs">
                                 {sale.paymentMethod}
                               </Badge>
+                              {sale.financeDetail && <FinanceReceivableSummary detail={sale.financeDetail} compact />}
                             </TableCell>
 
                             {/* RMV Documents Status */}

@@ -97,6 +97,8 @@ export interface InvoiceSaleData {
     downPaymentPaid: number
     dealerCommission?: number | null
     status: FinanceStatus
+    receivedAmount?: number | null
+    balanceAmount?: number | null
   } | null
 }
 
@@ -147,7 +149,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
     : 0
 
   const recordedPaidAmount = isFinance
-    ? downPaymentPaid + (sale.financeDetail?.status === FinanceStatus.Received ? financeAmount : 0)
+    ? downPaymentPaid + (sale.financeDetail?.receivedAmount ?? (sale.financeDetail?.status === FinanceStatus.Received ? financeAmount : 0))
     : ["paid", "completed"].includes(sale.status.toLowerCase())
       ? sale.totalAmount
       : 0
@@ -883,6 +885,18 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
 
                   <span style={{ color: "#64748b" }}>Finance Amount (Loan):</span>
                   <strong style={{ color: "#2563eb" }}>{formatLKR(financeAmount)}</strong>
+
+                  {sale.financeDetail && sale.financeDetail.balanceAmount != null && (
+                    <>
+                      <span style={{ color: "#64748b" }}>Received from Finance Co.:</span>
+                      <strong style={{ color: "#047857" }}>{formatLKR(sale.financeDetail.receivedAmount ?? 0)}</strong>
+
+                      <span style={{ color: "#64748b" }}>Finance Balance Owed:</span>
+                      <strong style={{ color: sale.financeDetail.balanceAmount > 0 ? "#b45309" : "#047857" }}>
+                        {formatLKR(sale.financeDetail.balanceAmount)} ({sale.financeDetail.status})
+                      </strong>
+                    </>
+                  )}
 
                   <span style={{ color: "#64748b" }}>Down Payment Paid:</span>
                   <strong style={{ color: "#047857" }}>{formatLKR(downPaymentPaid)}</strong>

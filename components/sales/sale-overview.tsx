@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { FinanceReceivableSummary } from "@/components/finance/finance-receivable-summary"
 import {
   Card,
   CardContent,
@@ -113,6 +114,8 @@ interface SaleOverviewProps {
       totalFinanceAmount: number
       downPaymentPaid: number
       status: string
+      receivedAmount?: number | null
+      balanceAmount?: number | null
     } | null
     dmtRegistration?: {
       id: string
@@ -357,7 +360,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
                   </div>
                   <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border">
                     <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                    <span>Owner's Manual & Warranty Guide</span>
+                    <span>Owner&apos;s Manual & Warranty Guide</span>
                   </div>
                   <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border">
                     <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
@@ -461,6 +464,20 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Finance receivable: what the finance company still owes for this sale */}
+        {sale.financeDetail && (
+          <div className="lg:col-span-7 lg:row-start-2">
+            <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="text-base font-bold">Finance receivable</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <FinanceReceivableSummary detail={sale.financeDetail} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Right Column: Section C (DMT Registration Tracker) */}
         <div className="lg:col-span-5 space-y-6">
