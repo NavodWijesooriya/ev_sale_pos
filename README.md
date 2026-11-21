@@ -51,4 +51,12 @@ npx prisma migrate deploy
 
 The migration history was reset to a single `init` migration on 2026-11-21. The earlier migrations are kept in `prisma/migrations_archive/` for reference only; Prisma does not read them.
 
-To seed the minimum data for local sign-in (Supabase Auth users plus database rows), run `node --experimental-strip-types prisma/seed.ts`, then `SEED_ORG_SUBDOMAIN=jayakodi node --experimental-strip-types prisma/seed-vehicles.ts`.
+To seed the minimum data for local sign-in (Supabase Auth users plus database rows), run `node --experimental-strip-types prisma/seed.ts`.
+
+`prisma/seed-vehicles.ts` is **demo-only**: it adds made-up models and bikes (`VIN-PULSE-*`, `VIN-TERRA-*`, `VIN-APEX-*`) and refuses to run unless `SEED_DEMO=true` is set. Never run it against the shared or live database:
+
+```bash
+SEED_DEMO=true SEED_ORG_SUBDOMAIN=<subdomain> node --experimental-strip-types prisma/seed-vehicles.ts
+```
+
+The e2e suite does not use it: it creates and removes its own dealerships (`E2E Motors`, `E2E Other Motors`, `E2E Owner Lab`) and never touches a real one.

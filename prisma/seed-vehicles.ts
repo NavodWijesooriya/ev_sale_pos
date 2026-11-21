@@ -4,7 +4,13 @@ const { PrismaClient, VehicleStatus } = prismaClient
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log("Seeding vehicle models and in-stock inventory...")
+  // This script adds made-up models and bikes (VIN-PULSE-*, VIN-TERRA-*, VIN-APEX-*). The database can be the live
+  // one, so it refuses to run unless demo data is asked for explicitly.
+  if (process.env.SEED_DEMO !== "true") {
+    console.error("Refusing to run: this script creates DEMO stock. Run it again with SEED_DEMO=true only on a throw-away database.")
+    process.exit(1)
+  }
+  console.log("Seeding DEMO vehicle models and in-stock inventory...")
 
   // Find Apex EV Motors
   const apex = await prisma.organization.findFirst({
