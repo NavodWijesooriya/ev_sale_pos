@@ -1,4 +1,5 @@
-import { PrismaClient, VehicleStatus } from "@prisma/client"
+import prismaClient from "@prisma/client"
+const { PrismaClient, VehicleStatus } = prismaClient
 
 const prisma = new PrismaClient()
 
@@ -7,7 +8,7 @@ async function main() {
 
   // Find Apex EV Motors
   const apex = await prisma.organization.findFirst({
-    where: { subdomain: "apex" },
+    where: { subdomain: process.env.SEED_ORG_SUBDOMAIN ?? "apex" },
     include: { branches: true, vehicleModels: true },
   })
 

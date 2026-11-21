@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Database migrations
+
+Change the schema only with a migration, never with `prisma db push`:
+
+```bash
+npx prisma migrate dev --name <change>
+```
+
+Production applies the committed migrations with:
+
+```bash
+npx prisma migrate deploy
+```
+
+The migration history was reset to a single `init` migration on 2026-11-21. The earlier migrations are kept in `prisma/migrations_archive/` for reference only; Prisma does not read them.
+
+To seed the minimum data for local sign-in (Supabase Auth users plus database rows), run `node --experimental-strip-types prisma/seed.ts`, then `SEED_ORG_SUBDOMAIN=jayakodi node --experimental-strip-types prisma/seed-vehicles.ts`.
