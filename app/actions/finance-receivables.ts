@@ -338,13 +338,14 @@ export async function recordFinanceReceipt(input: RecordFinanceReceiptInput) {
     const receiptDate = new Date(Date.UTC(receiptDay.year, receiptDay.month, receiptDay.day))
     const isCheque = data.method === "CHEQUE"
 
-    const result = await prisma.$transaction(async (tx) => {
-      const company = await tx.financeCompany.findFirst({
-        where: { id: data.financeCompanyId, organizationId },
-        select: { id: true, name: true },
-      })
-      if (!company) throw new Error("Finance company not found.")
+    // Read-only lookup before the transaction. Balances are read inside it, after the row locks.
+    const company = await prisma.financeCompany.findFirst({
+      where: { id: data.financeCompanyId, organizationId },
+      select: { id: true, name: true },
+    })
+    if (!company) throw new Error("Finance company not found.")
 
+    const result = await prisma.$transaction(async (tx) => {
       // Serialise against other receipts touching the same sales, then check each one.
       const ids = allocations.map((a) => a.financeDetailId)
       await lockDetails(tx, ids)
@@ -418,7 +419,7 @@ export async function recordFinanceReceipt(input: RecordFinanceReceiptInput) {
         }`,
       })
       return { receiptId: receipt.id, receiptNumber }
-    })
+    }, { maxWait: 10000, timeout: 30000 })
 
     revalidateReceivablePages()
     return {
@@ -502,7 +503,7 @@ async function transitionIncomingCheque(
         to === "BOUNCED" && cheque.status === "CLEARED" ? " (applied payment reversed)" : ""
       }${note ? `: ${note}` : ""}`,
     })
-  })
+  }, { maxWait: 10000, timeout: 30000 })
 
   revalidateReceivablePages()
 }
@@ -569,7 +570,7 @@ export async function reverseFinanceReceipt(input: { receiptId: string; reason?:
         branchId: receipt.branchId,
         description: `${receipt.receiptNumber}: reversed ${receipt.amount.toFixed(2)}${reason ? `: ${reason}` : ""}`,
       })
-    })
+    }, { maxWait: 10000, timeout: 30000 })
 
     revalidateReceivablePages()
     return { success: true as const, message: "Receipt reversed. The balances were restored." }

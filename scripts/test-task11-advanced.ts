@@ -45,7 +45,7 @@ async function verifyAdvancedReports() {
   // 2. Tab 2: Inventory Aging (Dead Stock)
   console.log("\n[Tab 2: Inventory Aging (Dead Stock)]")
   const inStock = await prisma.vehicle.findMany({
-    where: { organizationId: org.id, status: "InStock" },
+    where: { organizationId: org.id, status: "AVAILABLE" },
     include: { grnItems: { include: { grn: true } }, vehicleModel: true },
   })
 

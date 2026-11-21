@@ -294,7 +294,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
     where: {
       organizationId,
       ...branchFilter(user),
-      status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+      status: VehicleStatus.AVAILABLE,
     },
     include: {
       vehicleModel: {
@@ -744,7 +744,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
-      status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+      status: VehicleStatus.AVAILABLE,
     },
   })
 

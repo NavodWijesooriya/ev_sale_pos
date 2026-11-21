@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
-import { VehicleStatus } from "@prisma/client"
+import { Prisma, VehicleStatus } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
 import { recordAudit } from "@/lib/audit"
 import { branchFilter, hasAnyPermission, hasPermission, type Permission } from "@/lib/permissions"
@@ -21,6 +21,7 @@ export interface GRNBikeInput {
   chassisNumber: string
   motorNumber?: string
   chargingSerialNumber?: string
+  batterySerialNumber: string
   vehicleModelId: string
   year?: number
   color: string
@@ -135,6 +136,14 @@ export async function createGRN(input: CreateGRNInput) {
     if (new Set(chassisNumbers).size !== chassisNumbers.length) {
       throw new Error("Chassis numbers must be unique within the GRN.")
     }
+    // Battery serial: required for every bike, upper-cased like the chassis number, unique across all bikes.
+    const batterySerials = input.bikes.map((bike) => (bike.batterySerialNumber ?? "").replace(/\s+/g, "").toUpperCase())
+    if (batterySerials.some((serial) => !serial)) {
+      throw new Error("Battery serial number is required for every bike.")
+    }
+    if (new Set(batterySerials).size !== batterySerials.length) {
+      throw new Error("Battery serial numbers must be unique within the GRN.")
+    }
     if (input.bikes.some((bike) => !GRN_BIKE_COLORS.some((color) => color === bike.color))) {
       throw new Error("Select a valid color for every bike.")
     }
@@ -147,7 +156,8 @@ export async function createGRN(input: CreateGRNInput) {
     if (input.bikes.some((bike) =>
       bike.chassisNumber.length > 120 ||
       (bike.motorNumber?.length ?? 0) > 120 ||
-      (bike.chargingSerialNumber?.length ?? 0) > 120,
+      (bike.chargingSerialNumber?.length ?? 0) > 120 ||
+      (bike.batterySerialNumber?.length ?? 0) > 120,
     )) {
       throw new Error("Bike serial numbers must not exceed 120 characters.")
     }
@@ -158,6 +168,16 @@ export async function createGRN(input: CreateGRNInput) {
     })
     if (duplicates.length) {
       throw new Error(`Chassis number(s) already exist: ${duplicates.map((vehicle) => vehicle.chassisNumber).join(", ")}`)
+    }
+
+    const batteryClashes = await prisma.vehicle.findMany({
+      where: { batterySerialNumber: { in: batterySerials } },
+      select: { batterySerialNumber: true },
+    })
+    if (batteryClashes.length) {
+      throw new Error(
+        `Battery serial number(s) already exist: ${batteryClashes.map((vehicle) => vehicle.batterySerialNumber).join(", ")}`,
+      )
     }
 
     const grn = await prisma.$transaction(async (tx) => {
@@ -191,6 +211,7 @@ export async function createGRN(input: CreateGRNInput) {
         unitGrnNumber: `${batchCode}${String(index + 1).padStart(2, "0")}`,
         motorNumber: bike.motorNumber?.trim() || null,
         chargingSerialNumber: bike.chargingSerialNumber?.trim() || null,
+        batterySerialNumber: batterySerials[index],
         year: bike.year ?? null,
         color: bike.color,
         status: VehicleStatus.AVAILABLE,
@@ -226,6 +247,16 @@ export async function createGRN(input: CreateGRNInput) {
     }
   } catch (error) {
     console.error("createGRN error:", error)
+    // Two requests with the same serial can both pass the check above; the unique index decides.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const target = String((error.meta as { target?: unknown } | undefined)?.target ?? "")
+      return {
+        success: false,
+        message: /battery/i.test(target)
+          ? "A bike with this battery serial number already exists."
+          : "A bike with this chassis number already exists.",
+      }
+    }
     return {
       success: false,
       message: error instanceof Error ? error.message : "Failed to create GRN.",
@@ -242,6 +273,10 @@ export async function getGRNReport() {
         branch: { select: { id: true, name: true } },
         supplier: { select: { name: true } },
         _count: { select: { vehicles: true, items: true } },
+        vehicles: {
+          select: { id: true, chassisNumber: true, motorNumber: true, batterySerialNumber: true, unitGrnNumber: true },
+          orderBy: { unitGrnNumber: "asc" },
+        },
       },
       orderBy: [{ date: "desc" }, { grnNumber: "desc" }],
     })

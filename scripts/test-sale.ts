@@ -27,7 +27,7 @@ async function main() {
 
   // 2. Fetch in-stock vehicles
   const inStockVehicles = await prisma.vehicle.findMany({
-    where: { organizationId: org.id, status: VehicleStatus.InStock },
+    where: { organizationId: org.id, status: VehicleStatus.AVAILABLE },
     include: { vehicleModel: true },
   })
 
@@ -85,7 +85,7 @@ async function main() {
       where: { id: vehicleToSell.id },
     })
 
-    if (!freshVehicle || freshVehicle.status !== VehicleStatus.InStock) {
+    if (!freshVehicle || freshVehicle.status !== VehicleStatus.AVAILABLE) {
       throw new Error(`Vehicle ${vehicleToSell.chassisNumber} is not in stock!`)
     }
 
@@ -150,7 +150,7 @@ async function main() {
 
   // 4. Verify in database that vehicle is no longer in InStock list
   const remainingInStock = await prisma.vehicle.count({
-    where: { organizationId: org.id, status: VehicleStatus.InStock },
+    where: { organizationId: org.id, status: VehicleStatus.AVAILABLE },
   })
   console.log(`\nRemaining In-Stock Vehicles for ${org.businessName}: ${remainingInStock}`)
 

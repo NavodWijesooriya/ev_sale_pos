@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Download } from "lucide-react"
+import { Fragment, useMemo, useState } from "react"
+import { ChevronDown, ChevronRight, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { matchesBatch } from "@/lib/batch"
@@ -23,6 +23,13 @@ interface GRNReportRow {
   transportCost: number | null
   transportRefNumber: string | null
   _count: { vehicles: number; items: number }
+  vehicles: Array<{
+    id: string
+    chassisNumber: string
+    motorNumber: string | null
+    batterySerialNumber: string | null
+    unitGrnNumber: string | null
+  }>
 }
 
 interface GRNReportTableProps {
@@ -36,6 +43,14 @@ function escapeCsvValue(value: string) {
 
 export function GRNReportTable({ grns: allGrns }: GRNReportTableProps) {
   const [search, setSearch] = useState("")
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  const toggle = (id: string) =>
+    setOpen((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   // The export below uses exactly the rows shown on screen.
   const grns = useMemo(
     () => allGrns.filter((grn) => matchesBatch(search, grn.grnNumber, grn.orderNumber, grn.transportRefNumber, grn.branch.name)),
@@ -44,13 +59,15 @@ export function GRNReportTable({ grns: allGrns }: GRNReportTableProps) {
 
   function exportToCsv() {
     const rows = [
-      ["GRN Number", "Date", "Showroom", "Order Number", "Transport Cost"],
+      ["GRN Number", "Date", "Showroom", "Order Number", "Transport Cost", "Chassis Numbers", "Battery Serial Numbers"],
       ...grns.map((grn) => [
         grn.grnNumber,
         new Date(grn.date).toISOString().slice(0, 10),
         grn.branch.name,
         grn.orderNumber ?? "",
         grn.transportCost == null ? "" : String(grn.transportCost),
+        grn.vehicles.map((vehicle) => vehicle.chassisNumber).join("; "),
+        grn.vehicles.map((vehicle) => vehicle.batterySerialNumber ?? "").join("; "),
       ]),
     ]
     const csv = `\uFEFF${rows.map((row) => row.map(escapeCsvValue).join(",")).join("\r\n")}`
@@ -102,7 +119,8 @@ export function GRNReportTable({ grns: allGrns }: GRNReportTableProps) {
                 </TableCell>
               </TableRow>
             ) : grns.map((grn) => (
-              <TableRow key={grn.id}>
+              <Fragment key={grn.id}>
+              <TableRow>
                 <TableCell className="font-mono font-semibold">{grn.grnNumber}</TableCell>
                 <TableCell>{new Date(grn.date).toLocaleDateString()}</TableCell>
                 <TableCell>{grn.branch.name}</TableCell>
@@ -111,8 +129,46 @@ export function GRNReportTable({ grns: allGrns }: GRNReportTableProps) {
                 <TableCell className="text-right">
                   {grn.transportCost == null ? "—" : grn.transportCost.toLocaleString("en-LK", { style: "currency", currency: "LKR" })}
                 </TableCell>
-                <TableCell className="text-right">{Math.max(grn._count.vehicles, grn._count.items)}</TableCell>
+                <TableCell className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => toggle(grn.id)}
+                    aria-expanded={open.has(grn.id)}
+                    aria-label={`Show bikes in ${grn.grnNumber}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    {Math.max(grn._count.vehicles, grn._count.items)}
+                    {open.has(grn.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                  </button>
+                </TableCell>
               </TableRow>
+              {open.has(grn.id) && (
+                <TableRow>
+                  <TableCell colSpan={7} className="bg-muted/30">
+                    <table className="w-full text-xs" aria-label={`Bikes in ${grn.grnNumber}`}>
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="py-1 pr-4 font-medium">Unit</th>
+                          <th className="py-1 pr-4 font-medium">Chassis number</th>
+                          <th className="py-1 pr-4 font-medium">Motor number</th>
+                          <th className="py-1 font-medium">Battery serial</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {grn.vehicles.map((vehicle) => (
+                          <tr key={vehicle.id} className="font-mono">
+                            <td className="py-1 pr-4">{vehicle.unitGrnNumber || "—"}</td>
+                            <td className="py-1 pr-4">{vehicle.chassisNumber}</td>
+                            <td className="py-1 pr-4">{vehicle.motorNumber || "—"}</td>
+                            <td className="py-1">{vehicle.batterySerialNumber || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </TableCell>
+                </TableRow>
+              )}
+              </Fragment>
             ))}
           </TableBody>
         </Table>

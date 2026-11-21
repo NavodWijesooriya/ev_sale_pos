@@ -111,7 +111,7 @@ export async function getAdvanceTransferOptions(): Promise<{
       orderBy: { name: "asc" },
     }),
     prisma.vehicle.findMany({
-      where: { organizationId, status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } },
+      where: { organizationId, status: VehicleStatus.AVAILABLE },
       select: {
         id: true,
         chassisNumber: true,
@@ -216,7 +216,7 @@ export async function transferAdvancePayment(
           where: {
             id: targetVehicleId,
             organizationId,
-            status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+            status: VehicleStatus.AVAILABLE,
           },
           select: {
             id: true,
@@ -784,7 +784,7 @@ export async function getAvailableVehicles(): Promise<AvailableVehicleOption[]> 
   const vehicles = await prisma.vehicle.findMany({
     where: {
       organizationId,
-      status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+      status: VehicleStatus.AVAILABLE,
     },
     include: {
       vehicleModel: {

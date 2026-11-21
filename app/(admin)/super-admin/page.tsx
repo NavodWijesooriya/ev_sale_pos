@@ -36,7 +36,7 @@ export default async function SuperAdminPage() {
   const [organizations, salesAgg, activeVehiclesCount] = await Promise.all([
     getRegisteredDealerships(),
     prisma.sale.aggregate({ _sum: { totalAmount: true } }),
-    prisma.vehicle.count({ where: { status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } } }),
+    prisma.vehicle.count({ where: { status: VehicleStatus.AVAILABLE } }),
   ])
 
   const totalTenants = organizations.length

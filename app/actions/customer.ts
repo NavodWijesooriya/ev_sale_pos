@@ -6,6 +6,7 @@ import { getAuthSession } from "@/lib/auth"
 import { hasAnyPermission } from "@/lib/permissions"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { CustomerCategory, CustomerType } from "@prisma/client"
+import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 
 const CRM_LEAD_SOURCES = [
   "Hotline",
@@ -99,7 +100,7 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
   const name = String(formData.get("name") ?? "").trim()
   const phone = String(formData.get("phone") ?? "").trim()
   const email = String(formData.get("email") ?? "").trim()
-  const nic = String(formData.get("nic") ?? "").trim()
+  const nic = normalizeNic(String(formData.get("nic") ?? ""))
   const address = String(formData.get("address") ?? "").trim()
   const title = String(formData.get("title") ?? "").trim()
   const city = String(formData.get("city") ?? "").trim()
@@ -152,6 +153,11 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
       return { success: false, error: "Select a valid vehicle model." }
     }
 
+    if (nic) {
+      const clash = await findNicConflict(prisma, organizationId, nic)
+      if (clash) return { success: false, error: nicConflictMessage(clash) }
+    }
+
     const crn = await generateNextCustomerCrn(prisma)
     await prisma.customer.create({
       data: {
@@ -161,7 +167,7 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
         name,
         phone,
         email: email || null,
-        nic: nic || null,
+        nic,
         address: address || null,
         title: title || null,
         city: city || null,
@@ -185,6 +191,7 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
     revalidatePath("/dashboard/customers/crm")
     return { success: true, crn }
   } catch (error) {
+    if (isNicUniqueViolation(error)) return { success: false, error: NIC_RACE_MESSAGE }
     console.error("createCRMCustomer error:", error)
     return {
       success: false,

@@ -55,7 +55,7 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
         include: {
           vehicles: {
             where: {
-              status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+              status: VehicleStatus.AVAILABLE,
             },
             include: {
               branch: {

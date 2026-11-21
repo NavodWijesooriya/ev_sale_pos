@@ -26,7 +26,7 @@ export default async function PublicLandingPage() {
         include: {
           vehicles: {
             where: {
-              status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+              status: VehicleStatus.AVAILABLE,
             },
             include: {
               branch: {

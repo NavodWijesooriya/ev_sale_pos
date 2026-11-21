@@ -28,7 +28,7 @@ async function testReports() {
   })
 
   const stock = await prisma.vehicle.count({
-    where: { organizationId: org.id, status: "InStock" },
+    where: { organizationId: org.id, status: "AVAILABLE" },
   })
 
   const services = await prisma.serviceRecord.count({

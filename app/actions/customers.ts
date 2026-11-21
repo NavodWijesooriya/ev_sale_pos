@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { hasAnyPermission, type Permission } from "@/lib/permissions"
 import { CustomerCategory, CustomerType } from "@prisma/client"
+import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 
 /**
  * Enforces session authentication and extracts the user's organizationId
@@ -243,7 +244,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
     const name = String(formData.get("name") ?? "").trim()
     const phone = String(formData.get("phone") ?? "").trim()
     const email = String(formData.get("email") ?? "").trim()
-    const nic = String(formData.get("nic") ?? "").trim()
+    const nic = normalizeNic(String(formData.get("nic") ?? ""))
     const address = String(formData.get("address") ?? "").trim()
     const title = String(formData.get("title") ?? "").trim()
     const city = String(formData.get("city") ?? "").trim()
@@ -257,7 +258,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
     if (!name || !phone) {
       return { success: false, error: "Customer name and phone number are required." }
     }
-    if (name.length > 120 || phone.length > 32 || email.length > 254 || nic.length > 64 || address.length > 500) {
+    if (name.length > 120 || phone.length > 32 || email.length > 254 || (nic?.length ?? 0) > 64 || address.length > 500) {
       return { success: false, error: "One or more customer details exceed the allowed length." }
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -306,13 +307,18 @@ export async function updateCustomer(customerId: string, formData: FormData) {
       return { success: false, error: "Call notes must not exceed 10,000 characters." }
     }
 
+    if (nic) {
+      const clash = await findNicConflict(prisma, organizationId, nic, customer.id)
+      if (clash) return { success: false, error: nicConflictMessage(clash) }
+    }
+
     await prisma.customer.update({
       where: { id: customer.id },
       data: {
         name,
         phone,
         email: email || null,
-        nic: nic || null,
+        nic,
         address: address || null,
         title: title || null,
         city: city || null,
@@ -332,6 +338,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
     revalidatePath(`/dashboard/customers/${customer.id}`)
     return { success: true }
   } catch (error) {
+    if (isNicUniqueViolation(error)) return { success: false, error: NIC_RACE_MESSAGE }
     console.error("updateCustomer error:", error)
     return {
       success: false,
@@ -444,7 +451,7 @@ export async function createCustomerOnTheFly(data: CreateCustomerOnTheFlyInput) 
 
     const name = data.name?.trim()
     const phone = data.phone?.trim()
-    const nic = data.nic?.trim() || null
+    const nic = normalizeNic(data.nic)
     const address = data.address?.trim() || null
 
     if (!name || name.length < 2) {
@@ -469,6 +476,11 @@ export async function createCustomerOnTheFly(data: CreateCustomerOnTheFlyInput) 
         customer: existing,
         alreadyExisted: true,
       }
+    }
+
+    if (nic) {
+      const clash = await findNicConflict(prisma, organizationId, nic)
+      if (clash) return { success: false, error: nicConflictMessage(clash) }
     }
 
     const newCustomer = await prisma.customer.create({
@@ -497,6 +509,7 @@ export async function createCustomerOnTheFly(data: CreateCustomerOnTheFlyInput) 
       customer: newCustomer,
     }
   } catch (error) {
+    if (isNicUniqueViolation(error)) return { success: false, error: NIC_RACE_MESSAGE }
     console.error("createCustomerOnTheFly error:", error)
     return {
       success: false,

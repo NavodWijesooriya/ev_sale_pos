@@ -39,7 +39,7 @@ export default async function SuperAdminDashboardPage() {
     orgsRaw,
   ] = await Promise.all([
     prisma.organization.count(),
-    prisma.vehicle.count({ where: { status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } } }),
+    prisma.vehicle.count({ where: { status: VehicleStatus.AVAILABLE } }),
     prisma.vehicle.count(),
     prisma.sale.aggregate({ _sum: { totalAmount: true } }),
     prisma.user.count(),
