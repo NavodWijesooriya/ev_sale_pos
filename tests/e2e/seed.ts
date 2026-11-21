@@ -289,6 +289,7 @@ export async function seedE2E(): Promise<E2EFixtures> {
         vehicleModelId: model.id,
         chassisNumber: chassis,
         motorNumber: `M-${chassis}`,
+        batterySerialNumber: `BAT-${chassis}`,
         color: "Black",
         // GRN-created bikes are AVAILABLE; use the same status so the stock page and POS both list them.
         status: "AVAILABLE",

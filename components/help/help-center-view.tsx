@@ -263,7 +263,7 @@ export function HelpCenterView({
                       <li>Select the <strong>Bike Model</strong>.</li>
                       <li>Type or scan the <strong>Chassis Number (VIN)</strong>.</li>
                       <li>Enter the <strong>Electric Motor Number</strong>.</li>
-                      <li>Enter the <strong>Charging Serial Number</strong> and select the bike color.</li>
+                      <li>Enter the <strong>Battery Serial Number</strong> (required, must be unique), the <strong>Charging Serial Number</strong>, and select the bike color.</li>
                     </ul>
                   </li>
                   <li>Click <strong>Create GRN</strong> to add the delivery and its bikes to stock.</li>

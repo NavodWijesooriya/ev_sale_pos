@@ -22,6 +22,7 @@ function createEmptyBike(modelId: string): GRNBikeInput {
     chassisNumber: "",
     motorNumber: "",
     chargingSerialNumber: "",
+    batterySerialNumber: "",
     vehicleModelId: modelId,
     year: undefined,
     color: "",
@@ -181,6 +182,15 @@ export function CreateGRNForm({ branches, models, colors }: CreateGRNFormProps) 
                 <div className="space-y-1.5">
                   <Label htmlFor={`bike-${index}-charging`}>Charging serial number</Label>
                   <Input id={`bike-${index}-charging`} maxLength={120} {...register(`bikes.${index}.chargingSerialNumber`)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`bike-${index}-battery`}>Battery serial number *</Label>
+                  <Input
+                    id={`bike-${index}-battery`}
+                    maxLength={120}
+                    required
+                    {...register(`bikes.${index}.batterySerialNumber`, { required: "Battery serial number is required." })}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor={`bike-${index}-model`}>Model *</Label>

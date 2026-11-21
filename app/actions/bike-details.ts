@@ -14,6 +14,7 @@ export interface BikeDetails {
   chassisNumber: string
   motorNumber: string | null
   chargingSerialNumber: string | null
+  batterySerialNumber: string | null
   color: string | null
   year: number | null
   status: string
@@ -77,6 +78,7 @@ export async function getBikeDetails(vehicleId: string): Promise<BikeDetails | n
     chassisNumber: vehicle.chassisNumber,
     motorNumber: vehicle.motorNumber,
     chargingSerialNumber: vehicle.chargingSerialNumber,
+    batterySerialNumber: vehicle.batterySerialNumber,
     color: vehicle.color,
     year: vehicle.year,
     status: vehicle.status,

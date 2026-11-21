@@ -20,6 +20,7 @@ interface BikeStockRow {
   unitGrnNumber?: string | null
   motorNumber: string | null
   chargingSerialNumber: string | null
+  batterySerialNumber: string | null
   year: number | null
   color: string | null
   branch: { name: string }
@@ -47,6 +48,7 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
         // "jm01", "JM 01" and "jm0102" all find the right batch / unit
         matchesBatch(query, vehicle.unitGrnNumber, vehicle.grn?.grnNumber) ||
         vehicle.chassisNumber.toLocaleLowerCase().includes(query) ||
+        (vehicle.batterySerialNumber ?? "").toLocaleLowerCase().includes(query) ||
         vehicle.vehicleModel.brand.toLocaleLowerCase().includes(query) ||
         vehicle.vehicleModel.modelName.toLocaleLowerCase().includes(query) ||
         vehicle.color?.toLocaleLowerCase().includes(query)
@@ -90,6 +92,7 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
               <TableHead>Color</TableHead>
               <TableHead>Motor Number</TableHead>
               <TableHead>Charging Serial</TableHead>
+              <TableHead>Battery Serial</TableHead>
               <TableHead>Year</TableHead>
               <TableHead>Showroom</TableHead>
             </TableRow>
@@ -97,7 +100,7 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
           <TableBody>
             {filteredVehicles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-28 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="h-28 text-center text-muted-foreground">
                   {search.trim() || batch ? "No bikes match this search query." : "No available bikes are currently in stock."}
                 </TableCell>
               </TableRow>
@@ -122,6 +125,7 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
                 <TableCell>{vehicle.color || "—"}</TableCell>
                 <TableCell className="font-mono text-xs">{vehicle.motorNumber || "—"}</TableCell>
                 <TableCell className="font-mono text-xs">{vehicle.chargingSerialNumber || "—"}</TableCell>
+                <TableCell className="font-mono text-xs">{vehicle.batterySerialNumber || "—"}</TableCell>
                 <TableCell>{vehicle.year || "—"}</TableCell>
                 <TableCell>{vehicle.branch.name}</TableCell>
               </TableRow>

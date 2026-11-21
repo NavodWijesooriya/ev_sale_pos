@@ -54,6 +54,7 @@ export default async function BikeDetailsPage({ params }: { params: Promise<{ ve
             <Field label="Chassis number" value={<span className="font-mono">{bike.chassisNumber}</span>} />
             <Field label="Motor number" value={bike.motorNumber} />
             <Field label="Charging serial" value={bike.chargingSerialNumber} />
+            <Field label="Battery serial" value={bike.batterySerialNumber} />
             <Field label="Colour" value={bike.color} />
             <Field label="Year" value={bike.year} />
             <Field label="Showroom" value={bike.branchName} />

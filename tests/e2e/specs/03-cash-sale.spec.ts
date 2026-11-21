@@ -23,6 +23,8 @@ test.describe.serial("cash sale with full dealer insurance", () => {
     await expect(page).toHaveURL(new RegExp(`/dashboard/sales/${saleId}/invoice`))
     await expect(page.getByText(fx.customers.cashSale.name).first()).toBeVisible()
     await expect(page.getByText("E2E-STOCK-CASH-01").first()).toBeVisible()
+    // The invoice prints the bike's battery serial.
+    await expect(page.getByText("BAT-E2E-STOCK-CASH-01").first()).toBeVisible()
 
     const row = await db.sale.findUniqueOrThrow({ where: { id: saleId }, include: { vehicle: true } })
     expect(row.vehicle.status).toBe("Sold")

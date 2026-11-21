@@ -3,16 +3,25 @@ import { db } from "../db"
 
 const fx = loadFixtures()
 
-async function fillBike(page: import("@playwright/test").Page, index: number, chassis: string, motor: string, charging: string) {
+async function fillBike(
+  page: import("@playwright/test").Page,
+  index: number,
+  chassis: string,
+  motor: string,
+  charging: string,
+  battery: string,
+) {
   await page.locator(`#bike-${index}-chassis`).fill(chassis)
   await page.locator(`#bike-${index}-motor`).fill(motor)
   await page.locator(`#bike-${index}-charging`).fill(charging)
+  await page.locator(`#bike-${index}-battery`).fill(battery)
   await page.locator(`#bike-${index}-color`).selectOption({ index: 1 })
 }
 
 test.describe.serial("GRN", () => {
   const stamp = Date.now().toString(36).toUpperCase()
   const chassis = [`E2E-GRN-${stamp}-1`, `E2E-GRN-${stamp}-2`]
+  const batteries = [`BAT-${stamp}-1`, `BAT-${stamp}-2`]
 
   async function stockCount() {
     return db.vehicle.count({ where: { organizationId: fx.orgId, branchId: fx.branchA.id, status: { in: ["InStock", "AVAILABLE"] } } })
@@ -24,9 +33,9 @@ test.describe.serial("GRN", () => {
     await page.goto("/dashboard/grn/create")
     await page.getByLabel("Showroom *").selectOption({ label: fx.branchA.name })
     await page.getByLabel("Transport reference number").fill(`TR-${stamp}`)
-    await fillBike(page, 0, chassis[0], `MOTOR-${stamp}-1`, `CHG-${stamp}-1`)
+    await fillBike(page, 0, chassis[0], `MOTOR-${stamp}-1`, `CHG-${stamp}-1`, batteries[0])
     await page.getByRole("button", { name: "Add bike" }).click()
-    await fillBike(page, 1, chassis[1], `MOTOR-${stamp}-2`, `CHG-${stamp}-2`)
+    await fillBike(page, 1, chassis[1], `MOTOR-${stamp}-2`, `CHG-${stamp}-2`, batteries[1])
     await page.getByRole("button", { name: "Create GRN" }).click()
     // The success toast is short-lived, so assert the saved GRN instead.
     await expect
@@ -39,6 +48,7 @@ test.describe.serial("GRN", () => {
     expect(grn.vehicles).toHaveLength(2)
     expect(grn.vehicles.map((v) => v.chassisNumber).sort()).toEqual([...chassis].sort())
     expect(grn.vehicles.every((v) => v.branchId === fx.branchA.id)).toBe(true)
+    expect(grn.vehicles.map((v) => v.batterySerialNumber).sort()).toEqual([...batteries].sort())
     expect(await stockCount()).toBe(before + 2)
 
     await page.goto("/dashboard/grn/stock")
@@ -53,7 +63,7 @@ test.describe.serial("GRN", () => {
     const { page, close } = await pageAs(browser, "owner")
     await page.goto("/dashboard/grn/create")
     await page.getByLabel("Showroom *").selectOption({ label: fx.branchA.name })
-    await fillBike(page, 0, chassis[0], `MOTOR-${stamp}-X`, `CHG-${stamp}-X`)
+    await fillBike(page, 0, chassis[0], `MOTOR-${stamp}-X`, `CHG-${stamp}-X`, `BAT-${stamp}-X`)
     await page.getByRole("button", { name: "Create GRN" }).click()
     await expect(page.getByRole("alert").filter({ hasText: /already exist/i })).toBeVisible()
     expect(await stockCount()).toBe(before)
@@ -67,12 +77,69 @@ test.describe.serial("GRN", () => {
     const { page, close } = await pageAs(browser, "owner")
     await page.goto("/dashboard/grn/create")
     await page.getByLabel("Showroom *").selectOption({ label: fx.branchA.name })
-    await fillBike(page, 0, dup, `MOTOR-${stamp}-D1`, `CHG-${stamp}-D1`)
+    await fillBike(page, 0, dup, `MOTOR-${stamp}-D1`, `CHG-${stamp}-D1`, `BAT-${stamp}-D1`)
     await page.getByRole("button", { name: "Add bike" }).click()
-    await fillBike(page, 1, dup, `MOTOR-${stamp}-D2`, `CHG-${stamp}-D2`)
+    await fillBike(page, 1, dup, `MOTOR-${stamp}-D2`, `CHG-${stamp}-D2`, `BAT-${stamp}-D2`)
     await page.getByRole("button", { name: "Create GRN" }).click()
     await expect(page.getByRole("alert").first()).toBeVisible()
     expect(await db.vehicle.count({ where: { chassisNumber: dup } })).toBe(0)
+    await close()
+  })
+
+  test("the battery serial is required, and a duplicate battery serial is rejected", async ({ browser }) => {
+    const grnsBefore = await db.gRN.count({ where: { organizationId: fx.orgId } })
+    const { page, close } = await pageAs(browser, "owner")
+    await page.goto("/dashboard/grn/create")
+    await page.getByLabel("Showroom *").selectOption({ label: fx.branchA.name })
+    await expect(page.getByLabel("Battery serial number *")).toHaveAttribute("required", "")
+
+    // Required: an empty field never submits (the browser blocks it)...
+    await fillBike(page, 0, `E2E-GRN-${stamp}-NB`, `MOTOR-${stamp}-NB`, `CHG-${stamp}-NB`, "")
+    await page.getByRole("button", { name: "Create GRN" }).click()
+    expect(await page.locator("#bike-0-battery").evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBe(true)
+    // ...and a blank one (spaces only) is refused too (by the form or the server), so nothing is saved.
+    await page.locator("#bike-0-battery").fill("   ")
+    await page.getByRole("button", { name: "Create GRN" }).click()
+    await page.waitForTimeout(2000)
+    expect(await db.vehicle.count({ where: { chassisNumber: `E2E-GRN-${stamp}-NB` } })).toBe(0)
+
+    // A battery serial that already belongs to another bike (even with different case or spaces).
+    await page.locator("#bike-0-battery").fill(` ${batteries[0].toLowerCase()} `)
+    await page.getByRole("button", { name: "Create GRN" }).click()
+    await expect(page.getByRole("alert").filter({ hasText: /Battery serial number.*already exist/i })).toBeVisible()
+
+    // The seeded bikes' serials are protected too.
+    await page.locator("#bike-0-battery").fill("BAT-E2E-STOCK-FIN-01")
+    await page.getByRole("button", { name: "Create GRN" }).click()
+    await expect(page.getByRole("alert").filter({ hasText: /already exist/i })).toBeVisible()
+
+    expect(await db.gRN.count({ where: { organizationId: fx.orgId } })).toBe(grnsBefore)
+    expect(await db.vehicle.count({ where: { chassisNumber: `E2E-GRN-${stamp}-NB` } })).toBe(0)
+    await close()
+  })
+
+  test("the battery serial shows on the stock table, bike detail page and GRN report", async ({ browser }) => {
+    const bike = await db.vehicle.findUniqueOrThrow({ where: { chassisNumber: chassis[0] } })
+    const { page, close } = await pageAs(browser, "owner")
+
+    await page.goto("/dashboard/grn/stock")
+    await expect(page.getByRole("row").filter({ hasText: chassis[0] })).toContainText(batteries[0])
+    // The stock search also finds a bike by its battery serial.
+    await page.getByRole("searchbox").fill(batteries[1])
+    await expect(page.getByRole("row").filter({ hasText: chassis[1] })).toBeVisible()
+    await expect(page.getByRole("row").filter({ hasText: chassis[0] })).toHaveCount(0)
+
+    await page.goto(`/dashboard/bikes/${bike.id}`)
+    await expect(page.getByText("Battery serial", { exact: true })).toBeVisible()
+    await expect(page.getByText(batteries[0], { exact: true })).toBeVisible()
+
+    const grn = await db.gRN.findFirstOrThrow({ where: { organizationId: fx.orgId, transportRefNumber: `TR-${stamp}` } })
+    await page.goto("/dashboard/grn/report")
+    await page.getByRole("button", { name: `Show bikes in ${grn.grnNumber}` }).click()
+    const bikes = page.getByRole("table", { name: `Bikes in ${grn.grnNumber}` })
+    await expect(bikes).toContainText(chassis[0])
+    await expect(bikes).toContainText(batteries[0])
+    await expect(bikes).toContainText(batteries[1])
     await close()
   })
 })
