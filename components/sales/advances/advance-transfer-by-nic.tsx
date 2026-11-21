@@ -78,6 +78,9 @@ export function AdvanceTransferByNic({ history }: { history: AdvanceTransferHist
         targetCustomerId: targetCustomer.id,
         transferNote: note,
         transferAmount: amountNumber,
+        // What was typed in the two NIC searches: the server checks each against the customer found.
+        sourceNic: source.term,
+        targetNic: target.term,
       })
       if (!result.success) {
         toast.error(result.error)

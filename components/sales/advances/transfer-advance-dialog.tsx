@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -76,8 +77,12 @@ export function TransferAdvanceDialog({
       targetCustomerId: advance?.customerId ?? "",
       targetVehicleId: "",
       transferNote: "",
+      sourceNic: "",
+      targetNic: "",
     },
   })
+  // Moving the advance to a different customer needs the NIC of both people.
+  const movesToAnotherCustomer = Boolean(advance) && form.watch("targetCustomerId") !== advance?.customerId
 
   React.useEffect(() => {
     if (advance && open) {
@@ -85,6 +90,8 @@ export function TransferAdvanceDialog({
         targetCustomerId: advance.customerId,
         targetVehicleId: "",
         transferNote: "",
+        sourceNic: "",
+        targetNic: "",
       })
     }
   }, [advance, open, form])
@@ -181,6 +188,26 @@ export function TransferAdvanceDialog({
               </p>
             )}
           </div>
+
+          {movesToAnotherCustomer && (
+            <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-[11px] font-medium text-foreground">
+                NIC verification: type at least 4 characters of each customer&apos;s NIC to confirm who the money moves between.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="sourceNic" className="text-xs font-semibold">
+                  Advance holder NIC ({advance.customerName})
+                </Label>
+                <Input id="sourceNic" autoComplete="off" className="h-9 text-xs" {...form.register("sourceNic")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="targetNic" className="text-xs font-semibold">
+                  Receiving customer NIC
+                </Label>
+                <Input id="targetNic" autoComplete="off" className="h-9 text-xs" {...form.register("targetNic")} />
+              </div>
+            </div>
+          )}
 
           {/* Target Vehicle (Chassis / Unit GRN) */}
           <div className="space-y-1.5">
