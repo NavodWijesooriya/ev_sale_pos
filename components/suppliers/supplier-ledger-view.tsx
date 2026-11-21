@@ -7,7 +7,10 @@ import type {
   SupplierOutstandingRow,
   getSupplierPaymentHistory,
 } from "@/app/actions/supplier-payments"
+import { Download } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { downloadCsv } from "@/lib/csv"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -40,6 +43,44 @@ export function SupplierLedgerView({ report, history, ledger, selectedSupplierId
     { purchases: 0, paid: 0, outstanding: 0 },
   )
 
+  const stamp = new Date().toISOString().slice(0, 10)
+  const fileSafe = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+
+  /** Same figures as the Outstanding table, plus a total row equal to the numbers in the card header. */
+  function exportOutstanding() {
+    downloadCsv(`supplier_outstanding_${stamp}.csv`, [
+      ["Supplier", "Purchases (Rs.)", "Paid (Rs.)", "Outstanding (Rs.)", "Advance held (Rs.)", "Pending cheques (Rs.)", "Unpaid GRNs"],
+      ...report.map((r) => [r.supplierName, r.totalPurchases, r.totalPaid, r.outstanding, r.advanceBalance, r.pendingCheques, r.unpaidGrns]),
+      ["Total", totals.purchases, totals.paid, totals.outstanding, "", "", ""],
+    ])
+  }
+
+  /** The ledger on screen, line for line, ending with the closing balance and advance held. */
+  function exportLedger() {
+    if (!ledger) return
+    downloadCsv(`supplier_ledger_${fileSafe(ledger.supplier.name)}_${stamp}.csv`, [
+      ["Date", "Type", "Reference", "Description", "Debit - owed (Rs.)", "Credit - paid (Rs.)", "Balance (Rs.)"],
+      ...ledger.entries.map((e) => [e.date.slice(0, 10), e.type, e.reference, e.description, e.debit, e.credit, e.balance]),
+      ["Closing balance owed", "", "", "", "", "", ledger.closingBalance],
+      ["Advance held", "", "", "", "", "", ledger.advanceBalance],
+    ])
+  }
+
+  function exportHistory() {
+    downloadCsv(`supplier_payment_history_${stamp}.csv`, [
+      ["Payment", "Date", "Supplier", "Method", "Applied to", "Amount (Rs.)", "Status"],
+      ...history.map((p) => [
+        p.paymentNumber,
+        p.paymentDate.slice(0, 10),
+        p.supplierName,
+        methodLabel[p.method] ?? p.method,
+        p.allocations.map((a) => `${a.grnNumber} (${a.amount})`).join("; "),
+        p.amount,
+        p.status,
+      ]),
+    ])
+  }
+
   function selectSupplier(id: string) {
     router.push(id ? `/dashboard/suppliers/reports?supplierId=${encodeURIComponent(id)}` : "/dashboard/suppliers/reports")
   }
@@ -61,7 +102,12 @@ export function SupplierLedgerView({ report, history, ledger, selectedSupplierId
         <TabsContent value="outstanding" className="pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Supplier outstanding</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>Supplier outstanding</CardTitle>
+                <Button type="button" size="sm" variant="outline" onClick={exportOutstanding} disabled={report.length === 0}>
+                  <Download className="size-4" /> Export CSV
+                </Button>
+              </div>
               <CardDescription>
                 Purchases {formatMoney(totals.purchases)} · Paid {formatMoney(totals.paid)} · Outstanding{" "}
                 {formatMoney(totals.outstanding)}
@@ -114,7 +160,12 @@ export function SupplierLedgerView({ report, history, ledger, selectedSupplierId
         <TabsContent value="ledger" className="pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Supplier ledger</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>Supplier ledger</CardTitle>
+                <Button type="button" size="sm" variant="outline" onClick={exportLedger} disabled={!ledger}>
+                  <Download className="size-4" /> Export CSV
+                </Button>
+              </div>
               <select
                 aria-label="Select supplier"
                 className={`${nativeSelectClass} mt-2 sm:w-64`}
@@ -177,7 +228,12 @@ export function SupplierLedgerView({ report, history, ledger, selectedSupplierId
         <TabsContent value="history" className="pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Payment history</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>Payment history</CardTitle>
+                <Button type="button" size="sm" variant="outline" onClick={exportHistory} disabled={history.length === 0}>
+                  <Download className="size-4" /> Export CSV
+                </Button>
+              </div>
               <CardDescription>
                 {selectedSupplierId ? "Filtered to the selected supplier." : "Latest 500 payments across all suppliers."}
               </CardDescription>

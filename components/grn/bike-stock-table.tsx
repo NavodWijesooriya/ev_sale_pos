@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { Download } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { downloadCsv } from "@/lib/csv"
 import { matchesBatch } from "@/lib/batch"
 
 interface BikeStockRow {
@@ -56,9 +59,27 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
     })
   }, [search, batch, vehicles])
 
+  function exportStock() {
+    downloadCsv(`bike_stock_${new Date().toISOString().slice(0, 10)}.csv`, [
+      ["Unit GRN", "Chassis number", "GRN batch", "Model", "Color", "Motor number", "Charging serial", "Battery serial", "Year", "Showroom"],
+      ...filteredVehicles.map((v) => [
+        v.unitGrnNumber ?? "",
+        v.chassisNumber,
+        v.grn?.grnNumber ?? "",
+        `${v.vehicleModel.brand} ${v.vehicleModel.modelName}`,
+        v.color ?? "",
+        v.motorNumber ?? "",
+        v.chargingSerialNumber ?? "",
+        v.batterySerialNumber ?? "",
+        v.year ?? "",
+        v.branch.name,
+      ]),
+    ])
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-3 px-4 pt-4">
+      <div className="flex flex-wrap items-center gap-3 px-4 pt-4">
         <Input
           type="search"
           value={search}
@@ -80,6 +101,12 @@ export function BikeStockTable({ vehicles }: BikeStockTableProps) {
             </option>
           ))}
         </select>
+        <p className="text-sm text-muted-foreground" data-testid="stock-shown-summary">
+          Showing {filteredVehicles.length} of {vehicles.length} bikes
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={exportStock} disabled={filteredVehicles.length === 0}>
+          <Download className="size-4" /> Export CSV
+        </Button>
       </div>
       <div className="overflow-x-auto">
         <Table>
