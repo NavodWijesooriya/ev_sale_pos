@@ -65,15 +65,16 @@ test.describe.serial("CSV exports match the screen", () => {
       supplierName: fx.supplier.name,
       method: "BankTransfer",
       amount: 30000,
-      allocations: { [G.full.grnNumber]: 30000 },
+      allocations: { [G.advTarget.grnNumber]: 30000 },
       reference: "TRF-CSV-1",
     })
-    for (const [key, number] of [["partial", "CSV-CHQ-1"], ["splitA", "CSV-CHQ-2"]] as const) {
+    // All three payments go to one GRN no other spec touches (100,000 owed), so this spec stands alone.
+    for (const number of ["CSV-CHQ-1", "CSV-CHQ-2"]) {
       await paySupplier(page, {
         supplierName: fx.supplier.name,
         method: "CHEQUE",
         amount: 20000,
-        allocations: { [G[key].grnNumber]: 20000 },
+        allocations: { [G.advTarget.grnNumber]: 20000 },
         cheque: { number, bank: "E2E Bank" },
       })
     }
