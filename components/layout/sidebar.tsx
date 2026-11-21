@@ -73,21 +73,18 @@ export const navigationItems: NavItem[] = [
   },
   {
     title: "Finance Management",
-    href: "/dashboard/finance/companies",
+    // Fallback only: the sidebar points the group at the first child the user can see.
+    href: "/dashboard/finance/receivables",
     icon: Landmark,
-    // The finance pages and their server actions are owner-only, so don't show dead links to others.
-    roles: ["OrgAdmin", "SuperAdmin"],
+    // No group-level role gate: each child is gated on its own so staff keep the links they hold permissions for.
     children: [
-      { title: "Finance Companies", href: "/dashboard/finance/companies" },
-      { title: "Insurance Companies", href: "/dashboard/finance/insurance" },
-      { title: "Commission Reports", href: "/dashboard/finance/commissions" },
+      { title: "Finance Receivables", href: "/dashboard/finance/receivables", anyPermission: ["MANAGE_FINANCE_RECEIVABLES"] },
+      { title: "Bank Deposits", href: "/dashboard/finance/bank-deposits", anyPermission: ["MANAGE_BANK_DEPOSITS"] },
+      // The pages and server actions below are owner-only.
+      { title: "Commission Reports", href: "/dashboard/finance/commissions", ownerOnly: true },
+      { title: "Finance Companies", href: "/dashboard/finance/companies", ownerOnly: true },
+      { title: "Insurance Companies", href: "/dashboard/finance/insurance", ownerOnly: true },
     ],
-  },
-  {
-    title: "Bank Deposits",
-    href: "/dashboard/finance/bank-deposits",
-    icon: Landmark,
-    anyPermission: ["MANAGE_BANK_DEPOSITS"],
   },
   {
     title: "Customers",
@@ -214,6 +211,13 @@ export function SidebarContent({
     children
       .filter(allowedChild)
       .map((child) => (child.children ? { ...child, children: filterChildren(child.children) } : child))
+  const firstHref = (children: NavChild[]): string | undefined => {
+    for (const child of children) {
+      const href = child.href ?? (child.children ? firstHref(child.children) : undefined)
+      if (href) return href
+    }
+    return undefined
+  }
   const visibleItems = navigationItems
     .filter(
       (item) =>
@@ -221,6 +225,12 @@ export function SidebarContent({
         (!item.anyPermission || hasAnyPermission(subject, item.anyPermission)),
     )
     .map((item) => (item.children ? { ...item, children: filterChildren(item.children) } : item))
+    // A group with nothing left to show disappears; otherwise it links to the first child the user can open.
+    .filter((item) => !item.children || item.children.length > 0)
+    .map((item) => {
+      const first = item.children ? firstHref(item.children) : undefined
+      return first ? { ...item, href: first } : item
+    })
   const isExpanded = (title: string) => {
     if (title === "Customers") return customersExpanded
     if (title === "GRN Management") return grnExpanded
