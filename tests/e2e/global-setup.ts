@@ -4,7 +4,16 @@ import { chromium, type FullConfig } from "@playwright/test"
 import { disconnectSeed, seedE2E, type RoleKey } from "./seed"
 
 export const AUTH_DIR = path.resolve(process.cwd(), "tests/e2e/.auth")
-export const ROLES: RoleKey[] = ["owner", "branchManager", "cashier", "receivablesStaff", "noAccessStaff"]
+export const ROLES: RoleKey[] = [
+  "owner",
+  "branchManager",
+  "cashier",
+  "receivablesStaff",
+  "noAccessStaff",
+  "supplierViewer",
+  "depositStaffA",
+  "depositStaffB",
+]
 
 export default async function globalSetup(config: FullConfig) {
   fs.mkdirSync(AUTH_DIR, { recursive: true })

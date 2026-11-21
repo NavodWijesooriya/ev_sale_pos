@@ -22,7 +22,16 @@ export const E2E_SUBDOMAIN = "e2e"
 export const E2E_ORG_NAME = "E2E Motors"
 export const FIXTURES_PATH = path.resolve(process.cwd(), "tests/e2e/.auth/fixtures.json")
 
-export type RoleKey = "owner" | "branchManager" | "cashier" | "receivablesStaff" | "noAccessStaff"
+export type RoleKey =
+  | "owner"
+  | "branchManager"
+  | "cashier"
+  | "receivablesStaff"
+  | "noAccessStaff"
+  // phase 2
+  | "supplierViewer"
+  | "depositStaffA"
+  | "depositStaffB"
 
 export interface E2EFixtures {
   orgId: string
@@ -33,6 +42,11 @@ export interface E2EFixtures {
   fullInsuranceCommission: number
   users: Record<RoleKey, { email: string; name: string; password: string }>
   customers: Record<string, { id: string; name: string; nic: string }>
+  /** Phase 2: the supplier and its payable GRNs (each owes 100,000 at the start). */
+  supplier: { id: string; name: string }
+  supplierGrns: Record<string, { id: string; grnNumber: string; total: number }>
+  /** Phase 2: in-stock bikes whose GRN was received N days ago (inventory aging buckets). */
+  agingBikes: Array<{ days: number; chassisNumber: string; grnNumber: string; tier: "fresh" | "aging" | "warning" | "critical" }>
   /** Read-only probe of another dealership's data (e.g. Jayakodi Motors) for tenant isolation checks. */
   otherOrg: { name: string; chassisNumber: string | null; modelName: string | null } | null
 }
@@ -133,26 +147,40 @@ async function wipeE2EOrganization() {
   await prisma.organization.deleteMany({ where: { id: org.id, subdomain: E2E_SUBDOMAIN, businessName: E2E_ORG_NAME } })
 }
 
+/** Supabase admin calls fail now and then with "fetch failed" on a flaky network; retry those. */
+async function retrySb<T extends { error: { message: string } | null }>(fn: () => Promise<T>): Promise<T> {
+  let last: T | undefined
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    try {
+      const result = await fn()
+      if (!result.error || !/fetch failed|network|timeout|ECONN|ETIMEDOUT/i.test(result.error.message)) return result
+      last = result
+    } catch (error) {
+      if (!/fetch failed|network|timeout|ECONN|ETIMEDOUT/i.test(String((error as Error)?.message))) throw error
+    }
+    await new Promise((r) => setTimeout(r, attempt * 2000))
+  }
+  if (last) return last
+  throw new Error("Supabase admin call kept failing")
+}
+
 async function wipeE2EAuthUsers(domain: string) {
   const suffix = `@${domain}`.toLowerCase()
-  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+  const { data, error } = await retrySb(() => supabase.auth.admin.listUsers({ perPage: 1000 }))
   if (error) throw error
   for (const user of data.users) {
     // Guard: only users on the E2E domain are ever deleted.
     if (user.email && user.email.toLowerCase().endsWith(suffix)) {
-      const { error: delError } = await supabase.auth.admin.deleteUser(user.id)
+      const { error: delError } = await retrySb(() => supabase.auth.admin.deleteUser(user.id))
       if (delError) throw delError
     }
   }
 }
 
 async function createAuthUser(email: string, password: string, name: string) {
-  const { error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { name },
-  })
+  const { error } = await retrySb(() =>
+    supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } }),
+  )
   if (error) throw error
 }
 
@@ -181,7 +209,9 @@ export async function seedE2E(): Promise<E2EFixtures> {
       { organizationId: org.id, brand: "E2E", modelName: "Bike B2", defaultPrice: 350000, minDownPayment: 70000, batteryCapacity: "72V 40Ah", range: "120 km" },
     ],
   })
-  await prisma.supplier.create({ data: { organizationId: org.id, name: "E2E Supplier", contactPerson: "Supply Person", phone: "0112000000" } })
+  const supplier = await prisma.supplier.create({
+    data: { organizationId: org.id, name: "E2E Supplier", contactPerson: "Supply Person", phone: "0112000000" },
+  })
   const financeCompany = await prisma.financeCompany.create({
     data: { organizationId: org.id, name: "E2E Finance", contactNo: "0112111111", defaultCommissionRate: 3 },
   })
@@ -217,6 +247,28 @@ export async function seedE2E(): Promise<E2EFixtures> {
       permissions: ["MANAGE_CUSTOMERS"],
       envKey: "E2E_PASSWORD_NO_ACCESS_STAFF",
     },
+    // Can open the supplier screens but may not record payments (RECORD_PAYMENTS missing).
+    supplierViewer: {
+      role: "SalesRep",
+      name: "E2E Supplier Viewer",
+      branchId: branchA.id,
+      permissions: ["MANAGE_SUPPLIERS"],
+      envKey: "E2E_PASSWORD_SUPPLIER_VIEWER",
+    },
+    depositStaffA: {
+      role: "Cashier",
+      name: "E2E Deposit Staff A",
+      branchId: branchA.id,
+      permissions: ["MANAGE_BANK_DEPOSITS"],
+      envKey: "E2E_PASSWORD_DEPOSIT_STAFF_A",
+    },
+    depositStaffB: {
+      role: "Cashier",
+      name: "E2E Deposit Staff B",
+      branchId: branchB.id,
+      permissions: ["MANAGE_BANK_DEPOSITS"],
+      envKey: "E2E_PASSWORD_DEPOSIT_STAFF_B",
+    },
   }
 
   const users = {} as E2EFixtures["users"]
@@ -251,6 +303,16 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["duplicateNic", "E2E Existing NIC Customer", "900000099V"],
     ["raceOne", "E2E Race Customer One", "900000010V"],
     ["raceTwo", "E2E Race Customer Two", "900000011V"],
+    // phase 2: customer advances
+    ["advUse", "E2E Advance Use Customer", "910000001V"],
+    ["advRefund", "E2E Advance Refund Customer", "910000002V"],
+    ["advFrom", "E2E Advance Source Customer", "910000003V"],
+    ["advTo", "E2E Advance Target Customer", "910000004V"],
+    ["advUsed", "E2E Advance Used Customer", "910000005V"],
+    // phase 2: sales for deposits, commission settlement and DMT
+    ["depositSale", "E2E Deposit Customer", "920000001V"],
+    ["commFinance", "E2E Commission Finance Customer", "920000002V"],
+    ["commInsurance", "E2E Commission Insurance Customer", "920000003V"],
   ] as const
   const customers: E2EFixtures["customers"] = {}
   for (const [key, name, nic] of customerDefs) {
@@ -280,6 +342,13 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["E2E-STOCK-FIN-06", branchA.id],
     ["E2E-STOCK-B-01", branchB.id],
     ["E2E-STOCK-RACE-01", branchA.id],
+    // phase 2
+    ["E2E-STOCK-ADV-01", branchA.id],
+    ["E2E-STOCK-ADV-02", branchA.id],
+    ["E2E-STOCK-ADV-03", branchA.id],
+    ["E2E-STOCK-DEP-01", branchB.id],
+    ["E2E-STOCK-COMM-01", branchA.id],
+    ["E2E-STOCK-COMM-02", branchA.id],
   ]
   for (const [chassis, branchId] of stock) {
     await prisma.vehicle.create({
@@ -296,6 +365,57 @@ export async function seedE2E(): Promise<E2EFixtures> {
         purchasePrice: 400000,
       },
     })
+  }
+
+  // Phase 2: GRNs payable to the supplier (each owes 100,000), in Branch A.
+  const supplierGrns: E2EFixtures["supplierGrns"] = {}
+  const grnKeys = ["full", "partial", "splitA", "splitB", "over", "advTarget", "chequeLife", "chequeBounce", "chequeCancel", "overAlloc"]
+  for (const [index, key] of grnKeys.entries()) {
+    const grnNumber = `E2E SG${String(index + 1).padStart(2, "0")}`
+    const grn = await prisma.gRN.create({
+      data: {
+        organizationId: org.id,
+        branchId: branchA.id,
+        supplierId: supplier.id,
+        grnNumber,
+        totalAmount: 100000,
+        balanceAmount: 100000,
+        paidAmount: 0,
+        paymentStatus: "UNPAID",
+        // Stagger the dates so "oldest first" is deterministic.
+        date: new Date(Date.UTC(2026, 9, index + 1)),
+        receivedDate: new Date(Date.UTC(2026, 9, index + 1)),
+      },
+    })
+    supplierGrns[key] = { id: grn.id, grnNumber, total: 100000 }
+  }
+
+  // Phase 2: in-stock bikes of known age for the inventory aging report (age comes from the GRN received date).
+  const DAY = 24 * 60 * 60 * 1000
+  const agingBikes: E2EFixtures["agingBikes"] = []
+  for (const [days, tier] of [[10, "fresh"], [45, "aging"], [75, "warning"], [120, "critical"]] as const) {
+    const grnNumber = `E2E AGE${String(days).padStart(3, "0")}`
+    const chassisNumber = `E2E-AGE-${String(days).padStart(3, "0")}`
+    const received = new Date(Date.now() - days * DAY)
+    const grn = await prisma.gRN.create({
+      data: { organizationId: org.id, branchId: branchA.id, grnNumber, date: received, receivedDate: received },
+    })
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        organizationId: org.id,
+        branchId: branchA.id,
+        grnId: grn.id,
+        vehicleModelId: model.id,
+        chassisNumber,
+        motorNumber: `M-${chassisNumber}`,
+        batterySerialNumber: `BAT-${chassisNumber}`,
+        color: "Black",
+        status: "AVAILABLE",
+        purchasePrice: 400000,
+      },
+    })
+    await prisma.gRNItem.create({ data: { grnId: grn.id, vehicleId: vehicle.id, unitPrice: 400000 } })
+    agingBikes.push({ days, chassisNumber, grnNumber, tier })
   }
 
   // Another dealership, only to prove tenant isolation. Read-only: we never write to it.
@@ -320,6 +440,9 @@ export async function seedE2E(): Promise<E2EFixtures> {
     fullInsuranceCommission: 2000,
     users,
     customers,
+    supplier: { id: supplier.id, name: supplier.name },
+    supplierGrns,
+    agingBikes,
     otherOrg: other
       ? { name: other.businessName, chassisNumber: otherVehicle?.chassisNumber ?? null, modelName: otherVehicle?.vehicleModel.modelName ?? null }
       : null,

@@ -22,7 +22,7 @@ async function financeChildren(page: Page): Promise<string[]> {
   return links.map((t) => t.trim())
 }
 
-const EXPECTED: Record<RoleKey, { entries: string[]; finance: string[] | null }> = {
+const EXPECTED: Partial<Record<RoleKey, { entries: string[]; finance: string[] | null }>> = {
   owner: {
     entries: [
       "Dashboard", "Sales Management", "Finance Management", "Customers", "GRN Management", "Supplier Management",
@@ -43,8 +43,8 @@ test.describe("sidebar per role (including the Finance Management grouping)", ()
   for (const role of Object.keys(EXPECTED) as RoleKey[]) {
     test(`${role} sees only its allowed entries`, async ({ browser }) => {
       const { page, close } = await pageAs(browser, role)
-      expect(await sidebarEntries(page)).toEqual(EXPECTED[role].entries)
-      const expectedFinance = EXPECTED[role].finance
+      expect(await sidebarEntries(page)).toEqual(EXPECTED[role]!.entries)
+      const expectedFinance = EXPECTED[role]!.finance
       if (expectedFinance) {
         expect(await financeChildren(page)).toEqual(expectedFinance)
       } else {
