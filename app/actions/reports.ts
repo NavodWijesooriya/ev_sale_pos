@@ -1520,7 +1520,8 @@ export async function getServiceAndPartsReportData(): Promise<ServiceAndPartsRep
       orderBy: { inDate: "desc" },
     }),
     prisma.sparePart.findMany({
-      where: { organizationId, ...branchFilter(user) },
+      // Spare parts are organization-wide: SparePart has no branchId, so no branch filter here.
+      where: { organizationId },
       orderBy: { stockQuantity: "asc" },
     }),
   ])

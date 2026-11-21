@@ -35,17 +35,26 @@ test.describe("inventory", () => {
     await close()
   })
 
-  // KNOWN APP BUG (app/actions/reports.ts:1523): getServiceAndPartsReportData adds branchFilter(user) to the
-  // SparePart query, but SparePart has no branchId column. Prisma throws "Unknown argument `branchId`", so the
-  // whole Reports page ("This page couldn't load") fails for every branch-restricted user, e.g. a Branch Manager.
-  // test.fail() keeps the suite green while the bug exists and turns red once it is fixed.
-  test.fail("a branch manager's aging report only covers their own branch", async ({ browser }) => {
+  test("a branch manager's aging report only covers their own branch", async ({ browser }) => {
     const { page, close } = await pageAs(browser, "branchManager")
     await page.goto("/dashboard/reports")
     await expect(page.getByText("Dead Stock & EV Bike Inventory Aging Analysis")).toBeVisible({ timeout: 60_000 })
     // Branch B's bike is never listed for a Branch A user.
     await expect(page.getByText("E2E-STOCK-B-01")).toHaveCount(0)
     await expect(page.getByRole("row").filter({ hasText: "E2E-AGE-120" })).toContainText(fx.branchA.name)
+    await close()
+  })
+
+  test("a branch manager can open every report tab", async ({ browser }) => {
+    const { page, close } = await pageAs(browser, "branchManager")
+    await page.goto("/dashboard/reports")
+    await expect(page.getByRole("heading", { name: "Reports & Analytics" })).toBeVisible({ timeout: 60_000 })
+    for (const tab of [/^Overview/, /^Daily.Monthly Sales/, /^Commissions/, /^Advances/, /^Service & Parts/, /^GRN Stock/]) {
+      await page.getByRole("tab", { name: tab }).click()
+      // No crash page, and the tab shows content.
+      await expect(page.getByText("This page couldn’t load")).toHaveCount(0)
+      await expect(page.getByRole("tabpanel")).toBeVisible()
+    }
     await close()
   })
 
