@@ -198,8 +198,7 @@ model VehicleModel {
 }
 
 enum VehicleStatus {
-  AVAILABLE
-  InStock
+  AVAILABLE // in stock; the only "in stock" status (the legacy InStock value was merged into it)
   Sold
   InTransit
   Reserved

@@ -75,7 +75,7 @@ export default async function DashboardPage() {
     prisma.vehicle.count({
       where: {
         ...scope,
-        status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+        status: VehicleStatus.AVAILABLE,
       },
     }),
     prisma.vehicle.count({

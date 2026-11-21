@@ -24,7 +24,7 @@ test.describe.serial("GRN", () => {
   const batteries = [`BAT-${stamp}-1`, `BAT-${stamp}-2`]
 
   async function stockCount() {
-    return db.vehicle.count({ where: { organizationId: fx.orgId, branchId: fx.branchA.id, status: { in: ["InStock", "AVAILABLE"] } } })
+    return db.vehicle.count({ where: { organizationId: fx.orgId, branchId: fx.branchA.id, status: "AVAILABLE" } })
   }
 
   test("creating a GRN with 2 bikes increases stock and lists the bikes", async ({ browser }) => {

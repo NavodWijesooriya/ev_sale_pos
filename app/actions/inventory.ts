@@ -127,7 +127,7 @@ export async function getVehicleModels() {
         _count: {
           select: {
             vehicles: {
-              where: { status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] } },
+              where: { status: VehicleStatus.AVAILABLE },
             },
           },
         },
@@ -382,7 +382,7 @@ export async function getStockVehicles() {
       where: {
         organizationId,
         ...branchFilter(user),
-        status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+        status: VehicleStatus.AVAILABLE,
       },
       include: {
         vehicleModel: true,

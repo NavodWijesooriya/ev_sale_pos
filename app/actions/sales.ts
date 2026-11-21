@@ -135,7 +135,7 @@ export async function createNewSale(
           organizationId,
           // Branch-assigned staff can only sell bikes from their own branch
           ...branchFilter(user),
-          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+          status: VehicleStatus.AVAILABLE,
         },
         include: { vehicleModel: true },
       }),
@@ -198,7 +198,7 @@ export async function createNewSale(
         where: {
           id: vehicle.id,
           organizationId,
-          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+          status: VehicleStatus.AVAILABLE,
         },
         data: { status: VehicleStatus.Sold },
       })
@@ -333,12 +333,12 @@ export async function getPOSInitialData() {
     const { organizationId, user } = await requireAuthOrg()
 
     const [vehicles, customers, branches, staff] = await Promise.all([
-      // Only InStock vehicles for this organization (and the user's branch, if assigned)
+      // Only AVAILABLE (in stock) vehicles for this organization (and the user's branch, if assigned)
       prisma.vehicle.findMany({
         where: {
           organizationId,
           ...branchFilter(user),
-          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+          status: VehicleStatus.AVAILABLE,
         },
         include: {
           vehicleModel: true,
@@ -461,7 +461,7 @@ export async function getSalesHistory() {
 /**
  * Process a vehicle sale with an atomic Prisma Transaction:
  * 1. Upsert / connect Customer
- * 2. Verify selected Vehicle is currently InStock
+ * 2. Verify selected Vehicle is currently AVAILABLE (in stock)
  * 3. Create Sale record
  * 4. Create SaleItem record
  * 5. Update Vehicle status to Sold
@@ -534,7 +534,7 @@ export async function processSale(input: ProcessSaleInput) {
       if (clash) throw new Error(nicConflictMessage(clash))
     }
 
-    // Step B: Verify vehicle is InStock and belongs to this organization
+    // Step B: Verify vehicle is AVAILABLE (in stock) and belongs to this organization
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: input.vehicleId, organizationId },
       include: { vehicleModel: true },
@@ -542,7 +542,7 @@ export async function processSale(input: ProcessSaleInput) {
     if (!vehicle) {
       throw new Error("Vehicle not found in your dealership inventory.")
     }
-    if (vehicle.status !== VehicleStatus.AVAILABLE && vehicle.status !== VehicleStatus.InStock) {
+    if (vehicle.status !== VehicleStatus.AVAILABLE) {
       throw new Error(`Vehicle (${vehicle.chassisNumber}) cannot be sold. Current status is ${vehicle.status}.`)
     }
 
@@ -650,7 +650,7 @@ export async function processSale(input: ProcessSaleInput) {
         where: {
           id: vehicle.id,
           organizationId,
-          status: { in: [VehicleStatus.AVAILABLE, VehicleStatus.InStock] },
+          status: VehicleStatus.AVAILABLE,
         },
         data: { status: VehicleStatus.Sold },
       })

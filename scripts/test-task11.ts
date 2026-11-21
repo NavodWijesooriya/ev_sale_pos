@@ -37,7 +37,7 @@ async function runTask11Verification() {
   const inStockCount = await prisma.vehicle.count({
     where: {
       organizationId: org.id,
-      status: "InStock",
+      status: "AVAILABLE",
     },
   })
 

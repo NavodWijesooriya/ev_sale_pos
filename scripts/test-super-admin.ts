@@ -28,7 +28,7 @@ async function runSuperAdminVerification() {
   console.log("\n[2] Verifying Global Multi-Tenant Telemetry & KPIs:")
   const [totalOrgs, activeVehicles, totalVehicles, salesAgg, totalUsers, orgs] = await Promise.all([
     prisma.organization.count(),
-    prisma.vehicle.count({ where: { status: "InStock" } }),
+    prisma.vehicle.count({ where: { status: "AVAILABLE" } }),
     prisma.vehicle.count(),
     prisma.sale.aggregate({ _sum: { totalAmount: true } }),
     prisma.user.count(),

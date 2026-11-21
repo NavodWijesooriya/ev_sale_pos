@@ -61,7 +61,7 @@ async function main() {
         warrantyPeriod: testWarranty,
         color: "Metallic Blue",
         purchasePrice: 38000,
-        status: VehicleStatus.InStock,
+        status: VehicleStatus.AVAILABLE,
       },
     })
 
