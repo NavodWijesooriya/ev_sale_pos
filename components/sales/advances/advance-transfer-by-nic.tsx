@@ -25,26 +25,39 @@ function useNicSearch() {
   const [term, setTerm] = React.useState("")
   const [results, setResults] = React.useState<NicAdvanceMatch[] | null>(null)
   const [loading, setLoading] = React.useState(false)
+  // Answers can arrive out of order on a slow connection; only the newest search may update the screen.
+  const latestRequest = React.useRef(0)
 
   async function run() {
     if (term.trim().length < 4) {
       toast.error("Enter at least 4 characters of the NIC.")
       return
     }
+    const requestId = ++latestRequest.current
     setLoading(true)
     try {
-      setResults(await searchAdvanceBalancesByNic(term))
+      const found = await searchAdvanceBalancesByNic(term)
+      if (requestId === latestRequest.current) setResults(found)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Search failed.")
+      if (requestId === latestRequest.current) toast.error(error instanceof Error ? error.message : "Search failed.")
     } finally {
-      setLoading(false)
+      if (requestId === latestRequest.current) setLoading(false)
     }
   }
   function reset() {
+    latestRequest.current++ // forget any search still on its way
     setTerm("")
     setResults(null)
+    setLoading(false)
   }
-  return { term, setTerm, results, loading, run, reset }
+  /** Typing a new NIC drops the old answer, so results never sit beside a NIC they were not searched for. */
+  function changeTerm(value: string) {
+    latestRequest.current++
+    setTerm(value)
+    setResults(null)
+    setLoading(false)
+  }
+  return { term, setTerm: changeTerm, results, loading, run, reset }
 }
 
 /** Search a customer by NIC, see their unallocated advance, and move part or all of it to another customer. */
@@ -131,7 +144,7 @@ export function AdvanceTransferByNic({ history }: { history: AdvanceTransferHist
                 placeholder="Source customer NIC"
                 aria-label="Source customer NIC"
               />
-              <Button type="submit" variant="outline" disabled={source.loading}>
+              <Button type="submit" variant="outline" aria-busy={source.loading}>
                 {source.loading ? <LoaderCircle className="size-4 animate-spin" /> : <Search className="size-4" />}
               </Button>
             </form>
@@ -187,7 +200,7 @@ export function AdvanceTransferByNic({ history }: { history: AdvanceTransferHist
                 placeholder="Receiving customer NIC"
                 aria-label="Receiving customer NIC"
               />
-              <Button type="submit" variant="outline" disabled={target.loading}>
+              <Button type="submit" variant="outline" aria-busy={target.loading}>
                 {target.loading ? <LoaderCircle className="size-4 animate-spin" /> : <Search className="size-4" />}
               </Button>
             </form>

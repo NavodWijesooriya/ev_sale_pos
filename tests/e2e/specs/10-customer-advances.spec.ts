@@ -130,12 +130,11 @@ test.describe.serial("customer advances", () => {
     await searchNic(page, "Source customer NIC", "910")
     await expect(page.getByText(/at least 4 characters/i)).toBeVisible()
     await searchNic(page, "Source customer NIC", "910999999")
-    // Wait for this answer before searching again (the screen does not discard late answers).
-    await expect(page.getByText("No customer found with that NIC.")).toBeVisible({ timeout: 60_000 })
     await expect(page.getByRole("button", { name: "Transfer advance" })).toBeDisabled()
     await expect(page.getByRole("radio")).toHaveCount(0)
 
-    // Find the source by NIC, pick its advance.
+    // Find the source by NIC right away, without waiting for the previous (empty) answer: a late answer to the
+    // earlier search must not replace the newer results.
     await searchNic(page, "Source customer NIC", C.advFrom.nic)
     await page.getByRole("radio", { name: /80,000/ }).check({ timeout: 60_000 })
     // The transfer is still blocked until the receiving customer is verified by NIC too.
