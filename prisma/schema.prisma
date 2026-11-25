@@ -493,7 +493,6 @@ enum InsuranceType {
 
 enum ChequeStatus {
   PENDING // legacy: treated the same as ISSUED
-  PREPARED
   ISSUED
   PRESENTED
   CLEARED
