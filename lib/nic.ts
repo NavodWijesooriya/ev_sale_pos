@@ -17,6 +17,19 @@ export function isSriLankanNic(value: string): boolean {
   return /^(\d{9}[VX]|\d{12})$/.test(value)
 }
 
+/** Fewest NIC characters accepted when verifying a customer by NIC (same rule as the NIC search). */
+export const MIN_NIC_QUERY = 4
+
+/**
+ * True when `query` (typed by the user) identifies `storedNic`: at least MIN_NIC_QUERY characters after
+ * normalising, contained in the stored NIC. This is the same match the Transfer-by-NIC search uses.
+ */
+export function nicMatchesQuery(storedNic: string | null | undefined, query: string | null | undefined): boolean {
+  const stored = normalizeNic(storedNic)
+  const typed = normalizeNic(query)
+  return Boolean(stored && typed && typed.length >= MIN_NIC_QUERY && stored.includes(typed))
+}
+
 type NicClient = {
   customer: {
     findFirst: (args: {

@@ -40,6 +40,9 @@ export type AuditAction =
   | "OWNER_ACCOUNT_DISABLED"
   | "OWNER_ACCOUNT_ENABLED"
   | "OWNER_ACCOUNT_DELETED"
+  | "STOCK_TRANSFER_DISPATCHED"
+  | "STOCK_TRANSFER_RECEIVED"
+  | "STOCK_TRANSFER_CANCELLED"
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
@@ -78,6 +81,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   OWNER_ACCOUNT_DISABLED: "Owner account disabled (platform)",
   OWNER_ACCOUNT_ENABLED: "Owner account enabled (platform)",
   OWNER_ACCOUNT_DELETED: "Owner account deleted (platform)",
+  STOCK_TRANSFER_DISPATCHED: "Stock transfer dispatched",
+  STOCK_TRANSFER_RECEIVED: "Stock transfer received",
+  STOCK_TRANSFER_CANCELLED: "Stock transfer cancelled",
 }
 
 export interface AuditActor {

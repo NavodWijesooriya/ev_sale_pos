@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { LoaderCircle } from "lucide-react"
+import { Download, LoaderCircle } from "lucide-react"
 import { toast } from "sonner"
 import {
   bounceCheque,
@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { downloadCsv } from "@/lib/csv"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatDate, formatMoney, nativeSelectClass, StatusBadge, todayISO } from "./shared"
@@ -45,6 +46,27 @@ export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
     filter === "ALL" ? true : filter === "ACTIVE" ? isActive(c.status) : c.status === filter,
   )
   const pendingTotal = cheques.filter((c) => isActive(c.status)).reduce((s, c) => s + c.amount, 0)
+  const shownTotal = rows.reduce((s, c) => s + c.amount, 0)
+
+  /** The cheques currently listed (respecting the status filter), with a total equal to the one on screen. */
+  function exportCheques() {
+    downloadCsv(`supplier_cheques_${filter.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`, [
+      ["Cheque no.", "Supplier", "Bank", "Cheque date", "Payment", "Amount (Rs.)", "Status", "Cleared on", "Bounced on", "Reason"],
+      ...rows.map((c) => [
+        c.chequeNumber,
+        c.supplierName,
+        c.bankName,
+        c.chequeDate.slice(0, 10),
+        c.paymentNumber,
+        c.amount,
+        c.status,
+        c.clearedAt?.slice(0, 10) ?? "",
+        c.bouncedAt?.slice(0, 10) ?? "",
+        c.bounceReason ?? "",
+      ]),
+      ["Total", "", "", "", "", shownTotal, "", "", "", ""],
+    ])
+  }
   const today = todayISO()
 
   async function run(action: () => Promise<{ success: boolean; message: string }>, done: () => void) {
@@ -78,6 +100,12 @@ export function ChequeManagement({ cheques }: { cheques: ChequeRow[] }) {
         <CardHeader>
           <CardTitle>Issued cheques</CardTitle>
           <CardDescription>Pending cheques value: {formatMoney(pendingTotal)}</CardDescription>
+          <p className="text-sm text-muted-foreground" data-testid="cheque-shown-summary">
+            Showing {rows.length} cheque{rows.length === 1 ? "" : "s"} · total {formatMoney(shownTotal)}
+          </p>
+          <Button type="button" size="sm" variant="outline" className="mt-2 w-fit" onClick={exportCheques} disabled={rows.length === 0}>
+            <Download className="size-4" /> Export CSV
+          </Button>
           <select
             aria-label="Filter by status"
             className={`${nativeSelectClass} mt-2 sm:w-48`}

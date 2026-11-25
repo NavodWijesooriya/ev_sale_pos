@@ -60,3 +60,22 @@ SEED_DEMO=true SEED_ORG_SUBDOMAIN=<subdomain> node --experimental-strip-types pr
 ```
 
 The e2e suite does not use it: it creates and removes its own dealerships (`E2E Motors`, `E2E Other Motors`, `E2E Owner Lab`) and never touches a real one.
+
+## Database connection (Supabase + Prisma, serverless)
+
+Two connection strings, two jobs:
+
+| Variable | Used for | Should point at |
+|---|---|---|
+| `DATABASE_URL` | the running app (Prisma Client) | Supabase **transaction pooler**, port **6543**, with `?pgbouncer=true&connection_limit=1` |
+| `DIRECT_URL` | `prisma migrate` only | Supabase **session pooler** (port 5432) or the direct connection |
+
+- `pgbouncer=true` turns off prepared statements, which the transaction pooler does not support.
+- `connection_limit=1` keeps each serverless instance to one connection so many instances do not exhaust the pooler.
+  That suits Vercel, where the database is close and queries take milliseconds. For local development against a
+  remote database use a higher limit (for example `connection_limit=5&pool_timeout=30`): with one connection the
+  Reports page's parallel queries run one after another and can exceed the pool timeout (`P2024`).
+- Set both variables in the Vercel project (Settings → Environment Variables) for Production and Preview. Run
+  `npx prisma migrate deploy` with `DIRECT_URL` available (a build step or a CI job), never against the transaction pooler.
+- `lib/prisma.ts` keeps a single `PrismaClient` per instance and retries read-only queries (not writes, and not anything
+  inside a transaction) up to three times when the connection drops (`P1001`, `P1017`).
