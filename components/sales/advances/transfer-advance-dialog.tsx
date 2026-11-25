@@ -192,7 +192,7 @@ export function TransferAdvanceDialog({
           {movesToAnotherCustomer && (
             <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
               <p className="text-[11px] font-medium text-foreground">
-                NIC verification: type at least 4 characters of each customer&apos;s NIC to confirm who the money moves between.
+                NIC verification: type the full NIC of each customer to confirm who the money moves between.
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="sourceNic" className="text-xs font-semibold">

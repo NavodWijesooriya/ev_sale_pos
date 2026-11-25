@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { colomboDateKey } from "@/lib/dates"
+import { nicEquals } from "@/lib/nic"
 import { cn } from "@/lib/utils"
 
 const money = (n: number) =>
@@ -76,7 +77,10 @@ export function AdvanceTransferByNic({ history }: { history: AdvanceTransferHist
   const targetCustomer = target.results?.find((c) => c.id === targetId) ?? null
   const amountNumber = Number(amount)
   const amountValid = selectedAdvance !== null && amountNumber > 0 && amountNumber <= selectedAdvance.amount + 0.005
-  const canTransfer = Boolean(selectedAdvance && targetCustomer && targetCustomer.id !== sourceCustomer?.id && amountValid)
+  // The money only moves when the full NIC of both people was typed (a part of a NIC finds them but does not verify them).
+  const sourceVerified = nicEquals(sourceCustomer?.nic, source.term)
+  const targetVerified = nicEquals(targetCustomer?.nic, target.term)
+  const canTransfer = sourceVerified && targetVerified && Boolean(selectedAdvance && targetCustomer && targetCustomer.id !== sourceCustomer?.id && amountValid)
 
   function chooseAdvance(id: string, balance: number) {
     setAdvanceId(id)
@@ -248,6 +252,12 @@ export function AdvanceTransferByNic({ history }: { history: AdvanceTransferHist
               )}
               <Label htmlFor="transfer-note">Note (optional)</Label>
               <Input id="transfer-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+              {selectedAdvance && targetCustomer && !(sourceVerified && targetVerified) && (
+                <p className="text-xs text-amber-600">
+                  Verify both customers: type the full NIC of the advance holder and of the receiving customer in the two
+                  search boxes. A part of a NIC finds a customer but does not verify them.
+                </p>
+              )}
               <Button type="button" onClick={transfer} disabled={!canTransfer || saving}>
                 {saving && <LoaderCircle className="size-4 animate-spin" />} Transfer advance
               </Button>

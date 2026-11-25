@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { recordAudit } from "@/lib/audit"
-import { MIN_NIC_QUERY, nicMatchesQuery } from "@/lib/nic"
+import { nicEquals } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import {
   createAdvancePaymentSchema,
@@ -245,9 +245,9 @@ export async function transferAdvancePayment(
       // Moving money to another customer needs the NIC of both people (same check as Transfer by NIC).
       // Enforced here, not only in the screens: a missing or wrong NIC stops the transfer.
       if (!isSameCustomer) {
-        if (!nicMatchesQuery(sourceAdvance.nicNumber, parsedInput.data.sourceNic)) {
+        if (!nicEquals(sourceAdvance.nicNumber, parsedInput.data.sourceNic)) {
           throw new Error(
-            `Enter at least ${MIN_NIC_QUERY} characters of the advance holder's NIC (${sourceAdvance.customer.name}) to verify the transfer.`,
+            `Enter the advance holder's full NIC (${sourceAdvance.customer.name}) to verify the transfer. A part of the NIC is not enough.`,
           )
         }
         if (!targetCustomer.nic) {
@@ -255,9 +255,9 @@ export async function transferAdvancePayment(
             `${targetCustomer.name} has no NIC on file, so the transfer cannot be verified. Add the customer's NIC first.`,
           )
         }
-        if (!nicMatchesQuery(targetCustomer.nic, parsedInput.data.targetNic)) {
+        if (!nicEquals(targetCustomer.nic, parsedInput.data.targetNic)) {
           throw new Error(
-            `Enter at least ${MIN_NIC_QUERY} characters of the receiving customer's NIC (${targetCustomer.name}) to verify the transfer.`,
+            `Enter the receiving customer's full NIC (${targetCustomer.name}) to verify the transfer. A part of the NIC is not enough.`,
           )
         }
       }

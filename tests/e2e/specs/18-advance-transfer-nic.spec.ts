@@ -57,28 +57,42 @@ test.describe.serial("advance transfer from the table dialog needs NIC verificat
 
     // 1. Nothing typed.
     await submit.click()
-    await expect(page.getByText(/advance holder's NIC/i).first()).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(/advance holder's full NIC/i).first()).toBeVisible({ timeout: 60_000 })
     await unchanged()
 
     // 2. The holder's NIC is right, the receiving NIC is wrong.
     await dialog.getByLabel(/Advance holder NIC/).fill(C.advFrom.nic)
     await dialog.getByLabel("Receiving customer NIC").fill("910999999")
     await submit.click()
-    await expect(page.getByText(/receiving customer's NIC/i).first()).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(/receiving customer's full NIC/i).first()).toBeVisible({ timeout: 60_000 })
     await unchanged()
 
     // 3. The receiving NIC is right, the holder's NIC is somebody else's.
     await dialog.getByLabel(/Advance holder NIC/).fill(C.advTo.nic)
     await dialog.getByLabel("Receiving customer NIC").fill(C.advTo.nic)
     await submit.click()
-    await expect(page.getByText(/advance holder's NIC/i).first()).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(/advance holder's full NIC/i).first()).toBeVisible({ timeout: 60_000 })
     await unchanged()
 
     // 4. Too short to verify anyone.
     await dialog.getByLabel(/Advance holder NIC/).fill("910")
     await dialog.getByLabel("Receiving customer NIC").fill("910")
     await submit.click()
-    await expect(page.getByText(/advance holder's NIC/i).first()).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(/advance holder's full NIC/i).first()).toBeVisible({ timeout: 60_000 })
+    await unchanged()
+
+    // 5. A long part of each NIC is still not the NIC: only the full NIC verifies.
+    await dialog.getByLabel(/Advance holder NIC/).fill(C.advFrom.nic.slice(0, -1))
+    await dialog.getByLabel("Receiving customer NIC").fill(C.advTo.nic.slice(0, -1))
+    await submit.click()
+    await expect(page.getByText(/advance holder's full NIC/i).first()).toBeVisible({ timeout: 60_000 })
+    await unchanged()
+
+    // 6. The holder is right but only part of the receiving NIC was typed.
+    await dialog.getByLabel(/Advance holder NIC/).fill(C.advFrom.nic)
+    await dialog.getByLabel("Receiving customer NIC").fill(C.advTo.nic.slice(0, -1))
+    await submit.click()
+    await expect(page.getByText(/receiving customer's full NIC/i).first()).toBeVisible({ timeout: 60_000 })
     await unchanged()
     await close()
   })
@@ -87,9 +101,9 @@ test.describe.serial("advance transfer from the table dialog needs NIC verificat
     const { page, close } = await pageAs(browser, "owner")
     const dialog = await openTransferDialog(page, C.advFrom.name)
     await chooseOption(page, dialog.getByRole("combobox", { name: "Destination Customer" }), new RegExp(C.advTo.name))
-    // Lower case and a partial NIC (at least 4 characters) verify, like the Transfer-by-NIC search.
+    // The full NIC verifies even in lower case or with spaces (it is normalised before comparing).
     await dialog.getByLabel(/Advance holder NIC/).fill(C.advFrom.nic.toLowerCase())
-    await dialog.getByLabel("Receiving customer NIC").fill(C.advTo.nic.slice(0, 8))
+    await dialog.getByLabel("Receiving customer NIC").fill(` ${C.advTo.nic.slice(0, 4)} ${C.advTo.nic.slice(4).toLowerCase()} `)
     await dialog.getByRole("button", { name: "Confirm Advance Transfer" }).click()
 
     await expect

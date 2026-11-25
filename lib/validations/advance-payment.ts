@@ -30,7 +30,7 @@ export const transferAdvancePaymentSchema = z.object({
   transferNote: z.string().trim().max(1000).optional().or(z.literal("")),
   /** Part of the advance to move; leave out to transfer the whole remaining balance. */
   transferAmount: z.number().finite().positive("Enter an amount above zero.").optional(),
-  /** NIC verification (at least 4 characters of each customer's NIC); required when the advance moves to another customer. */
+  /** NIC verification: the FULL NIC of each customer (spaces and case ignored); required when the advance moves to another customer. */
   sourceNic: z.string().trim().max(64).optional().or(z.literal("")),
   targetNic: z.string().trim().max(64).optional().or(z.literal("")),
 })
