@@ -67,6 +67,7 @@ export function AdvanceFormDialog({
   const [selectedCustomerId, setSelectedCustomerId] = React.useState<string>("")
   const [selectedVehicleId, setSelectedVehicleId] = React.useState<string>("")
   const [amount, setAmount] = React.useState<string>("")
+  const [tinNumber, setTinNumber] = React.useState<string>("")
   const [paymentMethod, setPaymentMethod] = React.useState<string>("Cash")
   const [notes, setNotes] = React.useState<string>("")
 
@@ -94,6 +95,7 @@ export function AdvanceFormDialog({
       setSelectedCustomerId("")
       setSelectedVehicleId("")
       setAmount("")
+      setTinNumber("")
       setPaymentMethod("Cash")
       setNotes("")
       setCustomerQuery("")
@@ -204,6 +206,7 @@ export function AdvanceFormDialog({
           customerId: selectedCustomerId,
           vehicleId: selectedVehicleId || null,
           amount: numericAmount,
+          tinNumber: tinNumber.trim() || null,
           paymentMethod,
           notes: notes.trim() || null,
           branchId: selectedVehicle?.branchId || null,
@@ -493,6 +496,18 @@ export function AdvanceFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="adv-tin">TIN Number (Optional)</Label>
+              <Input
+                id="adv-tin"
+                autoComplete="off"
+                maxLength={20}
+                placeholder="Customer TIN"
+                value={tinNumber}
+                onChange={(e) => setTinNumber(e.target.value)}
+              />
             </div>
 
             {/* Optional Notes */}

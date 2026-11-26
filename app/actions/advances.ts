@@ -6,6 +6,7 @@ import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { recordAudit } from "@/lib/audit"
 import { nicEquals } from "@/lib/nic"
+import { normalizeTin, optionalTinSchema } from "@/lib/validations/tin"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import {
   createAdvancePaymentSchema,
@@ -38,6 +39,7 @@ export interface AdvancePaymentRecord {
   customerId: string
   customerName: string
   nicNumber: string
+  tinNumber?: string | null
   bikeModel: string
   vehicleId?: string | null
   chassisNumber?: string | null
@@ -174,6 +176,7 @@ export async function transferAdvancePayment(
           customerId: true,
           vehicleId: true,
           nicNumber: true,
+          tinNumber: true,
           bikeModel: true,
           amount: true,
           advanceDate: true,
@@ -296,6 +299,8 @@ export async function transferAdvancePayment(
           customerId: targetCustomer.id,
           vehicleId: targetVehicle ? targetVehicle.id : null,
           nicNumber: targetCustomer.nic ?? sourceAdvance.nicNumber,
+          // A TIN belongs to the person who gave it: it only follows the advance when the customer stays the same.
+          tinNumber: isSameCustomer ? sourceAdvance.tinNumber : null,
           bikeModel: targetBikeModel,
           amount,
           advanceDate: sourceAdvance.advanceDate,
@@ -452,6 +457,7 @@ export async function getAdvancePayments(): Promise<AdvancePaymentRecord[]> {
     customerId: advance.customerId,
     customerName: advance.customer?.name || "Unknown Customer",
     nicNumber: advance.nicNumber,
+    tinNumber: advance.tinNumber || null,
     bikeModel: advance.bikeModel,
     vehicleId: advance.vehicleId || null,
     chassisNumber: advance.vehicle?.chassisNumber || null,
@@ -595,6 +601,7 @@ export async function createAdvancePayment(
         organizationId,
         customerId: customer.id,
         nicNumber: data.nicNumber,
+        tinNumber: normalizeTin(data.tinNumber),
         bikeModel: data.bikeModel,
         amount: data.amount,
         advanceDate: new Date(`${data.advanceDate}T00:00:00.000Z`),
@@ -678,6 +685,7 @@ export async function updateAdvancePayment(
         data: {
           customerId: customer.id,
           nicNumber: data.nicNumber,
+          tinNumber: normalizeTin(data.tinNumber),
           bikeModel: data.bikeModel,
           amount: data.amount,
           advanceDate: new Date(`${data.advanceDate}T00:00:00.000Z`),
@@ -863,6 +871,7 @@ export async function getCustomers() {
 
 export interface RecordAdvancePaymentInput {
   customerId: string
+  tinNumber?: string | null
   vehicleId?: string | null
   amount: number
   paymentMethod: string
@@ -924,6 +933,8 @@ export async function recordAdvancePayment(data: RecordAdvancePaymentInput) {
 
     const paymentMethod = data.paymentMethod?.trim() || "Cash"
     const notes = data.notes?.trim() || null
+    const tinParsed = optionalTinSchema.safeParse(data.tinNumber ?? "")
+    if (!tinParsed.success) return { success: false, error: tinParsed.error.issues[0]?.message ?? "Enter a valid TIN." }
 
     const advance = await (prisma.advancePayment as any).create({
       data: {
@@ -931,6 +942,7 @@ export async function recordAdvancePayment(data: RecordAdvancePaymentInput) {
         customerId: customer.id,
         vehicleId: vehicleId || null,
         nicNumber: customer.nic || "N/A",
+        tinNumber: normalizeTin(data.tinNumber),
         bikeModel,
         amount: Number(data.amount),
         paymentMethod,

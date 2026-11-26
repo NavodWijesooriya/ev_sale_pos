@@ -30,6 +30,7 @@ export interface InvoiceSaleData {
   /** RMV charge and third-party insurance saved with the sale (0 on sales made before these charges existed). */
   rmvCharge?: number | null
   thirdPartyInsurance?: number | null
+  tinNumber?: string | null
   warrantyOption?: string | null
   advancePayment?: {
     amount: number
@@ -530,6 +531,12 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   <>
                     <span style={{ color: "#64748b", fontWeight: 600 }}>NIC / Pass:</span>
                     <span>{sale.customer.nic}</span>
+                  </>
+                )}
+                {sale.tinNumber && (
+                  <>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>TIN:</span>
+                    <span data-testid="invoice-tin">{sale.tinNumber}</span>
                   </>
                 )}
                 {sale.customer.address && (

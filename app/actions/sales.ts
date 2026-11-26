@@ -18,6 +18,7 @@ import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { initialFinanceTracking } from "@/lib/finance-receivables"
 import { loadSaleChargeSettings } from "@/lib/sale-charges"
+import { normalizeTin } from "@/lib/validations/tin"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
@@ -82,6 +83,7 @@ export interface ProcessSaleInput {
 export interface PendingCustomerAdvance {
   id: string
   amount: number
+  tinNumber: string | null
 }
 
 export async function getPendingCustomerAdvance(
@@ -94,7 +96,7 @@ export async function getPendingCustomerAdvance(
       organizationId,
       status: AdvancePaymentStatus.PENDING,
     },
-    select: { id: true, amount: true },
+    select: { id: true, amount: true, tinNumber: true },
     orderBy: [{ advanceDate: "desc" }, { id: "desc" }],
   })
 
@@ -161,7 +163,7 @@ export async function createNewSale(
               organizationId,
               status: AdvancePaymentStatus.PENDING,
             },
-            select: { id: true, amount: true },
+            select: { id: true, amount: true, tinNumber: true },
           })
         : Promise.resolve(null),
       commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
@@ -249,6 +251,8 @@ export async function createNewSale(
           totalAmount: Math.max(0, subtotal + warrantyCharge + rmvCharge + thirdPartyInsurance - advanceAmount),
           rmvCharge,
           thirdPartyInsurance,
+          // The TIN typed on the sale wins; otherwise the one captured with the advance being used.
+          tinNumber: normalizeTin(data.tinNumber) ?? normalizeTin(pendingAdvance?.tinNumber),
           paymentMethod: isFinance ? (data.paymentMethod === "Cash" ? "Leasing" : data.paymentMethod) : data.paymentMethod,
           paymentType: isFinance ? "FINANCE" : "CASH",
           financeAmount: financeAmt,

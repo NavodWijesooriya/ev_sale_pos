@@ -156,6 +156,7 @@ const defaultValues: CreateNewSaleInput = {
   insuranceCommission: null,
   commissionRecipientId: "",
   thirdPartyInsurance: false,
+  tinNumber: "",
 }
 
 export function NewSaleForm({
@@ -181,6 +182,7 @@ export function NewSaleForm({
   const [pendingAdvance, setPendingAdvance] = React.useState<{
     id: string
     amount: number
+    tinNumber?: string | null
   } | null>(null)
   const [isLoadingAdvance, setIsLoadingAdvance] = React.useState(false)
   const advanceRequestId = React.useRef(0)
@@ -374,6 +376,10 @@ export function NewSaleForm({
       if (requestId !== advanceRequestId.current) return
       setPendingAdvance(advance)
       if (advance) {
+        // Carry the TIN given with the advance into the sale (the cashier can still change it).
+        if (advance.tinNumber && !form.getValues("tinNumber")) {
+          form.setValue("tinNumber", advance.tinNumber, { shouldDirty: true, shouldValidate: true })
+        }
         form.setValue("advancePaymentId", advance.id, {
           shouldDirty: true,
           shouldValidate: true,
@@ -669,6 +675,25 @@ export function NewSaleForm({
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label htmlFor="sale-tin-number">
+                  TIN number <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="sale-tin-number"
+                  autoComplete="off"
+                  maxLength={20}
+                  placeholder="Customer TIN"
+                  aria-invalid={Boolean(form.formState.errors.tinNumber)}
+                  {...form.register("tinNumber")}
+                />
+                {form.formState.errors.tinNumber && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {form.formState.errors.tinNumber.message}
+                  </p>
+                )}
+              </div>
 
               {/* Pending Advance Alert */}
               {customerId && !isLoadingAdvance && pendingAdvance && (

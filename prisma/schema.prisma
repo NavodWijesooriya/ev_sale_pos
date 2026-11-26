@@ -562,6 +562,7 @@ model Sale {
   // Customer-paid charges added at sale time, saved separately from the bike price (snapshot of the owner settings then).
   rmvCharge             Float                  @default(0)
   thirdPartyInsurance   Float                  @default(0)
+  tinNumber             String? // optional customer TIN, printed on the invoice
   advanceDeducted       Float                  @default(0) // Amount deducted from advance payment at checkout
   financeCommission     Float?
   insuranceCommission   Float?
@@ -651,6 +652,7 @@ model AdvancePayment {
   vehicleId      String?
   vehicle        Vehicle?             @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   nicNumber      String
+  tinNumber      String? // optional customer TIN, carried into the sale when the advance is used
   bikeModel      String
   amount         Float
   advanceDate    DateTime             @default(now())

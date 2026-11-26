@@ -234,7 +234,7 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-32">Date</TableHead>
-              <TableHead className="w-[24%]">Customer Name</TableHead>
+              <TableHead className="w-[24%]">Customer Name / TIN</TableHead>
               <TableHead className="w-[26%]">Vehicle Chassis No</TableHead>
               <TableHead className="w-[16%]">Payment Method</TableHead>
               <TableHead className="w-24">Status</TableHead>
@@ -259,6 +259,9 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
                     <div className="font-medium text-sm text-foreground">{advance.customerName}</div>
                     {advance.nicNumber && advance.nicNumber !== "N/A" && (
                       <div className="text-xs text-muted-foreground font-mono">NIC: {advance.nicNumber}</div>
+                    )}
+                    {advance.tinNumber && (
+                      <div className="text-xs text-muted-foreground font-mono">TIN: {advance.tinNumber}</div>
                     )}
                   </TableCell>
                   <TableCell>

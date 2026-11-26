@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { optionalTinSchema } from "@/lib/validations/tin"
 
 export const FREE_SALE_ITEMS = [
   "Helmet",
@@ -63,6 +64,8 @@ export const createNewSaleSchema = z.object({
   commissionRecipientId: z.string().trim().optional().or(z.literal("")),
   // Ticked = add the owner-configured third-party insurance amount (the server decides the amount).
   thirdPartyInsurance: z.boolean().optional(),
+  // Optional customer TIN; when blank, the TIN of the advance being used (if any) is carried in.
+  tinNumber: optionalTinSchema,
 })
 
 export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>
