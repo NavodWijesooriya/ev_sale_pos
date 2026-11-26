@@ -28,11 +28,12 @@ const EXPECTED: Partial<Record<RoleKey, { entries: string[]; finance: string[] |
       "Dashboard", "Sales Management", "Finance Management", "Customers", "GRN Management", "Supplier Management",
       "Service Management", "Reports", "Vehicle Models", "Settings", "Storefront Branding", "Help Center",
     ],
-    finance: ["Finance Receivables", "Bank Deposits", "Commission Reports", "Finance Companies", "Insurance Companies"],
+    // Bank Deposits now lives under Sales Management (see spec 26).
+    finance: ["Finance Receivables", "Commission Reports", "Finance Companies", "Insurance Companies"],
   },
   branchManager: {
     entries: ["Dashboard", "Sales Management", "Finance Management", "Customers", "GRN Management", "Supplier Management", "Reports", "Vehicle Models", "Help Center"],
-    finance: ["Finance Receivables", "Bank Deposits"],
+    finance: ["Finance Receivables"],
   },
   cashier: { entries: ["Dashboard", "Sales Management", "Customers", "Help Center"], finance: null },
   receivablesStaff: { entries: ["Dashboard", "Finance Management", "Help Center"], finance: ["Finance Receivables"] },

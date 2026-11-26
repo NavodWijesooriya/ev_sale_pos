@@ -90,8 +90,14 @@ export async function createSale(page: Page, o: SaleOptions): Promise<{ saleId: 
  * Used to prove that a rule is enforced on the server and not only hidden in the UI.
  * `page` must be signed in and already on a page of the app that loads the action's client reference.
  */
-export async function callServerAction(page: Page, actionName: string, args: unknown[]): Promise<string> {
-  const scripts: string[] = await page.evaluate(() =>
+export async function callServerAction(
+  page: Page,
+  actionName: string,
+  args: unknown[],
+  /** A page of an allowed user that loads the action's client reference, when `page` itself never loads it. */
+  discoverFrom: Page = page,
+): Promise<string> {
+  const scripts: string[] = await discoverFrom.evaluate(() =>
     performance
       .getEntriesByType("resource")
       .map((entry) => entry.name)
@@ -99,7 +105,7 @@ export async function callServerAction(page: Page, actionName: string, args: unk
   )
   let actionId = ""
   for (const url of scripts) {
-    const body = await (await page.request.get(url)).text()
+    const body = await (await discoverFrom.request.get(url)).text()
     // Next lists every server action of a module as {"<id>":{"name":"<function>"}} next to its client reference.
     const match = new RegExp(`"([0-9a-f]{32,})":\\{"name":"${actionName}"`).exec(body)
     if (match) {

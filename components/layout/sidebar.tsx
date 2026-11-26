@@ -57,18 +57,22 @@ export const navigationItems: NavItem[] = [
     title: "Sales Management",
     href: "/dashboard/sales/new",
     icon: Coins,
-    anyPermission: ["CREATE_SALE"],
+    // Staff who may only record bank deposits still get this group, with just their own entry in it.
+    anyPermission: ["CREATE_SALE", "MANAGE_BANK_DEPOSITS"],
     children: [
-      { title: "New Sale (POS)", href: "/dashboard/sales/new" },
-      { title: "Sales History", href: "/dashboard/sales/history" },
-      { title: "Advance Payments", href: "/dashboard/sales/advances" },
+      { title: "New Sale (POS)", href: "/dashboard/sales/new", anyPermission: ["CREATE_SALE"] },
+      { title: "Sales History", href: "/dashboard/sales/history", anyPermission: ["CREATE_SALE"] },
+      { title: "Advance Payments", href: "/dashboard/sales/advances", anyPermission: ["CREATE_SALE"] },
       {
         title: "Advance Transfers & Reports",
+        anyPermission: ["CREATE_SALE"],
         children: [
           { title: "Advance Reports", href: "/dashboard/sales/advances/reports" },
           { title: "Advance Transfers", href: "/dashboard/sales/advances/transfers" },
         ],
       },
+      // Shown only to staff the owner has given the bank deposit permission.
+      { title: "Bank Deposits", href: "/dashboard/finance/bank-deposits", anyPermission: ["MANAGE_BANK_DEPOSITS"] },
     ],
   },
   {
@@ -79,7 +83,6 @@ export const navigationItems: NavItem[] = [
     // No group-level role gate: each child is gated on its own so staff keep the links they hold permissions for.
     children: [
       { title: "Finance Receivables", href: "/dashboard/finance/receivables", anyPermission: ["MANAGE_FINANCE_RECEIVABLES"] },
-      { title: "Bank Deposits", href: "/dashboard/finance/bank-deposits", anyPermission: ["MANAGE_BANK_DEPOSITS"] },
       // The pages and server actions below are owner-only.
       { title: "Commission Reports", href: "/dashboard/finance/commissions", ownerOnly: true },
       { title: "Finance Companies", href: "/dashboard/finance/companies", ownerOnly: true },
@@ -185,13 +188,13 @@ export function SidebarContent({
     Boolean(pathname?.startsWith("/dashboard/grn/")),
   )
   const [salesExpanded, setSalesExpanded] = React.useState(
-    Boolean(pathname?.startsWith("/dashboard/sales/")),
+    Boolean(pathname?.startsWith("/dashboard/sales/") || pathname?.startsWith("/dashboard/finance/bank-deposits")),
   )
   const [advancesExpanded, setAdvancesExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/sales/advances")),
   )
   const [financeExpanded, setFinanceExpanded] = React.useState(
-    Boolean(pathname?.startsWith("/dashboard/finance/")),
+    Boolean(pathname?.startsWith("/dashboard/finance/") && !pathname.startsWith("/dashboard/finance/bank-deposits")),
   )
   const [settingsExpanded, setSettingsExpanded] = React.useState(
     Boolean(
