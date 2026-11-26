@@ -18,7 +18,7 @@ async function openOwners(page: Page, dealership: string) {
 
 /** A real sign-in attempt through the login page in a clean browser. */
 async function tryLogin(browser: Browser, email: string, password: string) {
-  const context = await browser.newContext({ baseURL: "http://localhost:3001" })
+  const context = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_PORT ?? 3001}` })
   const page = await context.newPage()
   await page.goto("/login")
   await page.getByLabel("Work email").fill(email)
@@ -166,7 +166,7 @@ test.describe.serial("platform admin manages dealership owners", () => {
     expect((await user(otherOwner.email))?.isActive).toBe(true)
     await tenant.close()
 
-    const anonymous = await browser.newContext({ baseURL: "http://localhost:3001" })
+    const anonymous = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_PORT ?? 3001}` })
     const response2 = await anonymous.request.post(disableRequest!.url, {
       headers: {
         "next-action": disableRequest!.headers["next-action"],

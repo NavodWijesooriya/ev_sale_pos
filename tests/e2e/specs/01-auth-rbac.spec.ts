@@ -96,7 +96,7 @@ test.describe("direct URL access to forbidden pages is blocked", () => {
   })
 
   test("a signed-out visitor is sent to the login page", async ({ browser }) => {
-    const context = await browser.newContext({ baseURL: "http://localhost:3001" })
+    const context = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_PORT ?? 3001}` })
     const page = await context.newPage()
     await page.goto("/dashboard/finance/receivables")
     await expect(page).toHaveURL(/\/login/)
