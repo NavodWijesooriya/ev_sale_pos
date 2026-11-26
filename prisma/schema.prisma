@@ -51,36 +51,40 @@ model Organization {
   staffCanManageCatalog Boolean            @default(false)
   createdAt             DateTime           @default(now())
 
-  users                 User[]
-  branches              Branch[]
-  suppliers             Supplier[]
-  vehicleModels         VehicleModel[]
-  vehicles              Vehicle[]
-  grns                  GRN[]
-  supplierPayments      SupplierPayment[]
-  cheques               Cheque[]
-  supplierAdvances      SupplierAdvance[]
-  customers             Customer[]
-  sales                 Sale[]
-  financeCompanies      FinanceCompany[]
-  insuranceCompanies    InsuranceCompany[]
-  advancePayments       AdvancePayment[]
-  serviceRecords        ServiceRecord[]
-  testRides             TestRide[]
-  spareParts            SparePart[]
-  serviceJobs           ServiceJob[]
-  auditLogs             AuditLog[]
-  commissionSettings    CommissionSettings?
-  commissionSettlements CommissionSettlement[]
-  financeReceipts       FinanceReceipt[]
-  incomingCheques       IncomingCheque[]
-  bankAccounts          BankAccount[]
-  bankDeposits          BankDeposit[]
-  stockTransfers        StockTransfer[]
-  customDomain          String?                    @unique
-  freeItems             FreeItem[]
-  companyOffices        CompanyOffice[]
-  ownershipTransfers    VehicleOwnershipTransfer[]
+  users                      User[]
+  branches                   Branch[]
+  suppliers                  Supplier[]
+  vehicleModels              VehicleModel[]
+  vehicles                   Vehicle[]
+  grns                       GRN[]
+  supplierPayments           SupplierPayment[]
+  cheques                    Cheque[]
+  supplierAdvances           SupplierAdvance[]
+  customers                  Customer[]
+  sales                      Sale[]
+  financeCompanies           FinanceCompany[]
+  insuranceCompanies         InsuranceCompany[]
+  advancePayments            AdvancePayment[]
+  serviceRecords             ServiceRecord[]
+  testRides                  TestRide[]
+  spareParts                 SparePart[]
+  serviceJobs                ServiceJob[]
+  auditLogs                  AuditLog[]
+  commissionSettings         CommissionSettings?
+  commissionSettlements      CommissionSettlement[]
+  financeReceipts            FinanceReceipt[]
+  incomingCheques            IncomingCheque[]
+  bankAccounts               BankAccount[]
+  bankDeposits               BankDeposit[]
+  stockTransfers             StockTransfer[]
+  customDomain               String?                     @unique
+  freeItems                  FreeItem[]
+  companyOffices             CompanyOffice[]
+  ownershipTransfers         VehicleOwnershipTransfer[]
+  supplierCommissionSlabs    SupplierCommissionSlab[]
+  supplierMonthlyTargets     SupplierMonthlyTarget[]
+  supplierCommissionMonths   SupplierCommissionMonth[]
+  supplierCommissionReceipts SupplierCommissionReceipt[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
@@ -234,10 +238,11 @@ model Supplier {
   phone          String?
   email          String?
 
-  grns     GRN[]
-  payments SupplierPayment[]
-  cheques  Cheque[]
-  advances SupplierAdvance[]
+  grns           GRN[]
+  payments       SupplierPayment[]
+  cheques        Cheque[]
+  advances       SupplierAdvance[]
+  monthlyTargets SupplierMonthlyTarget[]
 }
 
 model VehicleModel {
@@ -1317,4 +1322,96 @@ model VehicleOwnershipTransfer {
   @@index([fromCustomerId])
   @@index([toCustomerId])
   @@index([organizationId, transferDate])
+}
+
+// ---------------------------------------------------------------------------------------------
+// Supplier monthly target commission: an incentive the SUPPLIER pays the dealership per unit sold,
+// based on how much of the monthly target was achieved. Dealership income, owner only.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * One step of the commission ladder: from this achievement % upwards, the supplier pays this much per unit.
+ */
+model SupplierCommissionSlab {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromPercent    Float // minimum achievement % for this slab
+  amountPerUnit  Float // commission per unit sold (LKR)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, fromPercent])
+}
+
+/**
+ * Target number of bikes a supplier should sell through the dealership in one month ("YYYY-MM").
+ */
+model SupplierMonthlyTarget {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplier       Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  month          String // "YYYY-MM"
+  targetUnits    Int
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([supplierId, month])
+  @@index([organizationId, month])
+}
+
+/**
+ * A closed month: a snapshot of the figures and the slabs used, so later changes never alter it.
+ */
+model SupplierCommissionMonth {
+  id             String                   @id @default(uuid())
+  organizationId String
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  month          String // "YYYY-MM"
+  closedAt       DateTime                 @default(now())
+  closedById     String?
+  closedByName   String?
+  slabsSnapshot  Json // [{ fromPercent, amountPerUnit }] in force when the month was closed
+  lines          SupplierCommissionLine[]
+
+  @@unique([organizationId, month])
+}
+
+/**
+ * One supplier's figures in a closed month. supplierName is a snapshot; no FK so history survives supplier deletion.
+ */
+model SupplierCommissionLine {
+  id                 String                  @id @default(uuid())
+  monthId            String
+  closedMonth        SupplierCommissionMonth @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  supplierId         String
+  supplierName       String
+  targetUnits        Int
+  unitsSold          Int
+  achievementPercent Float
+  slabFromPercent    Float? // the slab that applied (null = none)
+  amountPerUnit      Float                   @default(0)
+  totalCommission    Float                   @default(0)
+
+  @@unique([monthId, supplierId])
+}
+
+/**
+ * The supplier paid this month's commission to the dealership (works for open and closed months).
+ */
+model SupplierCommissionReceipt {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplierName   String
+  month          String // "YYYY-MM"
+  amount         Float // commission total when it was marked received
+  receivedAt     DateTime
+  reference      String?
+  recordedById   String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, supplierId, month])
 }

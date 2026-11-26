@@ -2,6 +2,7 @@ import {
   Bike,
   Building2,
   Gift,
+  Handshake,
   Percent,
   Lock,
   SlidersHorizontal,
@@ -30,6 +31,7 @@ export type SettingsKey =
   | "payroll"
   | "sale-charges"
   | "commissions"
+  | "supplier-commission"
   | "free-items"
   | "branches"
   | "vehicle-models"
@@ -103,6 +105,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
         href: "/dashboard/settings/commissions",
         icon: Percent,
         description: "Finance and insurance commission rules.",
+        canAccess: ownerOnly,
+      },
+      {
+        key: "supplier-commission",
+        title: "Supplier Commission",
+        href: "/dashboard/settings/supplier-commission",
+        icon: Handshake,
+        description: "Per-unit commission suppliers pay you, by how much of the monthly target is achieved.",
         canAccess: ownerOnly,
       },
       {

@@ -125,6 +125,8 @@ export const navigationItems: NavItem[] = [
         anyPermission: ["MANAGE_SUPPLIERS", "RECORD_PAYMENTS"],
       },
       { title: "Cheque Management", href: "/dashboard/suppliers/cheques", anyPermission: ["MANAGE_CHEQUES"] },
+      // Dealership income: owner only (the page and server actions enforce it too).
+      { title: "Supplier Commission", href: "/dashboard/suppliers/commission", ownerOnly: true },
       {
         title: "Ledger & Reports",
         href: "/dashboard/suppliers/reports",
