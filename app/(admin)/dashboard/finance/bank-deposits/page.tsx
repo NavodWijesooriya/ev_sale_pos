@@ -25,6 +25,7 @@ export default async function BankDepositsPage() {
         initialRows={report.rows}
         initialTotal={report.totalDeposited}
         isOwner={isOwner(session.user)}
+        staffName={session.user.name}
       />
     </div>
   )

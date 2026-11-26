@@ -11,6 +11,8 @@ import {
 } from "@/components/sales/new-sale-form"
 import { getAuthSession } from "@/lib/auth"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
+import { loadSaleChargeSettings } from "@/lib/sale-charges"
+import { loadActiveFreeItems } from "@/lib/free-items"
 import { prisma } from "@/lib/prisma"
 
 export const instant = false
@@ -74,19 +76,25 @@ export default async function NewSalePage() {
     phone: customer.phone,
     email: customer.email,
     nic: customer.nic,
+    tinNumber: customer.tinNumber,
     address: customer.address,
   }))
+
+  const activeOffices = (offices: Array<{ id: string; name: string; isActive: boolean }>) =>
+    offices.filter((office) => office.isActive).map(({ id, name }) => ({ id, name }))
 
   const financeOptions: FinanceInsuranceOption[] = financeCompanies.map((c) => ({
     id: c.id,
     name: c.name,
     defaultCommissionRate: canManageCommission ? c.defaultCommissionRate : null,
+    offices: activeOffices(c.offices),
   }))
 
   const insuranceOptions: FinanceInsuranceOption[] = insuranceCompanies.map((c) => ({
     id: c.id,
     name: c.name,
     defaultCommissionRate: canManageCommission ? c.defaultCommissionRate : null,
+    offices: activeOffices(c.offices),
   }))
 
   const staffOptions: StaffOption[] = (canManageCommission ? ((result.data as any).staff ?? []) : []).map((s: any) => ({
@@ -115,6 +123,8 @@ export default async function NewSalePage() {
         insuranceCompanies={insuranceOptions}
         staff={staffOptions}
         canManageCommission={canManageCommission}
+        saleCharges={await loadSaleChargeSettings(prisma, session.user.organizationId)}
+        freeItems={await loadActiveFreeItems(prisma, session.user.organizationId)}
         fullInsuranceCommission={
           canManageCommission
             ? await loadFullInsuranceCommission(prisma, session.user.organizationId)

@@ -4,8 +4,11 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import {
   Building2,
+  ChevronDown,
+  ChevronRight,
   LoaderCircle,
   MoreHorizontal,
+  MapPin,
   Pencil,
   Plus,
   ShieldCheck,
@@ -59,6 +62,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  CompanyOfficesDialog,
+  OfficeRowsEditor,
+  emptyOfficeRow,
+  type CompanyOfficeItem,
+} from "@/components/finance/company-offices"
+import type { OfficeInput } from "@/lib/company-offices"
 
 export interface CompanyOfficer {
   id: string
@@ -70,8 +80,10 @@ export interface ManagedCompany {
   id: string
   name: string
   contactNo: string
+  headOfficeAddress: string | null
   defaultCommissionRate: number | null
   officers: CompanyOfficer[]
+  offices: CompanyOfficeItem[]
 }
 
 interface CompanyManagementProps {
@@ -82,12 +94,14 @@ interface CompanyManagementProps {
 interface CompanyFormState {
   name: string
   contactNo: string
+  headOfficeAddress: string
   defaultCommissionRate: string
 }
 
 const emptyCompanyForm: CompanyFormState = {
   name: "",
   contactNo: "",
+  headOfficeAddress: "",
   defaultCommissionRate: "",
 }
 
@@ -96,19 +110,39 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
   const isFinance = kind === "finance"
   const companyType = isFinance ? "finance" : "insurance"
   const companyTitle = isFinance ? "Finance Company" : "Insurance Company"
+  const companiesTitle = isFinance ? "Finance Companies" : "Insurance Companies"
+  const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set())
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingCompany, setEditingCompany] = React.useState<ManagedCompany | null>(null)
   const [formValues, setFormValues] = React.useState<CompanyFormState>(emptyCompanyForm)
   const [officerCompanyId, setOfficerCompanyId] = React.useState<string | null>(null)
+  const [officeCompanyId, setOfficeCompanyId] = React.useState<string | null>(null)
+  const [officeRows, setOfficeRows] = React.useState<OfficeInput[]>([])
   const [officerName, setOfficerName] = React.useState("")
   const [officerContactNo, setOfficerContactNo] = React.useState("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const companies = initialCompanies
   const officerCompany = companies.find((company) => company.id === officerCompanyId) ?? null
+  const officeCompany = companies.find((company) => company.id === officeCompanyId) ?? null
+
+  const allExpanded = companies.length > 0 && companies.every((company) => expanded.has(company.id))
+
+  function toggleOne(id: string) {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setExpanded(allExpanded ? new Set() : new Set(companies.map((company) => company.id)))
+  }
 
   function openCreateDialog() {
     setEditingCompany(null)
     setFormValues(emptyCompanyForm)
+    setOfficeRows([emptyOfficeRow()])
     setDialogOpen(true)
   }
 
@@ -117,6 +151,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
     setFormValues({
       name: company.name,
       contactNo: company.contactNo,
+      headOfficeAddress: company.headOfficeAddress ?? "",
       defaultCommissionRate: company.defaultCommissionRate?.toString() ?? "",
     })
     setDialogOpen(true)
@@ -137,15 +172,16 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
       const input = {
         name: formValues.name,
         contactNo: formValues.contactNo,
+        headOfficeAddress: formValues.headOfficeAddress,
         defaultCommissionRate: parsedRate,
       }
       const result = isFinance
         ? editingCompany
           ? await updateFinanceCompany({ ...input, id: editingCompany.id })
-          : await createFinanceCompany(input)
+          : await createFinanceCompany({ ...input, offices: officeRows })
         : editingCompany
           ? await updateInsuranceCompany({ ...input, id: editingCompany.id })
-          : await createInsuranceCompany(input)
+          : await createInsuranceCompany({ ...input, offices: officeRows })
       if (!result.success) {
         toast.error(result.error)
         return
@@ -233,6 +269,107 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
     }
   }
 
+  function renderChevron(company: ManagedCompany, isOpen: boolean) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-expanded={isOpen}
+        aria-label={`${isOpen ? "Collapse" : "Expand"} ${company.name}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          toggleOne(company.id)
+        }}
+      >
+        {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+      </Button>
+    )
+  }
+
+  function renderAddress(company: ManagedCompany) {
+    const address = company.headOfficeAddress?.trim()
+    if (!address) return null
+    return (
+      <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground" data-testid="company-address">
+        <MapPin className="mt-0.5 size-3 shrink-0" />
+        <span className="break-words">{address}</span>
+      </p>
+    )
+  }
+
+  function renderActions(company: ManagedCompany) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${company.name}`} />}
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setOfficerCompanyId(company.id)}>
+            <UsersRound className="size-4" />
+            Manage Officers
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setOfficeCompanyId(company.id)}>
+            <MapPin className="size-4" />
+            Manage Offices
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openEditDialog(company)}>
+            <Pencil className="size-4" />
+            Edit Company
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={() => void removeCompany(company)}>
+            <Trash2 className="size-4" />
+            Delete Company
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
+  function renderOffices(company: ManagedCompany) {
+    if (company.offices.length === 0) {
+      return (
+        <p className="text-sm text-muted-foreground" data-testid="company-offices-panel">
+          No offices added.{" "}
+          <button type="button" className="font-medium text-primary hover:underline" onClick={() => setOfficeCompanyId(company.id)}>
+            Add office
+          </button>
+        </p>
+      )
+    }
+    return (
+      <div className="space-y-2" data-testid="company-offices-panel">
+        <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] gap-3 text-xs font-medium text-muted-foreground sm:grid">
+          <span>Office</span>
+          <span>Address</span>
+          <span>Phone</span>
+          <span>Status</span>
+        </div>
+        {company.offices.map((office) => (
+          <div
+            key={office.id}
+            className={`grid gap-x-3 gap-y-0.5 rounded-md border bg-background p-2 text-sm sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] sm:items-center ${
+              office.isActive ? "" : "opacity-55"
+            }`}
+            data-testid="office-row"
+          >
+            <span className="font-medium">{office.name}</span>
+            <span className="break-words text-muted-foreground">{office.address || "—"}</span>
+            <span>{office.phone || "—"}</span>
+            <span>
+              <Badge variant={office.isActive ? "default" : "secondary"}>{office.isActive ? "Active" : "Inactive"}</Badge>
+            </span>
+          </div>
+        ))}
+        <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setOfficeCompanyId(company.id)}>
+          Manage offices
+        </button>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="space-y-6">
@@ -241,7 +378,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
               Finance Management
             </p>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{companyTitle}s</h1>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{companiesTitle}</h1>
             <p className="text-sm text-muted-foreground">
               Manage company contacts, commission defaults, and assigned officers.
             </p>
@@ -266,80 +403,126 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Default Commission</TableHead>
-                  <TableHead>Officers</TableHead>
-                  <TableHead className="w-12 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {companies.map((company) => (
-                  <TableRow key={company.id}>
-                    <TableCell className="font-medium">{company.name}</TableCell>
-                    <TableCell>{company.contactNo}</TableCell>
-                    <TableCell>
-                      {company.defaultCommissionRate == null
-                        ? <span className="text-muted-foreground">Not set</span>
-                        : `${company.defaultCommissionRate}%`}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{company.officers.length}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Actions for ${company.name}`}
-                            />
-                          }
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setOfficerCompanyId(company.id)}>
-                            <UsersRound className="size-4" />
-                            Manage Officers
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditDialog(company)}>
-                            <Pencil className="size-4" />
-                            Edit Company
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => void removeCompany(company)}
-                          >
-                            <Trash2 className="size-4" />
-                            Delete Company
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {companies.length === 0 && (
+          <CardContent className="space-y-3">
+            {companies.length > 0 && (
+              <div className="flex justify-end">
+                <Button type="button" variant="outline" size="sm" onClick={toggleAll}>
+                  {allExpanded ? "Collapse all" : "Expand all"}
+                </Button>
+              </div>
+            )}
+
+            {/* Desktop / tablet: one real table, so the header and every row share the same columns. */}
+            <div className="hidden md:block">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-12" />
+                  <col />
+                  <col className="w-44" />
+                  <col className="w-40" />
+                  <col className="w-24" />
+                  <col className="w-24" />
+                  <col className="w-16" />
+                </colgroup>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="h-28 text-center text-muted-foreground">
-                      No companies added yet.
-                    </TableCell>
+                    <TableHead />
+                    <TableHead>Company</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Default Commission</TableHead>
+                    <TableHead>Officers</TableHead>
+                    <TableHead>Offices</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {companies.map((company) => {
+                    const isOpen = expanded.has(company.id)
+                    return (
+                      <React.Fragment key={company.id}>
+                        <TableRow
+                          className="cursor-pointer align-top"
+                          data-testid={`company-row-${company.name}`}
+                          onClick={() => toggleOne(company.id)}
+                        >
+                          <TableCell>{renderChevron(company, isOpen)}</TableCell>
+                          <TableCell className="whitespace-normal">
+                            <p className="font-medium">{company.name}</p>
+                            {renderAddress(company)}
+                          </TableCell>
+                          <TableCell className="whitespace-normal break-words">{company.contactNo}</TableCell>
+                          <TableCell>
+                            {company.defaultCommissionRate == null ? (
+                              <span className="text-muted-foreground">Not set</span>
+                            ) : (
+                              `${company.defaultCommissionRate}%`
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{company.officers.length}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{company.offices.length}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                            {renderActions(company)}
+                          </TableCell>
+                        </TableRow>
+                        {isOpen && (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={7} className="whitespace-normal bg-muted/20 p-3 pl-14">
+                              {renderOffices(company)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile: stacked cards, nothing shares a line it cannot fit on. */}
+            <div className="space-y-3 md:hidden">
+              {companies.map((company) => {
+                const isOpen = expanded.has(company.id)
+                return (
+                  <div key={company.id} className="rounded-lg border" data-testid={`company-card-${company.name}`}>
+                    <div className="flex items-start gap-2 p-3" onClick={() => toggleOne(company.id)}>
+                      {renderChevron(company, isOpen)}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{company.name}</p>
+                        {renderAddress(company)}
+                        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                          <dt className="text-muted-foreground">Contact</dt>
+                          <dd className="break-words">{company.contactNo}</dd>
+                          <dt className="text-muted-foreground">Default commission</dt>
+                          <dd>{company.defaultCommissionRate == null ? "Not set" : `${company.defaultCommissionRate}%`}</dd>
+                          <dt className="text-muted-foreground">Officers</dt>
+                          <dd>{company.officers.length}</dd>
+                          <dt className="text-muted-foreground">Offices</dt>
+                          <dd>{company.offices.length}</dd>
+                        </dl>
+                      </div>
+                      <div onClick={(event) => event.stopPropagation()}>{renderActions(company)}</div>
+                    </div>
+                    {isOpen && <div className="border-t bg-muted/20 p-3">{renderOffices(company)}</div>}
+                  </div>
+                )
+              })}
+            </div>
+
+            {companies.length === 0 && (
+              <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                No companies added yet.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingCompany ? "Edit" : "Add"} {companyTitle}</DialogTitle>
             <DialogDescription>
@@ -369,6 +552,15 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor={`${companyType}-company-address`}>Head office address (optional)</Label>
+              <Input
+                id={`${companyType}-company-address`}
+                value={formValues.headOfficeAddress}
+                onChange={(event) => setFormValues((current) => ({ ...current, headOfficeAddress: event.target.value }))}
+                maxLength={300}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor={`${companyType}-company-rate`}>Default commission rate (%)</Label>
               <Input
                 id={`${companyType}-company-rate`}
@@ -383,6 +575,28 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                 placeholder="Optional"
               />
             </div>
+            {editingCompany ? (
+              <p className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                <span>
+                  {editingCompany.offices.length} {editingCompany.offices.length === 1 ? "office" : "offices"} on record.
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => {
+                    setDialogOpen(false)
+                    setOfficeCompanyId(editingCompany.id)
+                  }}
+                >
+                  <MapPin className="size-3.5" />
+                  Manage offices
+                </Button>
+              </p>
+            ) : (
+              <OfficeRowsEditor rows={officeRows} onChange={setOfficeRows} idPrefix={companyType} />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
@@ -395,6 +609,12 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
           </form>
         </DialogContent>
       </Dialog>
+
+      <CompanyOfficesDialog
+        kind={kind}
+        company={officeCompany ? { id: officeCompany.id, name: officeCompany.name, offices: officeCompany.offices } : null}
+        onClose={() => setOfficeCompanyId(null)}
+      />
 
       <Dialog
         open={Boolean(officerCompanyId)}

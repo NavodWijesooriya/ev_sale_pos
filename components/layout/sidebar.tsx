@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils"
 import {
   Coins,
   BarChart3,
-  Bike,
   Boxes,
   Building2,
   ChevronDown,
@@ -17,7 +16,6 @@ import {
   HelpCircle,
   LayoutDashboard,
   Landmark,
-  Palette,
   PanelLeft,
   PanelLeftClose,
   ShieldAlert,
@@ -29,6 +27,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { hasAnyPermission, isOwner, type Permission } from "@/lib/permissions"
+import { visibleSettingsSections } from "@/lib/settings-nav"
 
 export interface NavItem {
   title: string
@@ -45,6 +44,7 @@ export interface NavItem {
 interface NavChild {
   title: string
   href?: string
+  icon?: React.ElementType
   anyPermission?: Permission[]
   /** Hidden from everyone except the dealership owner. */
   ownerOnly?: boolean
@@ -57,18 +57,22 @@ export const navigationItems: NavItem[] = [
     title: "Sales Management",
     href: "/dashboard/sales/new",
     icon: Coins,
-    anyPermission: ["CREATE_SALE"],
+    // Staff who may only record bank deposits still get this group, with just their own entry in it.
+    anyPermission: ["CREATE_SALE", "MANAGE_BANK_DEPOSITS"],
     children: [
-      { title: "New Sale (POS)", href: "/dashboard/sales/new" },
-      { title: "Sales History", href: "/dashboard/sales/history" },
-      { title: "Advance Payments", href: "/dashboard/sales/advances" },
+      { title: "New Sale (POS)", href: "/dashboard/sales/new", anyPermission: ["CREATE_SALE"] },
+      { title: "Sales History", href: "/dashboard/sales/history", anyPermission: ["CREATE_SALE"] },
+      { title: "Advance Payments", href: "/dashboard/sales/advances", anyPermission: ["CREATE_SALE"] },
       {
         title: "Advance Transfers & Reports",
+        anyPermission: ["CREATE_SALE"],
         children: [
           { title: "Advance Reports", href: "/dashboard/sales/advances/reports" },
           { title: "Advance Transfers", href: "/dashboard/sales/advances/transfers" },
         ],
       },
+      // Shown only to staff the owner has given the bank deposit permission.
+      { title: "Bank Deposits", href: "/dashboard/finance/bank-deposits", anyPermission: ["MANAGE_BANK_DEPOSITS"] },
     ],
   },
   {
@@ -79,7 +83,6 @@ export const navigationItems: NavItem[] = [
     // No group-level role gate: each child is gated on its own so staff keep the links they hold permissions for.
     children: [
       { title: "Finance Receivables", href: "/dashboard/finance/receivables", anyPermission: ["MANAGE_FINANCE_RECEIVABLES"] },
-      { title: "Bank Deposits", href: "/dashboard/finance/bank-deposits", anyPermission: ["MANAGE_BANK_DEPOSITS"] },
       // The pages and server actions below are owner-only.
       { title: "Commission Reports", href: "/dashboard/finance/commissions", ownerOnly: true },
       { title: "Finance Companies", href: "/dashboard/finance/companies", ownerOnly: true },
@@ -122,6 +125,8 @@ export const navigationItems: NavItem[] = [
         anyPermission: ["MANAGE_SUPPLIERS", "RECORD_PAYMENTS"],
       },
       { title: "Cheque Management", href: "/dashboard/suppliers/cheques", anyPermission: ["MANAGE_CHEQUES"] },
+      // Dealership income: owner only (the page and server actions enforce it too).
+      { title: "Supplier Commission", href: "/dashboard/suppliers/commission", ownerOnly: true },
       {
         title: "Ledger & Reports",
         href: "/dashboard/suppliers/reports",
@@ -140,21 +145,9 @@ export const navigationItems: NavItem[] = [
     ],
   },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, anyPermission: ["VIEW_REPORTS"] },
-  { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
-  {
-    title: "Settings",
-    href: "/dashboard/settings/users",
-    icon: Settings,
-    anyPermission: ["MANAGE_USERS", "ACCESS_SETTINGS"],
-    children: [
-      { title: "Users", href: "/dashboard/settings/users", anyPermission: ["MANAGE_USERS"] },
-      { title: "Permissions", href: "/dashboard/settings/permissions", ownerOnly: true },
-      { title: "Commissions", href: "/dashboard/settings/commissions", ownerOnly: true },
-      { title: "Audit Logs", href: "/dashboard/settings/audit-logs", ownerOnly: true },
-      { title: "Branches", href: "/dashboard/settings/branches", anyPermission: ["ACCESS_SETTINGS"] },
-    ],
-  },
-  { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
+  // The children are filled in from lib/settings-nav.ts for the signed-in user (sections, icons, same permission
+  // rules as the pages). With nothing to show, the group disappears.
+  { title: "Settings", href: "/dashboard/settings", icon: Settings, children: [] },
   { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },
   { title: "Platform Admin", href: "/super-admin", icon: ShieldAlert, roles: ["SuperAdmin"] },
 ]
@@ -184,21 +177,20 @@ export function SidebarContent({
     Boolean(pathname?.startsWith("/dashboard/grn/")),
   )
   const [salesExpanded, setSalesExpanded] = React.useState(
-    Boolean(pathname?.startsWith("/dashboard/sales/")),
+    Boolean(pathname?.startsWith("/dashboard/sales/") || pathname?.startsWith("/dashboard/finance/bank-deposits")),
   )
   const [advancesExpanded, setAdvancesExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/sales/advances")),
   )
   const [financeExpanded, setFinanceExpanded] = React.useState(
-    Boolean(pathname?.startsWith("/dashboard/finance/")),
+    Boolean(pathname?.startsWith("/dashboard/finance/") && !pathname.startsWith("/dashboard/finance/bank-deposits")),
   )
-  const [settingsExpanded, setSettingsExpanded] = React.useState(
-    Boolean(
-      ["users", "permissions", "commissions", "audit-logs", "branches"].some((p) =>
-        pathname?.startsWith("/dashboard/settings/" + p),
-      ),
-    ),
-  )
+  // null = follow the page: open on any /dashboard/settings/* page, until the user toggles it by hand.
+  const [settingsToggled, setSettingsToggled] = React.useState<boolean | null>(null)
+  const onSettingsPath = Boolean(pathname?.startsWith("/dashboard/settings"))
+  const settingsExpanded = settingsToggled ?? onSettingsPath
+  // Accordion inside Settings: null = follow the page (the group holding the current page is open), "" = all closed.
+  const [settingsGroup, setSettingsGroup] = React.useState<string | null>(null)
   const [supplierExpanded, setSupplierExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/suppliers")),
   )
@@ -219,7 +211,18 @@ export function SidebarContent({
     }
     return undefined
   }
+  // Settings: each section is a collapsible group of pages. A section with a single visible page is a direct link.
+  const settingsChildren: NavChild[] = visibleSettingsSections(subject).map((section) =>
+    section.items.length === 1
+      ? { title: section.items[0].title, href: section.items[0].href, icon: section.items[0].icon }
+      : {
+          title: section.title,
+          icon: section.icon,
+          children: section.items.map((item) => ({ title: item.title, href: item.href, icon: item.icon })),
+        },
+  )
   const visibleItems = navigationItems
+    .map((item) => (item.title === "Settings" ? { ...item, children: settingsChildren } : item))
     .filter(
       (item) =>
         (!item.roles || item.roles.includes(userRole)) &&
@@ -250,6 +253,14 @@ export function SidebarContent({
           ? hasActiveChild(child.children)
           : false,
     )
+  const activeSettingsGroup = settingsChildren.find((c) => c.children && hasActiveChild(c.children))?.title ?? ""
+  const openSettingsGroup = settingsGroup ?? activeSettingsGroup
+  const isGroupOpen = (parent: string, group: string) =>
+    parent === "Settings" ? openSettingsGroup === group : advancesExpanded
+  const toggleGroup = (parent: string, group: string) => {
+    if (parent === "Settings") setSettingsGroup(openSettingsGroup === group ? "" : group)
+    else setAdvancesExpanded((expanded) => !expanded)
+  }
 
   return (
     <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -340,7 +351,7 @@ export function SidebarContent({
                           if (item.title === "Finance Management") setFinanceExpanded(true)
                           if (item.title === "Service Management") setServiceManagementExpanded(true)
                           if (item.title === "Supplier Management") setSupplierExpanded(true)
-                          if (item.title === "Settings") setSettingsExpanded(true)
+                          if (item.title === "Settings") setSettingsToggled(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
@@ -355,7 +366,7 @@ export function SidebarContent({
                         } else if (item.title === "Supplier Management") {
                           setSupplierExpanded((expanded) => !expanded)
                         } else if (item.title === "Settings") {
-                          setSettingsExpanded((expanded) => !expanded)
+                          setSettingsToggled(!settingsExpanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}
@@ -429,17 +440,26 @@ export function SidebarContent({
                             {child.children ? (
                               <button
                                 type="button"
-                                onClick={() => setAdvancesExpanded((expanded) => !expanded)}
-                                aria-expanded={advancesExpanded}
+                                onClick={() => toggleGroup(item.title, child.title)}
+                                aria-expanded={isGroupOpen(item.title, child.title)}
                                 className={cn(
                                   "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
-                                  isChildActive
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                  item.title === "Settings"
+                                    ? isChildActive
+                                      ? "font-semibold text-sidebar-accent-foreground hover:bg-sidebar-accent/70"
+                                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                    : isChildActive
+                                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                                 )}
                               >
-                                {child.title}
-                                {advancesExpanded
+                                <span className="flex min-w-0 items-center gap-2">
+                                  {child.icon && (
+                                    <child.icon className={cn("size-3.5 shrink-0", isChildActive && item.title === "Settings" && "text-primary")} />
+                                  )}
+                                  <span className="truncate">{child.title}</span>
+                                </span>
+                                {isGroupOpen(item.title, child.title)
                                   ? <ChevronDown className="size-3.5 text-muted-foreground" />
                                   : <ChevronRight className="size-3.5 text-muted-foreground" />}
                               </button>
@@ -447,18 +467,19 @@ export function SidebarContent({
                               <Link
                                 href={child.href}
                                 onClick={onNavigate}
-                                aria-current={pathname === child.href ? "page" : undefined}
+                                aria-current={isChildActive ? "page" : undefined}
                                 className={cn(
-                                  "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                  "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                                   isChildActive
                                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                                     : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                                 )}
                               >
+                                {child.icon && <child.icon className="size-3.5 shrink-0" />}
                                 {child.title}
                               </Link>
                             ) : null}
-                            {!isCollapsed && child.children && advancesExpanded && (
+                            {!isCollapsed && child.children && isGroupOpen(item.title, child.title) && (
                               <div className="ml-3 mt-1 space-y-1 border-l border-sidebar-border pl-2">
                                 {child.children.map((nestedChild) => (
                                   nestedChild.href ? (
@@ -468,12 +489,13 @@ export function SidebarContent({
                                       onClick={onNavigate}
                                       aria-current={pathname === nestedChild.href ? "page" : undefined}
                                       className={cn(
-                                        "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                        "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                                         pathname?.startsWith(nestedChild.href)
                                           ? "bg-sidebar-accent text-sidebar-accent-foreground"
                                           : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                                       )}
                                     >
+                                      {nestedChild.icon && <nestedChild.icon className="size-3.5 shrink-0" />}
                                       {nestedChild.title}
                                     </Link>
                                   ) : null

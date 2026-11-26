@@ -1,12 +1,5 @@
 import { z } from "zod"
-
-export const FREE_SALE_ITEMS = [
-  "Helmet",
-  "Jacket",
-  "Carpet",
-  "Number Plate Holder",
-  "Key Tag",
-] as const
+import { optionalTinSchema } from "@/lib/validations/tin"
 
 export const salePaymentMethods = ["Cash", "Leasing", "Card", "Bank Transfer"] as const
 
@@ -47,7 +40,8 @@ export const createNewSaleSchema = z.object({
   paymentType: z.enum(salePaymentTypes),
   paymentMethod: z.enum(salePaymentMethods, { error: "Select a payment method." }),
   warrantyOption: z.enum(saleWarrantyOptions, { error: "Select a warranty option." }),
-  freeItems: z.array(z.enum(FREE_SALE_ITEMS)).max(FREE_SALE_ITEMS.length),
+  // Ids of the active free items the customer gets; the server saves their names on the sale.
+  freeItemIds: z.array(z.string().trim().min(1)).max(100),
   freeServices: z.number().int().min(0),
   advancePaymentId: z.string().trim().optional().or(z.literal("")),
   financeCompanyId: z.string().trim().optional().or(z.literal("")),
@@ -58,9 +52,32 @@ export const createNewSaleSchema = z.object({
   commissionAmount: z.number().min(0).optional().nullable(),
   insuranceType: z.enum(insuranceTypeOptions),
   insuranceCompanyId: z.string().trim().optional().or(z.literal("")),
+  // Optional office of the chosen finance / insurance company (checked against that company on the server).
+  financeOfficeId: z.string().trim().optional().or(z.literal("")),
+  insuranceOfficeId: z.string().trim().optional().or(z.literal("")),
   financeCommission: z.number().min(0).optional().nullable(),
   insuranceCommission: z.number().min(0).optional().nullable(),
   commissionRecipientId: z.string().trim().optional().or(z.literal("")),
+  // Ticked = add the owner-configured third-party insurance amount (the server decides the amount).
+  thirdPartyInsurance: z.boolean().optional(),
+  // Optional customer TIN; when blank, the TIN of the advance being used (if any) is carried in.
+  tinNumber: optionalTinSchema,
 })
 
 export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>
+
+/** Defaults for the customer-paid sale charges; the owner can change them under Settings > Sale Charges. */
+export const DEFAULT_RMV_CHARGE_FINANCE = 14_300
+export const DEFAULT_RMV_CHARGE_CASH = 10_300
+export const DEFAULT_THIRD_PARTY_INSURANCE = 1_200
+
+export interface SaleChargeSettings {
+  rmvChargeFinance: number
+  rmvChargeCash: number
+  thirdPartyInsurance: number
+}
+
+/** RMV charge for a payment type. Finance sales and cash sales have different amounts. */
+export function rmvChargeFor(settings: SaleChargeSettings, isFinance: boolean): number {
+  return isFinance ? settings.rmvChargeFinance : settings.rmvChargeCash
+}

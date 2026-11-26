@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { hasPermission } from "@/lib/permissions"
 import { SaleOverview } from "@/components/sales/sale-overview"
 
 export const instant = false
@@ -77,7 +78,7 @@ export default async function SaleDetailPage({ params }: SalePageProps) {
         },
       },
       financeDetail: true,
-      dmtRegistration: true,
+      dmtRegistration: { include: { ownerCustomer: { select: { name: true } } } },
     },
   })
 
@@ -85,5 +86,5 @@ export default async function SaleDetailPage({ params }: SalePageProps) {
     notFound()
   }
 
-  return <SaleOverview sale={sale as any} />
+  return <SaleOverview sale={sale as any} canCancel={hasPermission(session.user, "CANCEL_SALE")} />
 }

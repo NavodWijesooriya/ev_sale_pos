@@ -20,6 +20,7 @@ import {
   HelpCircle,
 } from "lucide-react"
 import Link from "next/link"
+import { activeSale } from "@/lib/sale-status"
 
 export const instant = false
 
@@ -35,7 +36,7 @@ export default async function SuperAdminPage() {
   }
   const [organizations, salesAgg, activeVehiclesCount] = await Promise.all([
     getRegisteredDealerships(),
-    prisma.sale.aggregate({ _sum: { totalAmount: true } }),
+    prisma.sale.aggregate({ where: activeSale, _sum: { totalAmount: true } }),
     prisma.vehicle.count({ where: { status: VehicleStatus.AVAILABLE } }),
   ])
 

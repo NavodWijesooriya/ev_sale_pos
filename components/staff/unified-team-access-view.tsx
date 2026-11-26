@@ -45,14 +45,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { updateStaffAccess, addNewStaff, type BranchOption, type StaffUserItem } from "@/app/actions/staff"
+import Link from "next/link"
 import { StaffPermissionsDialog } from "@/components/staff/staff-permissions-dialog"
+import { EMPTY_PAY_FORM, PayFields, payFormToRates, type PayFormState } from "@/components/staff/pay-fields"
 import { ALL_PERMISSIONS, isOwner } from "@/lib/permissions"
 import { UserRole } from "@prisma/client"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 interface UnifiedTeamAccessViewProps {
   initialStaff: StaffUserItem[]
   currentUserId: string
   branches?: BranchOption[]
+  /** Only the owner sees salary and staff commission. */
+  canManagePay?: boolean
 }
 
 const roleOptions: Array<{ value: UserRole; label: string; description: string }> = [
@@ -63,7 +68,7 @@ const roleOptions: Array<{ value: UserRole; label: string; description: string }
   { value: UserRole.Technician, label: "Technician", description: "After-sales services & job cards" },
 ]
 
-export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = [] }: UnifiedTeamAccessViewProps) {
+export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = [], canManagePay = false }: UnifiedTeamAccessViewProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [staffList, setStaffList] = React.useState<StaffUserItem[]>(initialStaff)
@@ -79,6 +84,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
     password: "",
     role: UserRole.SalesRep as UserRole,
   })
+  const [addPay, setAddPay] = React.useState<PayFormState>(EMPTY_PAY_FORM)
 
   // Sync state if props update from server
   React.useEffect(() => {
@@ -175,6 +181,8 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
         email: addForm.email.trim(),
         password: addForm.password,
         role: addForm.role,
+        // The server ignores this unless the signed-in user is the owner.
+        ...(canManagePay ? { pay: payFormToRates(addPay) } : {}),
       })
 
       if (!res.success) {
@@ -190,6 +198,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
         password: "",
         role: UserRole.SalesRep,
       })
+      setAddPay(EMPTY_PAY_FORM)
 
       startTransition(() => {
         router.refresh()
@@ -206,19 +215,9 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Settings &amp; Permissions
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Team &amp; Access</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your dealership staff members, dynamically update roles, and control system login access.
-          </p>
-        </div>
-
-        {/* Action Controls */}
+      <SettingsPageHeader
+        page="users"
+        actions={
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-muted-foreground shadow-xs">
@@ -233,6 +232,15 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
             )}
           </div>
 
+          {canManagePay && (
+            <Link
+              href="/dashboard/settings/payroll"
+              className="inline-flex h-8 items-center rounded-lg border bg-card px-3 text-xs font-medium shadow-xs hover:bg-muted"
+            >
+              Staff payroll
+            </Link>
+          )}
+
           <Button
             onClick={() => setIsAddStaffOpen(true)}
             className="gap-2 shadow-xs"
@@ -242,7 +250,8 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
             <span>Add Staff</span>
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Staff Table Card */}
       <Card className="rounded-2xl border-border/70 shadow-sm overflow-hidden">
@@ -286,7 +295,17 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
                         <div className="flex items-center gap-2.5">
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 font-medium text-sm text-foreground">
-                              <span>{user.name}</span>
+                              {canManagePay ? (
+                                <Link
+                                  href={`/dashboard/settings/users/${user.id}`}
+                                  className="text-primary hover:underline"
+                                  data-testid="staff-profile-link"
+                                >
+                                  {user.name}
+                                </Link>
+                              ) : (
+                                <span>{user.name}</span>
+                              )}
                               {isCurrent && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
                                   You
@@ -478,6 +497,13 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
                 </SelectContent>
               </Select>
             </div>
+
+            {canManagePay && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-sm font-medium">Salary &amp; staff commission (optional)</p>
+                <PayFields idPrefix="add-pay" form={addPay} onChange={setAddPay} disabled={isSubmittingNewStaff} />
+              </div>
+            )}
 
             <DialogFooter className="pt-2">
               <Button

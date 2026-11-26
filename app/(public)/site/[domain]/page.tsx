@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: PageProps) {
       OR: [
         { subdomain: { equals: normalized, mode: "insensitive" } },
         { domain: { equals: normalized, mode: "insensitive" } },
+        { customDomain: { equals: normalized, mode: "insensitive" } },
       ],
     },
     select: { businessName: true },
@@ -47,6 +48,7 @@ export default async function DealershipStorefrontPage({ params }: PageProps) {
       OR: [
         { subdomain: { equals: normalizedDomain, mode: "insensitive" } },
         { domain: { equals: normalizedDomain, mode: "insensitive" } },
+        { customDomain: { equals: normalizedDomain, mode: "insensitive" } },
       ],
     },
     include: {

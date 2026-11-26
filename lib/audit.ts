@@ -5,6 +5,24 @@ type Client = Prisma.TransactionClient | typeof prisma
 
 export type AuditAction =
   | "SALE_CREATED"
+  | "SALE_CANCELLED"
+  | "DEALERSHIP_DOMAIN_CHANGED"
+  | "SUPPLIER_COMMISSION_SLABS_CHANGED"
+  | "SUPPLIER_TARGET_CHANGED"
+  | "SUPPLIER_TARGETS_COPIED"
+  | "SUPPLIER_COMMISSION_MONTH_CLOSED"
+  | "SUPPLIER_COMMISSION_MONTH_REOPENED"
+  | "SUPPLIER_COMMISSION_RECEIVED"
+  | "SUPPLIER_COMMISSION_RECEIVED_UNDONE"
+  | "SALE_CHARGE_SETTINGS_CHANGED"
+  | "VEHICLE_OWNERSHIP_TRANSFERRED"
+  | "STAFF_PAY_CHANGED"
+  | "STAFF_COMMISSION_RECALCULATED"
+  | "FREE_ITEM_CREATED"
+  | "FREE_ITEM_UPDATED"
+  | "FREE_ITEM_ACTIVATED"
+  | "FREE_ITEM_DEACTIVATED"
+  | "FREE_ITEM_DELETED"
   | "GRN_CREATED"
   | "GRN_PAYABLE_UPDATED"
   | "SUPPLIER_PAYMENT_RECORDED"
@@ -46,6 +64,15 @@ export type AuditAction =
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
+  SALE_CANCELLED: "Sale cancelled",
+  DEALERSHIP_DOMAIN_CHANGED: "Dealership custom domain changed (platform)",
+  SUPPLIER_COMMISSION_SLABS_CHANGED: "Supplier commission slabs changed",
+  SUPPLIER_TARGET_CHANGED: "Supplier monthly target changed",
+  SUPPLIER_TARGETS_COPIED: "Supplier targets copied from last month",
+  SUPPLIER_COMMISSION_MONTH_CLOSED: "Supplier commission month closed",
+  SUPPLIER_COMMISSION_MONTH_REOPENED: "Supplier commission month reopened",
+  SUPPLIER_COMMISSION_RECEIVED: "Supplier commission marked received",
+  SUPPLIER_COMMISSION_RECEIVED_UNDONE: "Supplier commission received undone",
   GRN_CREATED: "GRN created",
   GRN_PAYABLE_UPDATED: "GRN payable updated",
   SUPPLIER_PAYMENT_RECORDED: "Supplier payment recorded",
@@ -62,6 +89,15 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   STAFF_UPDATED: "Staff account updated",
   STAFF_STATUS_CHANGED: "Staff access changed",
   COMMISSION_SETTINGS_CHANGED: "Commission settings changed",
+  SALE_CHARGE_SETTINGS_CHANGED: "Sale charge settings changed",
+  VEHICLE_OWNERSHIP_TRANSFERRED: "Bike ownership transferred",
+  STAFF_PAY_CHANGED: "Staff salary / commission changed",
+  STAFF_COMMISSION_RECALCULATED: "Staff commission recalculated",
+  FREE_ITEM_CREATED: "Free item added",
+  FREE_ITEM_UPDATED: "Free item updated",
+  FREE_ITEM_ACTIVATED: "Free item activated",
+  FREE_ITEM_DEACTIVATED: "Free item deactivated",
+  FREE_ITEM_DELETED: "Free item deleted",
   ADVANCE_RECORDED: "Customer advance recorded",
   ADVANCE_REFUNDED: "Customer advance refunded",
   BRANCH_CREATED: "Branch created",

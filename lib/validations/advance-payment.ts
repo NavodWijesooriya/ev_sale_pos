@@ -1,8 +1,10 @@
 import { z } from "zod"
+import { optionalTinSchema } from "@/lib/validations/tin"
 
 export const createAdvancePaymentSchema = z.object({
   customerId: z.string().trim().min(1, "Select a customer."),
   nicNumber: z.string().trim().min(1, "Enter the customer's NIC number."),
+  tinNumber: optionalTinSchema,
   bikeModel: z.string().trim().min(1, "Enter the bike model.").max(120),
   amount: z.number().finite().positive("Amount must be greater than zero."),
   advanceDate: z

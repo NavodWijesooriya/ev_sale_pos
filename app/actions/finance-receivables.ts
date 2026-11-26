@@ -19,6 +19,7 @@ import {
 } from "@/lib/finance-receivables"
 import { branchFilter } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
+import { activeSale } from "@/lib/sale-status"
 
 // Money a finance (leasing) company still owes the dealership, and the payments it makes.
 // Mirrors app/actions/supplier-payments.ts (allocation, row locks, exactly-once reversal, audit),
@@ -115,6 +116,8 @@ export interface ReceivableItem {
   saleDate: string
   customerName: string
   branchName: string
+  /** Finance company office chosen on the sale (name as saved), if any. */
+  officeName: string | null
   totalFinanceAmount: number
   receivedAmount: number
   balanceAmount: number
@@ -158,6 +161,7 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
         sale: {
           organizationId,
           ...branchFilter(user),
+          ...activeSale,
           ...(filters.branchId && !restricted ? { branchId: filters.branchId } : {}),
         },
         balanceAmount: { gt: EPSILON },
@@ -172,6 +176,7 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
             saleDate: true,
             customer: { select: { name: true } },
             branch: { select: { name: true } },
+            financeOfficeName: true,
           },
         },
       },
@@ -202,12 +207,13 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
       saleDate: d.sale.saleDate.toISOString(),
       customerName: d.sale.customer.name,
       branchName: d.sale.branch.name,
+      officeName: d.sale.financeOfficeName,
       totalFinanceAmount: d.totalFinanceAmount,
       receivedAmount: d.receivedAmount,
       balanceAmount: d.balanceAmount,
       reservedAmount,
       availableAmount: Math.max(0, round2(d.balanceAmount - reservedAmount)),
-      status: d.status,
+      status: d.status === "Cancelled" ? "Pending" : d.status, // cancelled sales are filtered out of the query
       expectedDate: d.expectedDate?.toISOString() ?? null,
       overdue: d.expectedDate ? d.expectedDate.getTime() < now.getTime() : false,
       ageDays,
@@ -256,7 +262,7 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
 export async function getCompanyAllocatableSales(financeCompanyId: string) {
   const { user, organizationId } = await requireReceivablesUser()
   const details = await prisma.financeDetail.findMany({
-    where: { financeCompanyId, balanceAmount: { gt: EPSILON }, sale: { organizationId, ...branchFilter(user) } },
+    where: { financeCompanyId, balanceAmount: { gt: EPSILON }, sale: { organizationId, ...branchFilter(user), ...activeSale } },
     select: {
       id: true,
       balanceAmount: true,
@@ -353,7 +359,7 @@ export async function recordFinanceReceipt(input: RecordFinanceReceiptInput) {
         where: {
           id: { in: ids },
           financeCompanyId: company.id,
-          sale: { organizationId, ...branchFilter(user) },
+          sale: { organizationId, ...branchFilter(user), ...activeSale },
         },
         select: { id: true, balanceAmount: true, sale: { select: { invoiceNumber: true } } },
       })

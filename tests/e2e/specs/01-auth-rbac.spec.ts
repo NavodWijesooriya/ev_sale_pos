@@ -26,13 +26,14 @@ const EXPECTED: Partial<Record<RoleKey, { entries: string[]; finance: string[] |
   owner: {
     entries: [
       "Dashboard", "Sales Management", "Finance Management", "Customers", "GRN Management", "Supplier Management",
-      "Service Management", "Reports", "Vehicle Models", "Settings", "Storefront Branding", "Help Center",
+      "Service Management", "Reports", "Settings", "Help Center",
     ],
-    finance: ["Finance Receivables", "Bank Deposits", "Commission Reports", "Finance Companies", "Insurance Companies"],
+    // Bank Deposits now lives under Sales Management (see spec 26).
+    finance: ["Finance Receivables", "Commission Reports", "Finance Companies", "Insurance Companies"],
   },
   branchManager: {
-    entries: ["Dashboard", "Sales Management", "Finance Management", "Customers", "GRN Management", "Supplier Management", "Reports", "Vehicle Models", "Help Center"],
-    finance: ["Finance Receivables", "Bank Deposits"],
+    entries: ["Dashboard", "Sales Management", "Finance Management", "Customers", "GRN Management", "Supplier Management", "Reports", "Settings", "Help Center"],
+    finance: ["Finance Receivables"],
   },
   cashier: { entries: ["Dashboard", "Sales Management", "Customers", "Help Center"], finance: null },
   receivablesStaff: { entries: ["Dashboard", "Finance Management", "Help Center"], finance: ["Finance Receivables"] },
@@ -96,7 +97,7 @@ test.describe("direct URL access to forbidden pages is blocked", () => {
   })
 
   test("a signed-out visitor is sent to the login page", async ({ browser }) => {
-    const context = await browser.newContext({ baseURL: "http://localhost:3001" })
+    const context = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_PORT ?? 3001}` })
     const page = await context.newPage()
     await page.goto("/dashboard/finance/receivables")
     await expect(page).toHaveURL(/\/login/)

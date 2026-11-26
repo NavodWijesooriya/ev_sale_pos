@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatLKR } from "@/lib/currency"
+import { emptyDateFilter, matchesDateFilter, type DateFilter } from "@/lib/date-filter"
+import { DateFilterFields } from "@/components/shared/date-filter-fields"
 import type { AdvancesReportData, AdvancesReportItem } from "@/app/actions/reports"
 
 interface AdvancesReportTabProps {
@@ -39,6 +41,7 @@ interface AdvancesReportTabProps {
 export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
   const [search, setSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("ALL")
+  const [dates, setDates] = React.useState<DateFilter>(emptyDateFilter)
 
   const { kpis, advances } = data
 
@@ -47,6 +50,7 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
     return advances.filter((adv) => {
       const matchesStatus = statusFilter === "ALL" || adv.status === statusFilter
       if (!matchesStatus) return false
+      if (!matchesDateFilter(adv.advanceDate, dates, "utc")) return false
 
       if (!q) return true
       return (
@@ -59,7 +63,7 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
         (adv.saleInvoiceNumber && adv.saleInvoiceNumber.toLowerCase().includes(q))
       )
     })
-  }, [advances, search, statusFilter])
+  }, [advances, search, statusFilter, dates])
 
   const exportCSV = () => {
     const headers = [
@@ -224,6 +228,8 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
         </div>
       </div>
 
+      <DateFilterFields value={dates} onChange={setDates} idPrefix="advances-tab" />
+
       {/* Detailed Advances DataTable */}
       <Card className="rounded-2xl border-border/70 shadow-sm overflow-hidden">
         <CardHeader className="border-b bg-muted/20 py-3">
@@ -243,6 +249,7 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
                   <TableHead>Customer</TableHead>
                   <TableHead>Allocated Vehicle / Unit GRN</TableHead>
                   <TableHead>Payment Method</TableHead>
+                  <TableHead>Added By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Amount (Rs.)</TableHead>
                   <TableHead>Audit / Transfer Details</TableHead>
@@ -287,6 +294,9 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {adv.paymentMethod}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground" data-testid="report-advance-staff">
+                        {adv.staffName}
                       </TableCell>
                       <TableCell>
                         {adv.status === "PENDING" && (
@@ -350,7 +360,7 @@ export function AdvancesReportTab({ data }: AdvancesReportTabProps) {
 
                 {filteredAdvances.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={8} className="h-32 text-center text-sm text-muted-foreground">
                       No advance records found matching your filters.
                     </TableCell>
                   </TableRow>

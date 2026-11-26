@@ -41,6 +41,7 @@ import {
   recordAdvancePayment,
   type AvailableVehicleOption,
   type AdvancePaymentCustomerOption,
+  type AdvanceVehicleModelOption,
 } from "@/app/actions/advances"
 import { createCustomerOnTheFly } from "@/app/actions/customers"
 
@@ -49,6 +50,8 @@ interface AdvanceFormDialogProps {
   onOpenChange: (open: boolean) => void
   initialCustomers: AdvancePaymentCustomerOption[]
   vehicles: AvailableVehicleOption[]
+  /** Every bike model of the dealership, so an advance can book a model that is not in stock. */
+  models?: AdvanceVehicleModelOption[]
 }
 
 export function AdvanceFormDialog({
@@ -56,6 +59,7 @@ export function AdvanceFormDialog({
   onOpenChange,
   initialCustomers,
   vehicles,
+  models = [],
 }: AdvanceFormDialogProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -66,7 +70,9 @@ export function AdvanceFormDialog({
   // Selection states
   const [selectedCustomerId, setSelectedCustomerId] = React.useState<string>("")
   const [selectedVehicleId, setSelectedVehicleId] = React.useState<string>("")
+  const [selectedModelId, setSelectedModelId] = React.useState<string>("")
   const [amount, setAmount] = React.useState<string>("")
+  const [tinNumber, setTinNumber] = React.useState<string>("")
   const [paymentMethod, setPaymentMethod] = React.useState<string>("Cash")
   const [notes, setNotes] = React.useState<string>("")
 
@@ -93,7 +99,9 @@ export function AdvanceFormDialog({
     if (!open) {
       setSelectedCustomerId("")
       setSelectedVehicleId("")
+      setSelectedModelId("")
       setAmount("")
+      setTinNumber("")
       setPaymentMethod("Cash")
       setNotes("")
       setCustomerQuery("")
@@ -203,7 +211,9 @@ export function AdvanceFormDialog({
         const res = await recordAdvancePayment({
           customerId: selectedCustomerId,
           vehicleId: selectedVehicleId || null,
+          vehicleModelId: selectedVehicleId ? null : selectedModelId || null,
           amount: numericAmount,
+          tinNumber: tinNumber.trim() || null,
           paymentMethod,
           notes: notes.trim() || null,
           branchId: selectedVehicle?.branchId || null,
@@ -296,6 +306,8 @@ export function AdvanceFormDialog({
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
                             setSelectedCustomerId(c.id)
+                            // Default the TIN from the customer's record (still editable).
+                            setTinNumber(c.tinNumber ?? "")
                             setCustomerQuery("")
                             setCustomerOpen(false)
                           }}
@@ -457,6 +469,31 @@ export function AdvanceFormDialog({
               )}
             </div>
 
+            {/* 2b. Bike model that is not in stock (no specific bike) */}
+            <div className="space-y-2">
+              <Label htmlFor="adv-model">Bike Model (if no bike is in stock)</Label>
+              <Select
+                value={selectedVehicleId ? "" : selectedModelId || "__none__"}
+                onValueChange={(val) => setSelectedModelId(!val || val === "__none__" ? "" : val)}
+                disabled={Boolean(selectedVehicleId) || models.length === 0}
+              >
+                <SelectTrigger id="adv-model" className="w-full">
+                  <SelectValue placeholder={selectedVehicleId ? "A bike is selected above" : "Select a bike model"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No specific model (general advance)</SelectItem>
+                  {models.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.brand} {m.modelName} ({formatLKR(m.defaultPrice)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                The advance is booked for the model only. It is linked to the actual bike when the sale is made.
+              </p>
+            </div>
+
             {/* 3. Amount and Payment Method Details */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -493,6 +530,18 @@ export function AdvanceFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="adv-tin">TIN Number (Optional)</Label>
+              <Input
+                id="adv-tin"
+                autoComplete="off"
+                maxLength={20}
+                placeholder="Customer TIN"
+                value={tinNumber}
+                onChange={(e) => setTinNumber(e.target.value)}
+              />
             </div>
 
             {/* Optional Notes */}

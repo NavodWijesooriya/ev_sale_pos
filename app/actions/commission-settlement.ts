@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit"
 import { requireOwner } from "@/lib/authorize"
 import { colomboDateKey, colomboDayRange, parseDateKey } from "@/lib/dates"
 import { prisma } from "@/lib/prisma"
+import { activeSale } from "@/lib/sale-status"
 
 // Every function here is owner-only (requireOwner). Staff cannot see or change settlement data.
 
@@ -62,6 +63,7 @@ export async function getCommissionSettlementLines(filters: SettlementFilters = 
   const sales = await prisma.sale.findMany({
     where: {
       organizationId: owner.organizationId,
+      ...activeSale,
       ...(saleDate ? { saleDate } : {}),
       OR: [
         { commissionAmount: { gt: 0 } },
@@ -96,7 +98,8 @@ export async function getCommissionSettlementLines(filters: SettlementFilters = 
       if (liveAmount <= 0) continue
       if (type && lineType !== type) continue
       const row = rows.get(lineType)
-      const lineStatus: SettlementStatusKey = row?.status ?? "PENDING"
+      // Voided (cancelled-sale) rows never reach here: cancelled sales are filtered out of the query.
+      const lineStatus: SettlementStatusKey = row?.status === "SETTLED" ? "SETTLED" : "PENDING"
       if (status && lineStatus !== status) continue
       lines.push({
         key: `${sale.id}:${lineType}`,
@@ -141,7 +144,7 @@ export async function updateCommissionSettlement(input: UpdateSettlementInput) {
 
     await prisma.$transaction(async (tx) => {
       const sale = await tx.sale.findFirst({
-        where: { id: data.saleId, organizationId: owner.organizationId },
+        where: { id: data.saleId, organizationId: owner.organizationId, ...activeSale },
         select: {
           id: true,
           invoiceNumber: true,
@@ -223,7 +226,7 @@ export async function addRmvCommission(input: { invoiceNumber: string; amount: n
     if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error("Enter an amount above zero.")
 
     const sale = await prisma.sale.findFirst({
-      where: { invoiceNumber, organizationId: owner.organizationId },
+      where: { invoiceNumber, organizationId: owner.organizationId, ...activeSale },
       select: { id: true },
     })
     if (!sale) throw new Error("No sale with that invoice number.")

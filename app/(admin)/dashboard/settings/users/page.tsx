@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { getAuthSession } from "@/lib/auth"
-import { hasPermission } from "@/lib/permissions"
+import { hasPermission, isOwner } from "@/lib/permissions"
 import { getStaffInitialData } from "@/app/actions/staff"
 import { UnifiedTeamAccessView } from "@/components/staff/unified-team-access-view"
 
@@ -31,11 +31,12 @@ export default async function TeamAccessPage() {
   const { users: staff, branches } = await getStaffInitialData()
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="space-y-6">
       <UnifiedTeamAccessView
         initialStaff={staff}
         currentUserId={session.user.id}
         branches={branches}
+        canManagePay={isOwner(session.user)}
       />
     </div>
   )

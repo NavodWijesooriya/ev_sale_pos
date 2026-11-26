@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { isOwner } from "@/lib/permissions"
+import { activeSale } from "@/lib/sale-status"
 
 async function requireOrganization() {
   const session = await getAuthSession()
@@ -87,6 +88,7 @@ export async function getCommissionReports(
 
   const whereClause: any = {
     organizationId,
+    ...activeSale,
     OR: [
       { financeCommission: { gt: 0 } },
       { insuranceCommission: { gt: 0 } },

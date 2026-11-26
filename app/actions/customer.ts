@@ -6,6 +6,7 @@ import { getAuthSession } from "@/lib/auth"
 import { hasAnyPermission } from "@/lib/permissions"
 import { generateNextCustomerCrn } from "@/lib/customer-crn"
 import { CustomerCategory, CustomerType } from "@prisma/client"
+import { normalizeTin, optionalTinSchema } from "@/lib/validations/tin"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 
 const CRM_LEAD_SOURCES = [
@@ -101,6 +102,7 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
   const phone = String(formData.get("phone") ?? "").trim()
   const email = String(formData.get("email") ?? "").trim()
   const nic = normalizeNic(String(formData.get("nic") ?? ""))
+  const tin = optionalTinSchema.safeParse(String(formData.get("tinNumber") ?? ""))
   const address = String(formData.get("address") ?? "").trim()
   const title = String(formData.get("title") ?? "").trim()
   const city = String(formData.get("city") ?? "").trim()
@@ -116,6 +118,9 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
   }
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { success: false, error: "Enter a valid email address." }
+  }
+  if (!tin.success) {
+    return { success: false, error: tin.error.issues[0]?.message ?? "Enter a valid TIN." }
   }
   if (title && !["Mr", "Mrs", "Miss"].includes(title)) {
     return { success: false, error: "Select a valid customer title." }
@@ -168,6 +173,7 @@ export async function createCRMCustomer(formData: FormData): Promise<CreateCRMCu
         phone,
         email: email || null,
         nic,
+        tinNumber: normalizeTin(tin.data),
         address: address || null,
         title: title || null,
         city: city || null,

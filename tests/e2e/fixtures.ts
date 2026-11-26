@@ -6,7 +6,7 @@ import type { E2EFixtures, RoleKey } from "./seed"
 export { expect }
 
 const AUTH_DIR = path.resolve(process.cwd(), "tests/e2e/.auth")
-const BASE_URL = "http://localhost:3001"
+const BASE_URL = `http://localhost:${process.env.E2E_PORT ?? 3001}`
 /** Saved logins older than this are replaced: Supabase access tokens are short-lived and the saved refresh token is single-use. */
 const MAX_AGE_MS = 20 * 60 * 1000
 

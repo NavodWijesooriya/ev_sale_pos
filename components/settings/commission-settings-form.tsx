@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 export function CommissionSettingsForm({ settings }: { settings: CommissionSettingsData }) {
   const router = useRouter()
@@ -45,13 +46,10 @@ export function CommissionSettingsForm({ settings }: { settings: CommissionSetti
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Commission Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Commissions are calculated automatically from these rules when a sale is made. Staff never see rates,
-          amounts or recipients, and sales entered by staff record no commission.
-        </p>
-      </div>
+      <SettingsPageHeader
+        page="commissions"
+        description="Calculated automatically when a sale is made. Staff never see rates, amounts or recipients."
+      />
 
       <Card>
         <CardHeader>

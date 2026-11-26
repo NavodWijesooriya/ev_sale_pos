@@ -75,6 +75,7 @@ export function NewAdvanceDialog({
     () => ({
       customerId: advance?.customerId ?? "",
       nicNumber: advance?.nicNumber ?? "",
+      tinNumber: advance?.tinNumber ?? "",
       bikeModel: advance?.bikeModel ?? "",
       amount: advance?.amount ?? 0,
       advanceDate: advance?.advanceDate.slice(0, 10) ?? getTodayDate(),
@@ -246,6 +247,22 @@ export function NewAdvanceDialog({
               {form.formState.errors.nicNumber && (
                 <p role="alert" className="text-xs text-destructive">
                   {form.formState.errors.nicNumber.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="advance-tin">TIN Number (optional)</Label>
+              <Input
+                id="advance-tin"
+                autoComplete="off"
+                maxLength={20}
+                aria-invalid={Boolean(form.formState.errors.tinNumber)}
+                {...form.register("tinNumber")}
+              />
+              {form.formState.errors.tinNumber && (
+                <p role="alert" className="text-xs text-destructive">
+                  {form.formState.errors.tinNumber.message}
                 </p>
               )}
             </div>

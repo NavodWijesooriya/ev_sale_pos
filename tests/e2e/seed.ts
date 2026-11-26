@@ -222,6 +222,9 @@ export async function seedE2E(): Promise<E2EFixtures> {
       subscriptionStatus: "Active",
     },
   })
+  await prisma.freeItem.createMany({
+    data: ["Helmet", "Jacket", "Carpet", "Number Plate Holder", "Key Tag"].map((name) => ({ organizationId: org.id, name })),
+  })
   const branchA = await prisma.branch.create({ data: { organizationId: org.id, name: "E2E Branch A", location: "Colombo" } })
   const branchB = await prisma.branch.create({ data: { organizationId: org.id, name: "E2E Branch B", location: "Kandy" } })
 
@@ -343,6 +346,11 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["depositSale", "E2E Deposit Customer", "920000001V"],
     ["commFinance", "E2E Commission Finance Customer", "920000002V"],
     ["commInsurance", "E2E Commission Insurance Customer", "920000003V"],
+    // client updates phase 1: sale charges, TIN, history filters, advances without a bike in stock
+    ["chargeBuyer", "E2E Charge Customer", "930000001V"],
+    ["tinBuyer", "E2E TIN Customer", "930000002V"],
+    ["histBuyer", "E2E History Customer", "930000003V"],
+    ["advModel", "E2E Model Advance Customer", "930000004V"],
   ] as const
   const customers: E2EFixtures["customers"] = {}
   for (const [key, name, nic] of customerDefs) {
@@ -383,6 +391,19 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["E2E-STOCK-XFER-02", branchA.id],
     ["E2E-STOCK-XFER-03", branchA.id],
     ["E2E-STOCK-XFER-04", branchA.id],
+    // client updates phase 1
+    ["E2E-STOCK-CHG-01", branchA.id],
+    ["E2E-STOCK-CHG-02", branchA.id],
+    ["E2E-STOCK-CHG-03", branchA.id],
+    ["E2E-STOCK-TIN-01", branchA.id],
+    ["E2E-STOCK-TIN-02", branchA.id],
+    ["E2E-STOCK-TIN-03", branchA.id],
+    ["E2E-STOCK-HIST-01", branchA.id],
+    ["E2E-STOCK-HIST-02", branchA.id],
+    ["E2E-STOCK-HIST-03", branchA.id],
+    ["E2E-STOCK-HIST-04", branchA.id],
+    ["E2E-STOCK-ADVM-01", branchA.id],
+    ["E2E-STOCK-CTIN-01", branchA.id],
   ]
   for (const [chassis, branchId] of stock) {
     await prisma.vehicle.create({

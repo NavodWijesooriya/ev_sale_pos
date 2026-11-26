@@ -20,6 +20,7 @@ export interface CRMCustomerFormValues {
   phone?: string | null
   email?: string | null
   nic?: string | null
+  tinNumber?: string | null
   address?: string | null
   title?: string | null
   city?: string | null
@@ -85,6 +86,10 @@ export function CRMCustomerFormFields({
           <div className="space-y-1.5">
             <Label htmlFor="crm-nic">NIC / Passport</Label>
             <Input id="crm-nic" name="nic" maxLength={64} defaultValue={initialValues?.nic || ""} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="crm-tin">TIN number (optional)</Label>
+            <Input id="crm-tin" name="tinNumber" maxLength={20} autoComplete="off" defaultValue={initialValues?.tinNumber || ""} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="crm-city">City</Label>

@@ -5,7 +5,8 @@ import { defineConfig, devices } from "@playwright/test"
 dotenv.config({ path: path.resolve(__dirname, ".env") })
 dotenv.config({ path: path.resolve(__dirname, "tests/e2e/.env.e2e") })
 
-const PORT = 3001
+// E2E_PORT lets a second checkout (e.g. a git worktree) run beside a dev server already using 3001.
+const PORT = Number(process.env.E2E_PORT ?? 3001)
 
 export default defineConfig({
   testDir: "./tests/e2e/specs",

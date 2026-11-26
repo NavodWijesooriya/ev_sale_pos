@@ -23,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import Link from "next/link"
+import { activeSale } from "@/lib/sale-status"
 
 export const instant = false
 
@@ -82,7 +83,7 @@ export default async function DashboardPage() {
       where: scope,
     }),
     prisma.sale.aggregate({
-      where: scope,
+      where: { ...scope, ...activeSale },
       _sum: { totalAmount: true },
       _count: true,
     }),
@@ -92,16 +93,16 @@ export default async function DashboardPage() {
     // Money still owed by finance companies: finance records of this dealership (and branch) with a balance.
     canSeeReceivables
       ? prisma.financeDetail.aggregate({
-          where: { sale: scope, balanceAmount: { gt: EPSILON } },
+          where: { sale: { ...scope, ...activeSale }, balanceAmount: { gt: EPSILON } },
           _count: true,
           _sum: { balanceAmount: true },
         })
       : Promise.resolve(null),
     prisma.sale.count({
-      where: scope,
+      where: { ...scope, ...activeSale },
     }),
     prisma.sale.findMany({
-      where: scope,
+      where: { ...scope, ...activeSale },
       take: 6,
       orderBy: { saleDate: "desc" },
       include: {

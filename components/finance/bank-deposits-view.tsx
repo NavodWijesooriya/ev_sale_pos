@@ -41,9 +41,11 @@ interface Props {
   initialRows: DepositReportRow[]
   initialTotal: number
   isOwner: boolean
+  /** The signed-in staff member: saved automatically as the person who recorded the deposit. */
+  staffName: string
 }
 
-export function BankDepositsView({ options, initialRows, initialTotal, isOwner }: Props) {
+export function BankDepositsView({ options, initialRows, initialTotal, isOwner, staffName }: Props) {
   const router = useRouter()
   const today = colomboDateKey(new Date())
   const activeAccounts = options.accounts.filter((a) => a.isActive)
@@ -259,6 +261,10 @@ export function BankDepositsView({ options, initialRows, initialTotal, isOwner }
             <div className="space-y-2">
               <Label htmlFor="dep-desc">Description</Label>
               <Input id="dep-desc" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dep-by">Recorded by</Label>
+              <Input id="dep-by" value={staffName} readOnly className="bg-muted/40" />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <Button type="submit" disabled={saving || !branchId || !accountId || !(amountNumber > 0)}>

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { formatLKR } from "@/lib/currency"
 import { getAuthSession } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { CircleDollarSign, Clock3, RotateCcw } from "lucide-react"
 
 export const instant = false
@@ -109,6 +110,8 @@ export default async function AdvancesPage() {
         customers={options.customers}
         branches={options.branches}
         vehicles={availableVehicles}
+        models={options.models}
+        canRefund={hasPermission(session.user, "REFUND_ADVANCES")}
       />
     </div>
   )

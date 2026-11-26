@@ -25,6 +25,10 @@ export interface SaleOptions {
   financeCompany?: string
   /** Finance sales: loan amount (down payment = price - loan). */
   financeAmount?: number
+  /** Tick the "Third-party insurance" box. */
+  thirdPartyInsurance?: boolean
+  /** Optional TIN number typed on the sale form. */
+  tinNumber?: string
 }
 
 /** Fill the POS form for a sale without submitting it. */
@@ -53,6 +57,9 @@ export async function fillSaleForm(page: Page, o: SaleOptions) {
     }
   }
 
+  if (o.thirdPartyInsurance) await page.getByText(/Add third-party insurance/).click()
+  if (o.tinNumber) await page.locator("#sale-tin-number").fill(o.tinNumber)
+
   if (o.insurance) {
     await chooseOption(page, page.locator("#sale-insurance-type"), {
       NONE: /No insurance/,
@@ -76,4 +83,59 @@ export async function createSale(page: Page, o: SaleOptions): Promise<{ saleId: 
   const { invoiceNumber } = await db.sale.findUniqueOrThrow({ where: { id: saleId }, select: { invoiceNumber: true } })
   expect(invoiceNumber).toMatch(/^INV-/)
   return { saleId, invoiceNumber }
+}
+
+/**
+ * Calls a server action straight from the browser session, the way a hand-made request would, bypassing the screen.
+ * Used to prove that a rule is enforced on the server and not only hidden in the UI.
+ * `page` must be signed in and already on a page of the app that loads the action's client reference.
+ */
+export async function callServerAction(
+  page: Page,
+  actionName: string,
+  args: unknown[],
+  /** A page of an allowed user that loads the action's client reference, when `page` itself never loads it. */
+  discoverFrom: Page = page,
+): Promise<string> {
+  const scripts: string[] = await discoverFrom.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .filter((name) => name.includes("/_next/static/") && name.endsWith(".js")),
+  )
+  let actionId = ""
+  for (const url of scripts) {
+    const body = await (await discoverFrom.request.get(url)).text()
+    // Next lists every server action of a module as {"<id>":{"name":"<function>"}} next to its client reference.
+    const match = new RegExp(`"([0-9a-f]{32,})":\\{"name":"${actionName}"`).exec(body)
+    if (match) {
+      actionId = match[1]
+      break
+    }
+  }
+  if (!actionId) throw new Error(`Server action ${actionName} was not found in the loaded scripts.`)
+  const response = await page.request.post(page.url(), {
+    headers: { "Next-Action": actionId, "Content-Type": "text/plain;charset=UTF-8", Accept: "text/x-component" },
+    data: JSON.stringify(args),
+  })
+  return response.text()
+}
+
+/** Open the Add CRM Customer dialog on the CRM customers page. */
+export async function openAddCrmDialog(page: Page) {
+  await page.goto("/dashboard/customers/crm")
+  await page.getByRole("button", { name: "Add CRM Customer" }).click()
+  const dialog = page.getByRole("dialog", { name: "Add CRM Customer" })
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+export async function fillLead(page: Page, o: { name: string; phone: string; nic?: string; tin?: string }) {
+  const dialog = page.getByRole("dialog", { name: "Add CRM Customer" })
+  await dialog.getByLabel("Full name *").fill(o.name)
+  await dialog.getByLabel("Phone number *").fill(o.phone)
+  if (o.nic) await dialog.getByLabel("NIC / Passport").fill(o.nic)
+  if (o.tin) await dialog.getByLabel(/TIN number/).fill(o.tin)
+  await dialog.getByLabel("Lead source *").selectOption("Hotline")
+  return dialog
 }

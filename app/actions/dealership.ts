@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
+import { seedDefaultFreeItems } from "@/lib/free-items"
 import { createClient } from "@/lib/supabase/server"
 import { requirePlatformAdmin } from "@/lib/platform-auth"
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js"
@@ -110,6 +111,7 @@ export async function registerDealership(
           subscriptionStatus: SubscriptionStatus.Active,
         },
       })
+      await seedDefaultFreeItems(tx, organization.id)
 
       // b) Hash admin password
       const passwordHash = await bcrypt.hash(adminPassword, 10)
@@ -421,6 +423,8 @@ export async function createTenant(input: CreateTenantInput): Promise<{
           subscriptionStatus: SubscriptionStatus.Active,
         },
       })
+
+      await seedDefaultFreeItems(tx, org.id)
 
       // b) Create Flagship Branch
       const branch = await tx.branch.create({

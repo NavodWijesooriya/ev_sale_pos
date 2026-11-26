@@ -21,7 +21,7 @@ export default async function PermissionsPage() {
   const staff = users.filter((u) => !isOwner(u) && u.isActive)
 
   return (
-    <div className="mx-auto w-full max-w-[1200px]">
+    <div className="w-full">
       <PermissionsMatrix staff={staff} />
     </div>
   )

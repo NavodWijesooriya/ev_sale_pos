@@ -14,7 +14,7 @@ const STAFF = {
 
 /** Sign in through the real login page in a fresh browser context. */
 async function login(browser: Browser, email: string, password: string) {
-  const context = await browser.newContext({ baseURL: "http://localhost:3001" })
+  const context = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_PORT ?? 3001}` })
   const page = await context.newPage()
   await page.goto("/login")
   await page.getByLabel("Work email").fill(email)

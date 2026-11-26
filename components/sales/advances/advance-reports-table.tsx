@@ -24,6 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatLKR } from "@/lib/currency"
+import { emptyDateFilter, matchesDateFilter, type DateFilter } from "@/lib/date-filter"
+import { DateFilterFields } from "@/components/shared/date-filter-fields"
 
 type AdvanceStatusFilter = "ALL" | AdvancePaymentRecord["status"]
 
@@ -42,20 +44,24 @@ function getStatusStyle(status: AdvancePaymentRecord["status"]) {
 export function AdvanceReportsTable({ advances }: { advances: AdvancePaymentRecord[] }) {
   const [query, setQuery] = React.useState("")
   const [status, setStatus] = React.useState<AdvanceStatusFilter>("ALL")
+  const [dates, setDates] = React.useState<DateFilter>(emptyDateFilter)
 
   const filteredAdvances = React.useMemo(() => {
     const search = query.trim().toLocaleLowerCase()
     return advances.filter((advance) => {
+      // Advance dates are plain dates stored at UTC midnight.
+      if (!matchesDateFilter(advance.advanceDate, dates, "utc")) return false
       const matchesStatus = status === "ALL" || advance.status === status
       const matchesSearch =
         !search ||
         advance.customerName.toLocaleLowerCase().includes(search) ||
         advance.nicNumber.toLocaleLowerCase().includes(search) ||
         advance.bikeModel.toLocaleLowerCase().includes(search) ||
-        advance.paymentDetails.toLocaleLowerCase().includes(search)
+        advance.paymentDetails.toLocaleLowerCase().includes(search) ||
+        advance.staffName.toLocaleLowerCase().includes(search)
       return matchesStatus && matchesSearch
     })
-  }, [advances, query, status])
+  }, [advances, query, status, dates])
 
   return (
     <section className="space-y-4">
@@ -90,6 +96,7 @@ export function AdvanceReportsTable({ advances }: { advances: AdvancePaymentReco
           </SelectContent>
         </Select>
       </div>
+      <DateFilterFields value={dates} onChange={setDates} idPrefix="advance-report" />
 
       <div className="overflow-hidden rounded-xl border bg-card">
         <Table>
@@ -97,6 +104,7 @@ export function AdvanceReportsTable({ advances }: { advances: AdvancePaymentReco
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead>Date</TableHead>
               <TableHead>Customer</TableHead>
+              <TableHead>Added By</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Notes</TableHead>
@@ -120,6 +128,7 @@ export function AdvanceReportsTable({ advances }: { advances: AdvancePaymentReco
                       {advance.nicNumber} · {advance.bikeModel}
                     </div>
                   </TableCell>
+                  <TableCell data-testid="advance-staff">{advance.staffName}</TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
                     {formatLKR(advance.amount)}
                   </TableCell>
@@ -135,7 +144,7 @@ export function AdvanceReportsTable({ advances }: { advances: AdvancePaymentReco
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-28 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
                   {advances.length
                     ? "No advance payments match these filters."
                     : "No advance payments have been recorded yet."}
@@ -150,12 +159,20 @@ export function AdvanceReportsTable({ advances }: { advances: AdvancePaymentReco
 }
 
 export function AdvanceRefundsTable({ refunds }: { refunds: AdvanceRefundRecord[] }) {
+  const [dates, setDates] = React.useState<DateFilter>(emptyDateFilter)
+  const shown = React.useMemo(
+    () => refunds.filter((refund) => matchesDateFilter(refund.refundDate ?? refund.advanceDate, dates, "utc")),
+    [refunds, dates],
+  )
   return (
+    <div className="space-y-4">
+    <DateFilterFields value={dates} onChange={setDates} idPrefix="refund-report" />
     <div className="overflow-hidden rounded-xl border bg-card">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
             <TableHead>Customer Name</TableHead>
+            <TableHead>Added By</TableHead>
             <TableHead>NIC</TableHead>
             <TableHead className="text-right">Refunded Amount</TableHead>
             <TableHead>Original Date</TableHead>
@@ -164,10 +181,11 @@ export function AdvanceRefundsTable({ refunds }: { refunds: AdvanceRefundRecord[
           </TableRow>
         </TableHeader>
         <TableBody>
-          {refunds.length ? (
-            refunds.map((refund) => (
+          {shown.length ? (
+            shown.map((refund) => (
               <TableRow key={refund.id}>
                 <TableCell className="font-medium">{refund.customerName}</TableCell>
+                <TableCell>{refund.staffName}</TableCell>
                 <TableCell>{refund.nicNumber}</TableCell>
                 <TableCell className="text-right font-medium tabular-nums text-destructive">
                   {formatLKR(refund.amount)}
@@ -202,13 +220,16 @@ export function AdvanceRefundsTable({ refunds }: { refunds: AdvanceRefundRecord[
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-                No refunded advance payments have been recorded.
+              <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
+                {refunds.length
+                  ? "No refunded advances match these dates."
+                  : "No refunded advance payments have been recorded."}
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
+    </div>
     </div>
   )
 }

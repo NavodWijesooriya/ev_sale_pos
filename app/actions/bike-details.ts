@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache"
 import { requireAnyPermission, requirePermission } from "@/lib/authorize"
 import { allDocumentsReceived, type DmtStatusKey, type PlateStatusKey } from "@/lib/dmt"
 import { applyDmtPatch, dmtRevalidationPaths, type DmtPatch } from "@/lib/dmt-server"
-import { branchFilter, hasPermission } from "@/lib/permissions"
+import { branchFilter, hasAnyPermission, hasPermission } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
+import { loadOwnershipHistory, type OwnershipHistory } from "@/lib/ownership"
+import { activeSale } from "@/lib/sale-status"
 
 export interface BikeDetails {
   id: string
@@ -44,11 +46,20 @@ export interface BikeDetails {
     documentsComplete: boolean
   }
   canEditDmt: boolean
+  /** Original buyer, every transfer and the current owner (only for a sold bike). */
+  ownership: OwnershipHistory | null
+  /** The viewer may transfer ownership of this (sold) bike. */
+  canTransfer: boolean
+  /** Links to the sale / customer pages are shown only to people who may open them. */
+  canViewSale: boolean
+  canViewCustomers: boolean
+  /** Who the DMT / RMV registration is in the name of, when it was moved by a transfer. */
+  dmtOwnerName: string | null
 }
 
 /** One bike with its batch, sale and DMT / RMV record. Branch-assigned staff only see their own branch's bikes. */
 export async function getBikeDetails(vehicleId: string): Promise<BikeDetails | null> {
-  const user = await requireAnyPermission("CREATE_SALE", "CREATE_GRN", "VIEW_INVENTORY_COST", "MANAGE_WARRANTY_SERVICE")
+  const user = await requireAnyPermission("CREATE_SALE", "CREATE_GRN", "VIEW_INVENTORY_COST", "MANAGE_WARRANTY_SERVICE", "TRANSFER_OWNERSHIP")
 
   const vehicle = await prisma.vehicle.findFirst({
     where: { id: vehicleId, organizationId: user.organizationId, ...branchFilter(user) },
@@ -57,6 +68,7 @@ export async function getBikeDetails(vehicleId: string): Promise<BikeDetails | n
       branch: { select: { name: true } },
       grn: { select: { grnNumber: true } },
       sales: {
+        where: activeSale,
         take: 1,
         orderBy: { saleDate: "desc" },
         include: {
@@ -111,6 +123,13 @@ export async function getBikeDetails(vehicleId: string): Promise<BikeDetails | n
         }
       : null,
     canEditDmt: hasPermission(user, "CREATE_SALE"),
+    ownership: sale ? await loadOwnershipHistory(prisma, user.organizationId, vehicle.id) : null,
+    canTransfer: Boolean(sale) && vehicle.status === "Sold" && hasPermission(user, "TRANSFER_OWNERSHIP"),
+    canViewSale: hasPermission(user, "CREATE_SALE"),
+    canViewCustomers: hasAnyPermission(user, ["MANAGE_CUSTOMERS", "CREATE_SALE"]),
+    dmtOwnerName: dmt?.ownerCustomerId
+      ? ((await prisma.customer.findUnique({ where: { id: dmt.ownerCustomerId }, select: { name: true } }))?.name ?? null)
+      : null,
   }
 }
 

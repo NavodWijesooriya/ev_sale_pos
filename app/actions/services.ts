@@ -6,6 +6,7 @@ import { getAuthSession } from "@/lib/auth"
 import { hasPermission } from "@/lib/permissions"
 import { ServiceType, UserRole, VehicleStatus } from "@prisma/client"
 import type { Prisma } from "@prisma/client"
+import { activeSale } from "@/lib/sale-status"
 
 type ServiceRecordWithParts = Prisma.ServiceRecordGetPayload<{
   include: { serviceJob: { include: { parts: true } } }
@@ -114,6 +115,7 @@ export async function getServiceInitialData() {
           vehicleModel: true,
           branch: true,
           saleItems: {
+            where: { sale: activeSale },
             include: {
               sale: {
                 include: {
@@ -215,6 +217,7 @@ export async function registerExternalVehicle(input: RegisterExternalVehicleInpu
         vehicleModel: true,
         branch: true,
         saleItems: {
+          where: { sale: activeSale },
           include: { sale: { include: { customer: true } } },
           take: 1,
         },
@@ -251,6 +254,7 @@ export async function registerExternalVehicle(input: RegisterExternalVehicleInpu
         vehicleModel: true,
         branch: true,
         saleItems: {
+          where: { sale: activeSale },
           include: { sale: { include: { customer: true } } },
           take: 1,
         },
@@ -433,6 +437,7 @@ export async function completeServiceJob(input: CreateServiceRecordInput) {
           include: {
             vehicleModel: true,
             saleItems: {
+              where: { sale: activeSale },
               include: { sale: { select: { customerId: true } } },
               take: 1,
             },

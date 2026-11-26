@@ -283,6 +283,9 @@ export function PendingDMTTab({ data }: PendingDMTTabProps) {
 
                     <TableCell className="text-xs">
                       <div className="font-semibold text-foreground">{reg.customerName}</div>
+                      {reg.transferredFrom && (
+                        <div className="text-[11px] text-muted-foreground">transferred from {reg.transferredFrom}</div>
+                      )}
                       <div className="text-[11px] text-muted-foreground font-mono">
                         {reg.customerPhone} {reg.customerNIC ? `• NIC: ${reg.customerNIC}` : ""}
                       </div>

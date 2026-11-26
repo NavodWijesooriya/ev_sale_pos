@@ -43,6 +43,8 @@ export interface RMVSaleItem {
     nic?: string | null
     address?: string | null
   }
+  /** Original buyer, when the registration was moved to a new owner (then `customer` is the new owner). */
+  transferredFrom?: string | null
   branch: {
     id: string
     name: string
@@ -319,6 +321,11 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
                             </Badge>
                           )}
                         </div>
+                        {sale.transferredFrom && (
+                          <div className="text-[11px] text-muted-foreground" data-testid="registry-transferred-from">
+                            transferred from {sale.transferredFrom}
+                          </div>
+                        )}
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                           <span className="font-mono flex items-center gap-1">
                             <Phone className="size-3 text-muted-foreground" />

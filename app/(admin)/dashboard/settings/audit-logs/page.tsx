@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAuthSession } from "@/lib/auth"
 import { AUDIT_ACTION_LABELS } from "@/lib/audit"
 import { isOwner } from "@/lib/permissions"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 export const instant = false
 
@@ -59,12 +60,7 @@ export default async function AuditLogsPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Audit Logs</h1>
-        <p className="text-sm text-muted-foreground">
-          Who did what and when. Only the dealership owner can see this page.
-        </p>
-      </div>
+      <SettingsPageHeader page="audit-logs" />
 
       <Card>
         <CardHeader>

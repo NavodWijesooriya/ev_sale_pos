@@ -10,6 +10,7 @@ import {
 } from "@/lib/dmt"
 import { branchFilter } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
+import { activeSale } from "@/lib/sale-status"
 
 export interface DmtPatch {
   hasMTA2?: boolean
@@ -50,7 +51,7 @@ export async function applyDmtPatch(
 ) {
   const result = await prisma.$transaction(async (tx) => {
     const sale = await tx.sale.findFirst({
-      where: { id: saleId, organizationId: user.organizationId, ...branchFilter(user) },
+      where: { id: saleId, organizationId: user.organizationId, ...branchFilter(user), ...activeSale },
       select: { id: true, branchId: true, customerId: true, invoiceNumber: true, items: { select: { vehicleId: true } } },
     })
     if (!sale) throw new Error("Sale not found in your dealership records.")

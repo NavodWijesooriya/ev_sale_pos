@@ -41,12 +41,16 @@ import { Separator } from "@/components/ui/separator"
 import { formatLKR } from "@/lib/currency"
 import {
   createNewSaleSchema,
-  FREE_SALE_ITEMS,
   extendedWarrantyPrice,
   salePaymentMethods,
   saleWarrantyOptions,
   commissionBasisOptions,
   FULL_INSURANCE_COMMISSION,
+  DEFAULT_RMV_CHARGE_CASH,
+  DEFAULT_RMV_CHARGE_FINANCE,
+  DEFAULT_THIRD_PARTY_INSURANCE,
+  rmvChargeFor,
+  type SaleChargeSettings,
   insuranceCommissionFor,
   type CommissionBasis,
   type InsuranceTypeOption,
@@ -97,6 +101,7 @@ export interface CustomerData {
   phone: string
   email?: string | null
   nic?: string | null
+  tinNumber?: string | null
   address?: string | null
 }
 
@@ -104,6 +109,8 @@ export interface FinanceInsuranceOption {
   id: string
   name: string
   defaultCommissionRate: number | null
+  /** Active offices of the company (for the Office dropdown). */
+  offices?: Array<{ id: string; name: string }>
 }
 
 interface NewSaleFormProps {
@@ -117,6 +124,10 @@ interface NewSaleFormProps {
   canManageCommission?: boolean
   /** Owner-configured fixed full-insurance commission (only sent to the owner). */
   fullInsuranceCommission?: number
+  /** Active free items the customer can be given (managed in Owner Settings). */
+  freeItems?: Array<{ id: string; name: string }>
+  /** Customer-paid charges added to this sale (RMV by payment type, optional third-party insurance). */
+  saleCharges?: SaleChargeSettings
   recentSales?: Array<{
     id: string
     customerName: string
@@ -134,7 +145,7 @@ const defaultValues: CreateNewSaleInput = {
   paymentType: "CASH",
   paymentMethod: "Cash",
   warrantyOption: saleWarrantyOptions[0],
-  freeItems: [],
+  freeItemIds: [],
   freeServices: 3,
   advancePaymentId: "",
   financeCompanyId: "",
@@ -148,6 +159,8 @@ const defaultValues: CreateNewSaleInput = {
   financeCommission: null,
   insuranceCommission: null,
   commissionRecipientId: "",
+  thirdPartyInsurance: false,
+  tinNumber: "",
 }
 
 export function NewSaleForm({
@@ -158,6 +171,12 @@ export function NewSaleForm({
   staff = [],
   canManageCommission = false,
   fullInsuranceCommission = FULL_INSURANCE_COMMISSION,
+  freeItems = [],
+  saleCharges = {
+    rmvChargeFinance: DEFAULT_RMV_CHARGE_FINANCE,
+    rmvChargeCash: DEFAULT_RMV_CHARGE_CASH,
+    thirdPartyInsurance: DEFAULT_THIRD_PARTY_INSURANCE,
+  },
   onSaleComplete,
 }: NewSaleFormProps) {
   const router = useRouter()
@@ -168,6 +187,7 @@ export function NewSaleForm({
   const [pendingAdvance, setPendingAdvance] = React.useState<{
     id: string
     amount: number
+    tinNumber?: string | null
   } | null>(null)
   const [isLoadingAdvance, setIsLoadingAdvance] = React.useState(false)
   const advanceRequestId = React.useRef(0)
@@ -196,9 +216,16 @@ export function NewSaleForm({
   const warrantyCharge =
     warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
   const totalVehiclePrice = subtotal + warrantyCharge
+  const thirdPartyChecked = Boolean(useWatch({ control: form.control, name: "thirdPartyInsurance" }))
+  // RMV follows the payment type; third-party insurance only when ticked. These are collected from the customer
+  // on top of the bike price (the finance loan and the commission basis stay on the bike price).
+  const rmvCharge = rmvChargeFor(saleCharges, paymentType === "FINANCE")
+  const thirdPartyAmount = thirdPartyChecked ? saleCharges.thirdPartyInsurance : 0
+  const chargesTotal = rmvCharge + thirdPartyAmount
+  const grandTotal = totalVehiclePrice + chargesTotal
   const advanceDeduction =
     pendingAdvance && advancePaymentId === pendingAdvance.id ? pendingAdvance.amount : 0
-  const finalTotal = Math.max(0, totalVehiclePrice - advanceDeduction)
+  const finalTotal = Math.max(0, grandTotal - advanceDeduction)
 
   // Auto-balance logic for Finance Sales
   const handleDownPaymentChange = (value: number) => {
@@ -343,6 +370,8 @@ export function NewSaleForm({
     advanceRequestId.current += 1
     const requestId = advanceRequestId.current
     form.setValue("customerId", id, { shouldDirty: true, shouldValidate: true })
+    // Default the TIN from the customer's record; the cashier can still change it for this sale only.
+    form.setValue("tinNumber", customers.find((customer) => customer.id === id)?.tinNumber ?? "", { shouldDirty: true })
     form.setValue("advancePaymentId", "", { shouldDirty: true })
     setPendingAdvance(null)
     setCustomerQuery("")
@@ -354,6 +383,10 @@ export function NewSaleForm({
       if (requestId !== advanceRequestId.current) return
       setPendingAdvance(advance)
       if (advance) {
+        // Carry the TIN given with the advance into the sale (the cashier can still change it).
+        if (advance.tinNumber && !form.getValues("tinNumber")) {
+          form.setValue("tinNumber", advance.tinNumber, { shouldDirty: true, shouldValidate: true })
+        }
         form.setValue("advancePaymentId", advance.id, {
           shouldDirty: true,
           shouldValidate: true,
@@ -650,6 +683,25 @@ export function NewSaleForm({
                 </div>
               )}
 
+              <div className="space-y-2">
+                <Label htmlFor="sale-tin-number">
+                  TIN number <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="sale-tin-number"
+                  autoComplete="off"
+                  maxLength={20}
+                  placeholder="Customer TIN"
+                  aria-invalid={Boolean(form.formState.errors.tinNumber)}
+                  {...form.register("tinNumber")}
+                />
+                {form.formState.errors.tinNumber && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {form.formState.errors.tinNumber.message}
+                  </p>
+                )}
+              </div>
+
               {/* Pending Advance Alert */}
               {customerId && !isLoadingAdvance && pendingAdvance && (
                 <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/8 p-4 lg:col-span-2">
@@ -697,13 +749,19 @@ export function NewSaleForm({
               <div className="space-y-3">
                 <Label>Free items</Label>
                 <Controller
-                  name="freeItems"
+                  name="freeItemIds"
                   control={form.control}
                   render={({ field }) => (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {FREE_SALE_ITEMS.map((item) => {
+                      {freeItems.length === 0 && (
+                        <p className="text-xs text-muted-foreground sm:col-span-2">
+                          No free items are active. The owner can add them under Settings &gt; Free Items.
+                        </p>
+                      )}
+                      {freeItems.map((entry) => {
+                        const item = entry.id
                         const checked = field.value.includes(item)
-                        const id = `sale-addon-${item.toLowerCase().replaceAll(" ", "-")}`
+                        const id = `sale-addon-${entry.name.toLowerCase().replaceAll(" ", "-")}`
                         return (
                           <div key={item} className="flex items-center gap-2.5">
                             <Checkbox
@@ -718,7 +776,7 @@ export function NewSaleForm({
                               }
                             />
                             <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
-                              {item}
+                              {entry.name}
                             </Label>
                           </div>
                         )
@@ -899,6 +957,7 @@ export function NewSaleForm({
                           value={field.value ?? ""}
                           onValueChange={(value) => {
                             field.onChange(value === "__none__" ? "" : value)
+                            form.setValue("financeOfficeId", "", { shouldDirty: true })
                             const company = financeCompanies.find((c) => c.id === value)
                             const rate = company?.defaultCommissionRate != null ? company.defaultCommissionRate : 1
                             form.setValue("commissionRate", rate, { shouldDirty: true })
@@ -937,6 +996,35 @@ export function NewSaleForm({
                       E.g. People's Leasing, Commercial Credit, LB Finance, etc.
                     </p>
                   </div>
+
+                  {/* 1b. Office of the finance company */}
+                  {(selectedFinanceCompany?.offices ?? []).length > 0 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="sale-finance-office" className="text-xs font-semibold">Finance company office</Label>
+                      <Controller
+                        name="financeOfficeId"
+                        control={form.control}
+                        render={({ field }) => (
+                          <Select
+                            value={field.value || "__none__"}
+                            onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                          >
+                            <SelectTrigger id="sale-finance-office" className="w-full bg-background">
+                              <SelectValue placeholder="Select office" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Not specified</SelectItem>
+                              {(selectedFinanceCompany?.offices ?? []).map((office) => (
+                                <SelectItem key={office.id} value={office.id}>
+                                  {office.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                  )}
 
                   {/* 2. Down Payment */}
                   <div className="space-y-2">
@@ -1160,6 +1248,46 @@ export function NewSaleForm({
             </Card>
           )}
 
+          {/* Customer-paid charges: RMV (automatic) and optional third-party insurance */}
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle>RMV &amp; third-party insurance</CardTitle>
+              <CardDescription>
+                Added to the bike price. The RMV charge follows the payment type and cannot be edited here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sale-rmv-charge" className="text-xs font-semibold">
+                  RMV charge ({paymentType === "FINANCE" ? "Finance sale" : "Cash sale"})
+                </Label>
+                <Input id="sale-rmv-charge" readOnly value={formatLKR(rmvCharge)} className="bg-muted/40 font-semibold tabular-nums" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sale-third-party-insurance" className="text-xs font-semibold">Third-party insurance</Label>
+                <div className="flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2">
+                  <Checkbox
+                    id="sale-third-party-insurance"
+                    checked={thirdPartyChecked}
+                    onCheckedChange={(checked) =>
+                      form.setValue("thirdPartyInsurance", Boolean(checked), { shouldDirty: true })
+                    }
+                  />
+                  <Label htmlFor="sale-third-party-insurance" className="cursor-pointer text-sm font-normal">
+                    Add third-party insurance ({formatLKR(saleCharges.thirdPartyInsurance)})
+                  </Label>
+                </div>
+                {thirdPartyChecked && insuranceType !== "NONE" && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {insuranceType === "FULL_DEALER"
+                      ? "Full insurance normally already includes third-party cover."
+                      : "The customer is arranging their own insurance."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Insurance Details */}
           <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardHeader>
@@ -1209,7 +1337,10 @@ export function NewSaleForm({
                     render={({ field }) => (
                       <Select
                         value={field.value || "__none__"}
-                        onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                        onValueChange={(value) => {
+                          field.onChange(value === "__none__" ? "" : value)
+                          form.setValue("insuranceOfficeId", "", { shouldDirty: true })
+                        }}
                       >
                         <SelectTrigger id="sale-insurance-company" className="w-full bg-background">
                           <SelectValue placeholder="Select company" />
@@ -1222,6 +1353,35 @@ export function NewSaleForm({
                               {canManageCommission && company.defaultCommissionRate != null
                                 ? ` (${company.defaultCommissionRate}%)`
                                 : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              )}
+
+
+              {(selectedInsuranceCompany?.offices ?? []).length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="sale-insurance-office" className="text-xs font-semibold">Insurance company office</Label>
+                  <Controller
+                    name="insuranceOfficeId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || "__none__"}
+                        onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                      >
+                        <SelectTrigger id="sale-insurance-office" className="w-full bg-background">
+                          <SelectValue placeholder="Select office" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Not specified</SelectItem>
+                          {(selectedInsuranceCompany?.offices ?? []).map((office) => (
+                            <SelectItem key={office.id} value={office.id}>
+                              {office.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1278,6 +1438,20 @@ export function NewSaleForm({
                         <span className="tabular-nums">+{formatLKR(warrantyCharge)}</span>
                       </div>
                     )}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">RMV charge</span>
+                      <span className="font-medium tabular-nums" data-testid="summary-rmv-charge">{formatLKR(rmvCharge)}</span>
+                    </div>
+                    {thirdPartyAmount > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Third-party insurance</span>
+                        <span className="font-medium tabular-nums" data-testid="summary-third-party">{formatLKR(thirdPartyAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-sm font-semibold">
+                      <span>Grand total</span>
+                      <span className="tabular-nums" data-testid="summary-grand-total">{formatLKR(grandTotal)}</span>
+                    </div>
                     <div className="flex items-center justify-between text-sm text-blue-600 dark:text-blue-400">
                       <span>Finance Loan ({selectedFinanceCompany?.name || "Leasing"})</span>
                       <span className="font-semibold tabular-nums">− {formatLKR(financeAmount)}</span>
@@ -1305,11 +1479,11 @@ export function NewSaleForm({
                       <div>
                         <span className="text-sm font-bold block text-foreground">Net Cash Due at POS</span>
                         <span className="text-[11px] text-muted-foreground">
-                          {advanceDeduction > 0 ? "Down payment after advance" : "Upfront down payment"}
+                          {advanceDeduction > 0 ? "Down payment after advance" : "Upfront down payment"} + RMV / insurance charges
                         </span>
                       </div>
                       <span className="text-2xl font-black tracking-tight tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {formatLKR(Math.max(0, downPayment - advanceDeduction))}
+                        {formatLKR(Math.max(0, downPayment + chargesTotal - advanceDeduction))}
                       </span>
                     </div>
                   </>
@@ -1343,6 +1517,20 @@ export function NewSaleForm({
                         </span>
                       </div>
                     )}
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">RMV charge</span>
+                      <span className="font-medium tabular-nums" data-testid="summary-rmv-charge">{formatLKR(rmvCharge)}</span>
+                    </div>
+                    {thirdPartyAmount > 0 && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Third-party insurance</span>
+                        <span className="font-medium tabular-nums" data-testid="summary-third-party">{formatLKR(thirdPartyAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                      <span>Grand total</span>
+                      <span className="tabular-nums" data-testid="summary-grand-total">{formatLKR(grandTotal)}</span>
+                    </div>
                     {pendingAdvance && advanceDeduction > 0 && (
                       <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
                         Pending customer advance will be applied to this sale.

@@ -8,6 +8,7 @@ import { updateStaffPermissions, type StaffUserItem } from "@/app/actions/staff"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import {
   ALL_PERMISSIONS,
   PERMISSION_DEFINITIONS,
@@ -66,13 +67,10 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Permissions</h1>
-        <p className="text-sm text-muted-foreground">
-          Tick what each staff member may do. Changes are enforced on the server and take effect on their next page load.
-          The owner always has every permission.
-        </p>
-      </div>
+      <SettingsPageHeader
+        page="permissions"
+        description="Tick what each staff member may do. Enforced on the server; the owner always has every permission."
+      />
 
       <Card>
         <CardHeader>
@@ -81,18 +79,20 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
             To assign a branch, use <span className="font-medium">Users</span>.
           </CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
+        <CardContent className="overflow-x-auto px-3">
+          {/* Compact on purpose: rotated column labels and narrow cells so every column fits a laptop screen. If a
+              very small screen still needs to scroll, the staff column stays in place. */}
+          <Table className="w-full table-fixed" data-testid="permissions-matrix">
             <TableHeader>
               <TableRow>
-                <TableHead rowSpan={2} className="min-w-48 align-bottom">
+                <TableHead rowSpan={2} className="sticky left-0 z-10 w-44 min-w-44 bg-card align-bottom">
                   Staff member
                 </TableHead>
                 {groupedColumns.map(({ group, keys }) => (
                   <TableHead
                     key={group}
                     colSpan={keys.length}
-                    className="border-l bg-muted/40 text-center text-xs font-semibold uppercase tracking-wide"
+                    className="h-auto whitespace-normal border-l bg-muted/40 px-1 py-1.5 text-center text-[10px] font-semibold uppercase leading-tight tracking-wide"
                   >
                     {group}
                   </TableHead>
@@ -100,8 +100,14 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
               </TableRow>
               <TableRow>
                 {ALL_PERMISSIONS.map((key) => (
-                  <TableHead key={key} className="min-w-28 border-l text-center align-bottom">
-                    <span className="block text-xs leading-tight">{PERMISSION_DEFINITIONS[key].label}</span>
+                  <TableHead
+                    key={key}
+                    title={PERMISSION_DEFINITIONS[key].description}
+                    className="h-36 w-10 min-w-10 border-l px-0 text-center align-bottom"
+                  >
+                    <span className="mx-auto block whitespace-nowrap text-xs font-medium [text-orientation:mixed] [writing-mode:vertical-rl] rotate-180">
+                      {PERMISSION_DEFINITIONS[key].label}
+                    </span>
                   </TableHead>
                 ))}
               </TableRow>
@@ -116,14 +122,14 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
               )}
               {staff.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <TableCell className="sticky left-0 z-10 bg-card">
+                    <p className="truncate font-medium">{user.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
                       {user.role} · {user.branchName ?? "All branches"}
                     </p>
                   </TableCell>
                   {ALL_PERMISSIONS.map((key) => (
-                    <TableCell key={key} className="border-l text-center">
+                    <TableCell key={key} className="border-l px-0 text-center">
                       <input
                         type="checkbox"
                         className="size-4 accent-[var(--primary)]"

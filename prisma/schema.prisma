@@ -51,43 +51,54 @@ model Organization {
   staffCanManageCatalog Boolean            @default(false)
   createdAt             DateTime           @default(now())
 
-  users                 User[]
-  branches              Branch[]
-  suppliers             Supplier[]
-  vehicleModels         VehicleModel[]
-  vehicles              Vehicle[]
-  grns                  GRN[]
-  supplierPayments      SupplierPayment[]
-  cheques               Cheque[]
-  supplierAdvances      SupplierAdvance[]
-  customers             Customer[]
-  sales                 Sale[]
-  financeCompanies      FinanceCompany[]
-  insuranceCompanies    InsuranceCompany[]
-  advancePayments       AdvancePayment[]
-  serviceRecords        ServiceRecord[]
-  testRides             TestRide[]
-  spareParts            SparePart[]
-  serviceJobs           ServiceJob[]
-  auditLogs             AuditLog[]
-  commissionSettings    CommissionSettings?
-  commissionSettlements CommissionSettlement[]
-  financeReceipts       FinanceReceipt[]
-  incomingCheques       IncomingCheque[]
-  bankAccounts          BankAccount[]
-  bankDeposits          BankDeposit[]
-  stockTransfers        StockTransfer[]
-  customDomain          String?                @unique
+  users                      User[]
+  branches                   Branch[]
+  suppliers                  Supplier[]
+  vehicleModels              VehicleModel[]
+  vehicles                   Vehicle[]
+  grns                       GRN[]
+  supplierPayments           SupplierPayment[]
+  cheques                    Cheque[]
+  supplierAdvances           SupplierAdvance[]
+  customers                  Customer[]
+  sales                      Sale[]
+  financeCompanies           FinanceCompany[]
+  insuranceCompanies         InsuranceCompany[]
+  advancePayments            AdvancePayment[]
+  serviceRecords             ServiceRecord[]
+  testRides                  TestRide[]
+  spareParts                 SparePart[]
+  serviceJobs                ServiceJob[]
+  auditLogs                  AuditLog[]
+  commissionSettings         CommissionSettings?
+  commissionSettlements      CommissionSettlement[]
+  financeReceipts            FinanceReceipt[]
+  incomingCheques            IncomingCheque[]
+  bankAccounts               BankAccount[]
+  bankDeposits               BankDeposit[]
+  stockTransfers             StockTransfer[]
+  customDomain               String?                     @unique
+  freeItems                  FreeItem[]
+  companyOffices             CompanyOffice[]
+  ownershipTransfers         VehicleOwnershipTransfer[]
+  supplierCommissionSlabs    SupplierCommissionSlab[]
+  supplierMonthlyTargets     SupplierMonthlyTarget[]
+  supplierCommissionMonths   SupplierCommissionMonth[]
+  supplierCommissionReceipts SupplierCommissionReceipt[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
 model CommissionSettings {
-  organizationId          String       @id
-  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId            String       @id
+  organization              Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   // Fixed dealer commission (LKR) for Full Insurance issued through the dealership on a cash sale.
-  fullInsuranceCommission Float        @default(2000)
-  updatedAt               DateTime     @updatedAt
-  updatedById             String?
+  fullInsuranceCommission   Float        @default(2000)
+  // Customer-paid charges added to every NEW sale (each sale snapshots the amounts it was made with).
+  rmvChargeFinance          Float        @default(14300) // RMV charge (LKR) on Finance sales
+  rmvChargeCash             Float        @default(10300) // RMV charge (LKR) on Cash sales
+  thirdPartyInsuranceAmount Float        @default(1200) // Third-party insurance (LKR), added when the box is ticked
+  updatedAt                 DateTime     @updatedAt
+  updatedById               String?
 }
 
 // Append-only record of critical staff actions. Viewable by the owner only.
@@ -136,6 +147,59 @@ model User {
   commissionSales  Sale[]           @relation("CommissionRecipient")
   advancePayments  AdvancePayment[]
   assignedServices ServiceRecord[]  @relation("AssignedTechnician")
+
+  // What this staff member earns (salary + commissions). Owner-only data.
+  compensations   StaffCompensation[]
+  saleCommissions StaffSaleCommission[]
+}
+
+// Staff pay settings, one row per change with the day it starts applying (Colombo day start).
+// The rates in force on a sale's date are the latest row with effectiveFrom <= that date,
+// so changing a rate never touches commissions already earned.
+model StaffCompensation {
+  id                     String   @id @default(uuid())
+  organizationId         String
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  effectiveFrom          DateTime
+  basicSalary            Float    @default(0) // LKR per month
+  saleCommissionType     String   @default("FIXED") // FIXED (LKR per bike) or PERCENT (% of bike price)
+  saleCommissionValue    Float    @default(0)
+  financeCommissionType  String   @default("FIXED") // FIXED (LKR per finance sale) or PERCENT (% of finance amount)
+  financeCommissionValue Float    @default(0)
+  createdById            String?
+  createdAt              DateTime @default(now())
+
+  @@unique([userId, effectiveFrom])
+  @@index([organizationId, userId])
+}
+
+// What a staff member earned on one sale, frozen with the rates used. This is the STAFF member's earning,
+// separate from the dealership's own finance / insurance commission (CommissionSettlement).
+model StaffSaleCommission {
+  id                     String    @id @default(uuid())
+  organizationId         String
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saleId                 String    @unique
+  sale                   Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleDate               DateTime
+  saleCommission         Float     @default(0)
+  financeCommission      Float     @default(0)
+  // Rates and amounts the figures were worked out from
+  bikePrice              Float     @default(0)
+  financeAmount          Float     @default(0)
+  saleCommissionType     String    @default("FIXED")
+  saleCommissionValue    Float     @default(0)
+  financeCommissionType  String    @default("FIXED")
+  financeCommissionValue Float     @default(0)
+  source                 String    @default("SALE") // SALE (earned when the sale was made) or RECALCULATED (owner)
+  status                 String    @default("ACTIVE") // ACTIVE or VOIDED
+  voidedAt               DateTime?
+  voidReason             String?
+  createdAt              DateTime  @default(now())
+
+  @@index([organizationId, userId, saleDate])
 }
 
 model Branch {
@@ -160,6 +224,7 @@ model Branch {
   transfersOut     StockTransfer[]   @relation("StockTransferFrom")
   transfersIn      StockTransfer[]   @relation("StockTransferTo")
 }
+
 // ==========================================
 // 2. Inventory & Procurement
 // ==========================================
@@ -173,10 +238,11 @@ model Supplier {
   phone          String?
   email          String?
 
-  grns     GRN[]
-  payments SupplierPayment[]
-  cheques  Cheque[]
-  advances SupplierAdvance[]
+  grns           GRN[]
+  payments       SupplierPayment[]
+  cheques        Cheque[]
+  advances       SupplierAdvance[]
+  monthlyTargets SupplierMonthlyTarget[]
 }
 
 model VehicleModel {
@@ -195,8 +261,9 @@ model VehicleModel {
   defaultPrice    Float
   minDownPayment  Float?
 
-  vehicles  Vehicle[]
-  testRides TestRide[]
+  vehicles        Vehicle[]
+  advancePayments AdvancePayment[]
+  testRides       TestRide[]
 }
 
 enum VehicleStatus {
@@ -237,12 +304,13 @@ model Vehicle {
   chargingTime           String? // e.g., "4-6 Hours"
   createdAt              DateTime      @default(now())
 
-  grnItems        GRNItem[]
-  saleItems       SaleItem[]
-  sales           Sale[]              @relation("SaleVehicle")
-  serviceRecords  ServiceRecord[]
-  advancePayments AdvancePayment[]
-  transferItems   StockTransferItem[]
+  grnItems           GRNItem[]
+  saleItems          SaleItem[]
+  sales              Sale[]                     @relation("SaleVehicle")
+  serviceRecords     ServiceRecord[]
+  advancePayments    AdvancePayment[]
+  transferItems      StockTransferItem[]
+  ownershipTransfers VehicleOwnershipTransfer[]
 
   // Unit numbers (JM0101 ...) derive from the dealership's batch number, so they are unique per dealership.
   @@unique([organizationId, unitGrnNumber])
@@ -440,6 +508,7 @@ model Customer {
   phone               String
   email               String?
   nic                 String? // normalised: no spaces, upper-case; unique per organization when set
+  tinNumber           String? // optional TIN, offered as the default on new sales and advances
   address             String?
   crn                 String?          @unique
   title               String?
@@ -457,9 +526,12 @@ model Customer {
 
   sales                    Sale[]
   advancePayments          AdvancePayment[]
-  advanceTransfersReceived AdvanceTransfer[] @relation("AdvanceTransferToCustomer")
+  advanceTransfersReceived AdvanceTransfer[]          @relation("AdvanceTransferToCustomer")
   serviceRecords           ServiceRecord[]
   testRides                TestRide[]
+  transfersFrom            VehicleOwnershipTransfer[] @relation("OwnershipTransferFrom")
+  transfersTo              VehicleOwnershipTransfer[] @relation("OwnershipTransferTo")
+  dmtOwned                 DMTRegistration[]          @relation("DmtOwner")
 
   // A NIC identifies one customer per dealership (NULL stays allowed many times).
   @@unique([organizationId, nic])
@@ -555,6 +627,10 @@ model Sale {
   totalAmount           Float
   discount              Float                  @default(0) // අලුතින් එකතු කළ කොටස
   additionalCharges     Float                  @default(0) // අලුතින් එකතු කළ කොටස
+  // Customer-paid charges added at sale time, saved separately from the bike price (snapshot of the owner settings then).
+  rmvCharge             Float                  @default(0)
+  thirdPartyInsurance   Float                  @default(0)
+  tinNumber             String? // optional customer TIN, printed on the invoice
   advanceDeducted       Float                  @default(0) // Amount deducted from advance payment at checkout
   financeCommission     Float?
   insuranceCommission   Float?
@@ -565,7 +641,7 @@ model Sale {
   deliveryDate          DateTime? // අලුතින් එකතු කළ කොටස
   paymentMethod         String?
   warrantyOption        String?
-  status                String                 @default("Completed")
+  status                String                 @default("Completed") // Completed or CANCELLED (see lib/sale-status.ts)
   freeItems             String[]               @default([])
   freeServices          Int                    @default(0)
 
@@ -573,10 +649,31 @@ model Sale {
   financeDetail   FinanceDetail?
   dmtRegistration DMTRegistration? // අලුතින් එකතු කළ කොටස
   payments        Payment[]
+  freeItemLinks   SaleFreeItem[]
+  staffCommission StaffSaleCommission?
+
+  // Cancellation (void / customer return). The sale is never deleted: it stays with status CANCELLED.
+  cancelledAt           DateTime?
+  cancelledById         String? // plain text so the history survives staff deletion
+  cancelledByName       String?
+  cancelType            String? // MISTAKE ("Entered by mistake") or RETURNED ("Customer returned the bike")
+  cancelReason          String?
+  cancelRefundAmount    Float     @default(0) // money handed back to the customer on cancellation
+  cancelRefundMethod    String? // Cash, BankTransfer or CHEQUE
+  cancelAdvanceReleased Float     @default(0) // customer advance that went back to PENDING
+
+  // Finance / insurance company office chosen for this sale (name kept as it was)
+  financeOfficeId     String?
+  financeOffice       CompanyOffice? @relation("SaleFinanceOffice", fields: [financeOfficeId], references: [id], onDelete: SetNull)
+  financeOfficeName   String?
+  insuranceOfficeId   String?
+  insuranceOffice     CompanyOffice? @relation("SaleInsuranceOffice", fields: [insuranceOfficeId], references: [id], onDelete: SetNull)
+  insuranceOfficeName String?
 
   @@index([organizationId, financeCompanyId])
   @@index([organizationId, insuranceCompanyId])
   @@index([commissionRecipientId])
+  @@index([organizationId, status])
 }
 
 model FinanceCompany {
@@ -585,12 +682,14 @@ model FinanceCompany {
   organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                  String
   contactNo             String
+  headOfficeAddress     String?
   defaultCommissionRate Float?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
   sales    Sale[]           @relation("SaleFinanceCompany")
   officers FinanceOfficer[]
+  offices  CompanyOffice[]
 
   financeDetails  FinanceDetail[]
   receipts        FinanceReceipt[]
@@ -615,12 +714,14 @@ model InsuranceCompany {
   organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                  String
   contactNo             String
+  headOfficeAddress     String?
   defaultCommissionRate Float?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
   sales    Sale[]             @relation("SaleInsuranceCompany")
   officers InsuranceOfficer[]
+  offices  CompanyOffice[]
 
   @@unique([organizationId, name])
 }
@@ -643,7 +744,11 @@ model AdvancePayment {
   customer       Customer             @relation(fields: [customerId], references: [id])
   vehicleId      String?
   vehicle        Vehicle?             @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  // Bike model booked when no specific bike is in stock yet; the bike is linked (vehicleId) when the sale is made
+  vehicleModelId String?
+  vehicleModel   VehicleModel?        @relation(fields: [vehicleModelId], references: [id], onDelete: SetNull)
   nicNumber      String
+  tinNumber      String? // optional customer TIN, carried into the sale when the advance is used
   bikeModel      String
   amount         Float
   advanceDate    DateTime             @default(now())
@@ -664,6 +769,7 @@ model AdvancePayment {
   @@index([organizationId, status])
   @@index([customerId, status])
   @@index([vehicleId])
+  @@index([vehicleModelId])
 }
 
 model AdvanceRefund {
@@ -710,6 +816,7 @@ enum FinanceStatus {
   Pending
   Received
   Partial // some of the finance amount has been received, a balance remains
+  Cancelled // the sale was cancelled: nothing is owed any more
 }
 
 model FinanceDetail {
@@ -740,6 +847,7 @@ enum DMTStatus {
   DocumentsCollected
   Processing
   Completed
+  Cancelled // the sale was cancelled: no registration will happen
 }
 
 // අලුතින් එකතු කළ DMT Tracking Model එක
@@ -759,6 +867,9 @@ model DMTRegistration {
   isInsuranceOk      Boolean           @default(false) // Insurance Card/Policy
   lastNotifiedAt     DateTime? // Last SMS/WhatsApp notification timestamp
   numberPlateStatus  NumberPlateStatus @default(PENDING)
+  // Set when the registration is moved to a new owner by an ownership transfer; null: the buyer of the sale
+  ownerCustomerId    String?
+  ownerCustomer      Customer?         @relation("DmtOwner", fields: [ownerCustomerId], references: [id], onDelete: SetNull)
 }
 
 // ==========================================
@@ -896,6 +1007,7 @@ enum SettlementType {
 enum SettlementStatus {
   PENDING
   SETTLED
+  CANCELLED // the sale was cancelled: this commission is void
 }
 
 // Whether a commission has actually been received/paid out. One row per sale and commission type;
@@ -1115,4 +1227,191 @@ model StockTransferItem {
 
   @@unique([transferId, vehicleId])
   @@index([vehicleId])
+}
+
+// Freebies the owner offers with a sale (helmet, carpet...). Managed in Owner Settings; only active items are
+// offered on NEW sales. A sale keeps the item NAME as a snapshot (Sale.freeItems and SaleFreeItem.itemName).
+model FreeItem {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  saleLinks SaleFreeItem[]
+
+  @@unique([organizationId, name])
+}
+
+// Which FreeItem a sale used (so an item that was ever used cannot be deleted); the name stays as it was.
+model SaleFreeItem {
+  id         String    @id @default(uuid())
+  saleId     String
+  sale       Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  freeItemId String?
+  freeItem   FreeItem? @relation(fields: [freeItemId], references: [id], onDelete: SetNull)
+  itemName   String
+
+  @@index([saleId])
+  @@index([freeItemId])
+}
+
+// An office / branch location of a finance company or an insurance company (not a person: see FinanceOfficer /
+// InsuranceOfficer for the officers). One table for both kinds: exactly one of the two company ids is set
+// (enforced by a CHECK constraint in the migration). A sale keeps the office NAME as a snapshot.
+model CompanyOffice {
+  id                 String            @id @default(uuid())
+  organizationId     String
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  financeCompanyId   String?
+  financeCompany     FinanceCompany?   @relation(fields: [financeCompanyId], references: [id], onDelete: Cascade)
+  insuranceCompanyId String?
+  insuranceCompany   InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id], onDelete: Cascade)
+  name               String
+  address            String?
+  phone              String?
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  financeSales   Sale[] @relation("SaleFinanceOffice")
+  insuranceSales Sale[] @relation("SaleInsuranceOffice")
+
+  @@unique([financeCompanyId, name])
+  @@unique([insuranceCompanyId, name])
+  @@index([organizationId])
+}
+
+// A change of owner of a SOLD bike. The original sale (prices, commissions, receivables) is never touched: its
+// customer stays the buyer. Current owner = toCustomer of the latest transfer, else the buyer of the sale.
+model VehicleOwnershipTransfer {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slipNumber     String       @unique
+  vehicleId      String
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  saleId         String? // the sale the bike was sold in (for reference only)
+  fromCustomerId String
+  fromCustomer   Customer     @relation("OwnershipTransferFrom", fields: [fromCustomerId], references: [id], onDelete: Restrict)
+  toCustomerId   String
+  toCustomer     Customer     @relation("OwnershipTransferTo", fields: [toCustomerId], references: [id], onDelete: Restrict)
+  transferDate   DateTime // Colombo calendar day, stored at UTC midnight of that date
+  reason         String?      @db.Text
+  transferFee    Float        @default(0)
+
+  // Document checklist
+  docTransferForm     Boolean @default(false) // transfer form signed
+  docNicCopies        Boolean @default(false) // NIC copies of both parties
+  docRegistrationBook Boolean @default(false) // original registration document (if registered)
+
+  // DMT / RMV registration moved to the new owner (the previous DMT owner is kept here)
+  dmtOwnerUpdated         Boolean @default(false)
+  dmtPreviousOwnerId      String? // null: the buyer of the sale was the registration owner
+  // Finance sale: the staff member confirmed the leasing company may still hold ownership
+  financeWarningConfirmed Boolean @default(false)
+
+  createdById   String
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  @@index([vehicleId, transferDate])
+  @@index([fromCustomerId])
+  @@index([toCustomerId])
+  @@index([organizationId, transferDate])
+}
+
+// ---------------------------------------------------------------------------------------------
+// Supplier monthly target commission: an incentive the SUPPLIER pays the dealership per unit sold,
+// based on how much of the monthly target was achieved. Dealership income, owner only.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * One step of the commission ladder: from this achievement % upwards, the supplier pays this much per unit.
+ */
+model SupplierCommissionSlab {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromPercent    Float // minimum achievement % for this slab
+  amountPerUnit  Float // commission per unit sold (LKR)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, fromPercent])
+}
+
+/**
+ * Target number of bikes a supplier should sell through the dealership in one month ("YYYY-MM").
+ */
+model SupplierMonthlyTarget {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplier       Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  month          String // "YYYY-MM"
+  targetUnits    Int
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([supplierId, month])
+  @@index([organizationId, month])
+}
+
+/**
+ * A closed month: a snapshot of the figures and the slabs used, so later changes never alter it.
+ */
+model SupplierCommissionMonth {
+  id             String                   @id @default(uuid())
+  organizationId String
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  month          String // "YYYY-MM"
+  closedAt       DateTime                 @default(now())
+  closedById     String?
+  closedByName   String?
+  slabsSnapshot  Json // [{ fromPercent, amountPerUnit }] in force when the month was closed
+  lines          SupplierCommissionLine[]
+
+  @@unique([organizationId, month])
+}
+
+/**
+ * One supplier's figures in a closed month. supplierName is a snapshot; no FK so history survives supplier deletion.
+ */
+model SupplierCommissionLine {
+  id                 String                  @id @default(uuid())
+  monthId            String
+  closedMonth        SupplierCommissionMonth @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  supplierId         String
+  supplierName       String
+  targetUnits        Int
+  unitsSold          Int
+  achievementPercent Float
+  slabFromPercent    Float? // the slab that applied (null = none)
+  amountPerUnit      Float                   @default(0)
+  totalCommission    Float                   @default(0)
+
+  @@unique([monthId, supplierId])
+}
+
+/**
+ * The supplier paid this month's commission to the dealership (works for open and closed months).
+ */
+model SupplierCommissionReceipt {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplierName   String
+  month          String // "YYYY-MM"
+  amount         Float // commission total when it was marked received
+  receivedAt     DateTime
+  reference      String?
+  recordedById   String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, supplierId, month])
 }

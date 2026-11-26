@@ -54,6 +54,16 @@ export const PERMISSION_DEFINITIONS = {
     label: "Delete sales",
     description: "Delete or void sale records.",
   },
+  REFUND_ADVANCES: {
+    group: "Sales & Billing",
+    label: "Refund advances",
+    description: "Refund a customer advance payment. The owner can always do this.",
+  },
+  CANCEL_SALE: {
+    group: "Sales & Billing",
+    label: "Cancel sales",
+    description: "Cancel a sale (entered by mistake, or the customer returned the bike). The owner can always do this.",
+  },
   VIEW_COST_PRICE: {
     group: "Sales & Billing",
     label: "View cost price & profit",
@@ -90,6 +100,11 @@ export const PERMISSION_DEFINITIONS = {
     group: "Customers & Service",
     label: "Manage customers",
     description: "View, add and edit customers and CRM leads.",
+  },
+  TRANSFER_OWNERSHIP: {
+    group: "Customers & Service",
+    label: "Transfer bike ownership",
+    description: "Change the owner of a sold bike to another customer and print the transfer slip. The owner can always do this.",
   },
   MANAGE_WARRANTY_SERVICE: {
     group: "Customers & Service",

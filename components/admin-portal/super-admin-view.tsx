@@ -38,6 +38,7 @@ import {
 } from "lucide-react"
 import { formatLKR } from "@/lib/currency"
 import { CreateDealershipDialog } from "./create-dealership-dialog"
+import { DealershipDomain } from "./dealership-domain"
 import { DealershipOwners } from "./dealership-owners"
 
 export interface OrganizationRow {
@@ -45,6 +46,7 @@ export interface OrganizationRow {
   businessName: string
   subdomain: string | null
   domain: string | null
+  customDomain?: string | null
   subscriptionPlan: string
   subscriptionStatus: string
   createdAt: string
@@ -454,6 +456,7 @@ export function SuperAdminView({
                     {expandedOrgs.has(org.id) && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
                         <TableCell colSpan={9} className="p-0">
+                          <DealershipDomain organizationId={org.id} customDomain={org.customDomain ?? null} />
                           <DealershipOwners organizationId={org.id} businessName={org.businessName} />
                         </TableCell>
                       </TableRow>

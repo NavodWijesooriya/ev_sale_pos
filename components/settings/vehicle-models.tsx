@@ -44,6 +44,7 @@ import { ImageUploader } from "@/components/ui/image-uploader"
 import { formatLKR } from "@/lib/currency"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 export interface VehicleModelRecord {
   id: string
@@ -232,6 +233,8 @@ export function VehicleModels({ initialModels, canManageCatalog }: VehicleModels
   }
 
   return (
+    <div className="space-y-6">
+    <SettingsPageHeader page="vehicle-models" />
     <Card className="border-border shadow-xs">
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -630,5 +633,6 @@ export function VehicleModels({ initialModels, canManageCatalog }: VehicleModels
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   )
 }

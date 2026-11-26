@@ -1,5 +1,6 @@
 "use server"
 
+import { activeSale } from "@/lib/sale-status"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { batchVehicleWhere } from "@/lib/batch"
@@ -8,6 +9,7 @@ import { redactKeys } from "@/lib/redact"
 import { VehicleStatus } from "@prisma/client"
 import { getCommissionReports, type CommissionReportData } from "./finance-reports"
 import {
+
   colomboDateKey,
   colomboDayRange,
   colomboMonthKey,
@@ -73,6 +75,8 @@ export interface PendingDMTItem {
   customerName: string
   customerPhone: string
   customerNIC?: string | null
+  /** Original buyer, when the registration moved to a new owner (then customerName is the new owner). */
+  transferredFrom?: string | null
   vehicleSummary: string
   chassisNumber: string
   branchName: string
@@ -178,6 +182,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
     },
     include: {
       customer: {
@@ -249,7 +254,10 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
     // totalAmount is already net of discount and includes additional charges, so
     // they must not be applied again (that double-counted them), and the deducted
     // advance is real revenue that totalAmount no longer contains.
-    const saleValue = sale.totalAmount + (sale.advanceDeducted || 0)
+    // RMV charge and third-party insurance are collected for others (RMV / the insurer), so they are not revenue:
+    // leaving them in would inflate profit by the pass-through amounts.
+    const saleValue =
+      sale.totalAmount + (sale.advanceDeducted || 0) - (sale.rmvCharge || 0) - (sale.thirdPartyInsurance || 0)
     const saleProfit = saleValue - vehicleCost
 
     const commission =
@@ -387,12 +395,15 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       sale: {
         organizationId,
         ...branchFilter(user),
+        ...activeSale,
       },
       status: {
         not: "Completed",
       },
     },
     include: {
+      // Set when the registration was moved to a new owner by an ownership transfer
+      ownerCustomer: { select: { name: true, phone: true, nic: true } },
       sale: {
         include: {
           customer: {
@@ -461,9 +472,11 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       id: reg.id,
       saleId: reg.saleId,
       saleDate: reg.sale.saleDate.toISOString(),
-      customerName: reg.sale.customer.name,
-      customerPhone: reg.sale.customer.phone,
-      customerNIC: reg.sale.customer.nic,
+      // The current registered owner (the new owner after an ownership transfer), with the original buyer as a note
+      customerName: (reg.ownerCustomer ?? reg.sale.customer).name,
+      customerPhone: (reg.ownerCustomer ?? reg.sale.customer).phone,
+      customerNIC: (reg.ownerCustomer ?? reg.sale.customer).nic,
+      transferredFrom: reg.ownerCustomer ? reg.sale.customer.name : null,
       vehicleSummary,
       chassisNumber,
       branchName: reg.sale.branch.name,
@@ -716,6 +729,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     _sum: {
@@ -735,6 +749,7 @@ export async function getAnalyticsData(
     where: {
       sale: {
         organizationId,
+        ...activeSale,
         saleDate: { gte: start, lte: end },
       },
     },
@@ -775,6 +790,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     select: {
@@ -845,6 +861,7 @@ export async function getAnalyticsData(
     where: {
       sale: {
         organizationId,
+        ...activeSale,
         saleDate: { gte: start, lte: end },
       },
     },
@@ -892,6 +909,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     _count: { id: true },
@@ -905,7 +923,7 @@ export async function getAnalyticsData(
   }))
 
   const recentSalesRaw = await prisma.sale.findMany({
-    where: { organizationId, ...branchFilter(user) },
+    where: { organizationId, ...branchFilter(user), ...activeSale },
     include: {
       customer: { select: { name: true, phone: true } },
       branch: { select: { name: true } },
@@ -941,6 +959,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     include: {
@@ -1067,11 +1086,13 @@ export interface MonthlySalesReportData {
  * For finance sales that is the down payment; for cash sales the invoiced amount.
  */
 function cashCollectedOnSale(
-  sale: { totalAmount: number; downPayment: number | null },
+  sale: { totalAmount: number; downPayment: number | null; rmvCharge?: number | null; thirdPartyInsurance?: number | null },
   isFinance: boolean,
 ): number {
   const invoiced = Math.max(0, sale.totalAmount)
-  return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0)) : invoiced
+  // The RMV charge and third-party insurance are always paid by the customer at the desk, even on finance sales.
+  const charges = (sale.rmvCharge || 0) + (sale.thirdPartyInsurance || 0)
+  return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0) + charges) : invoiced
 }
 
 /** `batch` limits the report to sales of bikes from one round / batch (e.g. "JM 01" or "JM0102"). */
@@ -1086,6 +1107,7 @@ export async function getDailySalesReport(dateStr?: string, batch?: string): Pro
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: startOfDay, lte: endOfDay },
       ...(batch?.trim() ? { items: { some: { vehicle: batchVehicleWhere(batch) } } } : {}),
     },
@@ -1183,6 +1205,7 @@ export async function getMonthlySalesReport(yearMonthStr?: string, batch?: strin
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: startOfMonth, lte: endOfMonth },
       ...(batch?.trim() ? { items: { some: { vehicle: batchVehicleWhere(batch) } } } : {}),
     },

@@ -39,6 +39,9 @@ import {
 } from "lucide-react"
 import { PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
+import { emptyDateFilter, matchesDateFilter, type DateFilter } from "@/lib/date-filter"
+import { DateFilterFields } from "@/components/shared/date-filter-fields"
+import { CancelledBadge, ShowCancelledToggle } from "@/components/sales/cancelled-badge"
 
 export interface SaleRecordItem {
   id: string
@@ -49,6 +52,8 @@ export interface SaleRecordItem {
   warrantyOption?: string | null
   paymentMethod: PaymentMethod
   status: string
+  cancelType?: string | null
+  cancelReason?: string | null
   customer: {
     id: string
     name: string
@@ -104,13 +109,18 @@ interface SalesHistoryTableProps {
 
 export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [dates, setDates] = useState<DateFilter>(emptyDateFilter)
+  const [showCancelled, setShowCancelled] = useState(true)
 
-  // Filtered sales based on search query
+  // Filtered sales based on search query and dates (the CSV export below uses the same list)
   const filteredSales = useMemo(() => {
-    if (!searchQuery.trim()) return sales
+    const dated = sales.filter(
+      (sale) => (showCancelled || sale.status !== "CANCELLED") && matchesDateFilter(sale.saleDate, dates),
+    )
+    if (!searchQuery.trim()) return dated
     const q = searchQuery.toLowerCase()
 
-    return sales.filter((sale) => {
+    return dated.filter((sale) => {
       const matchCustomer =
         sale.customer.name.toLowerCase().includes(q) ||
         sale.customer.phone.toLowerCase().includes(q) ||
@@ -133,7 +143,8 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
 
       return matchCustomer || matchId || matchBranch || matchUser || matchVehicle || matchFinance
     })
-  }, [sales, searchQuery])
+  }, [sales, searchQuery, dates, showCancelled])
+  const cancelledCount = sales.filter((sale) => sale.status === "CANCELLED").length
 
   // Payment badge helper
   const renderPaymentBadge = (method: PaymentMethod) => {
@@ -273,6 +284,12 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
             className="pl-9 h-10"
           />
         </div>
+        <div className="mt-2">
+          <DateFilterFields value={dates} onChange={setDates} idPrefix="sales-dashboard" />
+          <div className="mt-2">
+            <ShowCancelledToggle checked={showCancelled} onChange={setShowCancelled} count={cancelledCount} />
+          </div>
+        </div>
       </CardHeader>
 
       <CardContent className="p-0">
@@ -319,7 +336,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                   })
 
                   return (
-                    <TableRow key={sale.id} className="hover:bg-muted/30 transition-colors border-border/40">
+                    <TableRow key={sale.id} className={`hover:bg-muted/30 transition-colors border-border/40 ${sale.status === "CANCELLED" ? "bg-red-500/5" : ""}`}>
                       {/* Date & Time */}
                       <TableCell className="align-top py-3.5">
                         <div className="flex flex-col">
@@ -332,6 +349,9 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                           <span className="text-[10px] font-mono text-muted-foreground mt-0.5">
                             ID: {sale.id.slice(0, 8)}...
                           </span>
+                          {sale.status === "CANCELLED" && (
+                            <CancelledBadge type={sale.cancelType} reason={sale.cancelReason} className="mt-1" />
+                          )}
                         </div>
                       </TableCell>
 

@@ -17,6 +17,10 @@ import { recordAudit } from "@/lib/audit"
 import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { initialFinanceTracking } from "@/lib/finance-receivables"
+import { loadSaleChargeSettings } from "@/lib/sale-charges"
+import { loadActiveFreeItems } from "@/lib/free-items"
+import { earnStaffCommission } from "@/lib/staff-compensation"
+import { normalizeTin } from "@/lib/validations/tin"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
@@ -24,6 +28,7 @@ import {
   createNewSaleSchema,
   extendedWarrantyPrice,
   insuranceCommissionFor,
+  rmvChargeFor,
   saleWarrantyOptions,
   type CreateNewSaleInput,
 } from "@/lib/validations/new-sale"
@@ -80,6 +85,7 @@ export interface ProcessSaleInput {
 export interface PendingCustomerAdvance {
   id: string
   amount: number
+  tinNumber: string | null
 }
 
 export async function getPendingCustomerAdvance(
@@ -92,7 +98,7 @@ export async function getPendingCustomerAdvance(
       organizationId,
       status: AdvancePaymentStatus.PENDING,
     },
-    select: { id: true, amount: true },
+    select: { id: true, amount: true, tinNumber: true },
     orderBy: [{ advanceDate: "desc" }, { id: "desc" }],
   })
 
@@ -118,13 +124,15 @@ export async function createNewSale(
     const advancePaymentId = data.advancePaymentId?.trim() || null
     const financeCompanyId = data.financeCompanyId?.trim() || null
     const insuranceCompanyId = data.insuranceCompanyId?.trim() || null
+    const financeOfficeId = data.financeOfficeId?.trim() || null
+    const insuranceOfficeId = data.insuranceOfficeId?.trim() || null
     // Non-owner/admin users can never set commissions: anything sent by the client is ignored.
     const commissionRecipientId = commissionsAllowed ? data.commissionRecipientId?.trim() || null : null
     // All read-only lookups happen BEFORE the transaction so it only holds the writes (a slow database
     // used to push the whole checkout past the interactive-transaction timeout). The vehicle and advance
     // guards below are compare-and-set updates inside the transaction, so a stale read here can never
     // sell a bike twice or use an advance twice.
-    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount] = await Promise.all([
+    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount, chargeSettings, activeFreeItems, financeOffice, insuranceOffice] = await Promise.all([
       prisma.customer.findFirst({
         where: { id: data.customerId, organizationId },
         select: { id: true },
@@ -159,10 +167,25 @@ export async function createNewSale(
               organizationId,
               status: AdvancePaymentStatus.PENDING,
             },
-            select: { id: true, amount: true },
+            select: { id: true, amount: true, tinNumber: true, vehicleId: true },
           })
         : Promise.resolve(null),
       commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
+      loadSaleChargeSettings(prisma, organizationId),
+      loadActiveFreeItems(prisma, organizationId),
+      // The office must be an active office of the company that was chosen.
+      financeOfficeId && financeCompanyId
+        ? prisma.companyOffice.findFirst({
+            where: { id: financeOfficeId, financeCompanyId, organizationId, isActive: true },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+      insuranceOfficeId && insuranceCompanyId
+        ? prisma.companyOffice.findFirst({
+            where: { id: insuranceOfficeId, insuranceCompanyId, organizationId, isActive: true },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
     ])
 
     if (!customer) throw new Error("The selected customer was not found.")
@@ -174,6 +197,13 @@ export async function createNewSale(
       throw new Error("The selected insurance company was not found.")
     }
     if (advancePaymentId && !pendingAdvance) throw new Error("The selected customer advance is no longer pending.")
+    if (financeOfficeId && !financeOffice) throw new Error("The selected finance company office is not available.")
+    if (insuranceOfficeId && !insuranceOffice) throw new Error("The selected insurance company office is not available.")
+    // Only active items can be given on a new sale; their names are saved on the sale as a snapshot.
+    const chosenFreeItems = activeFreeItems.filter((item) => data.freeItemIds.includes(item.id))
+    if (chosenFreeItems.length !== new Set(data.freeItemIds).size) {
+      throw new Error("A selected free item is no longer available. Refresh the page and choose again.")
+    }
 
     const subtotal = vehicle.vehicleModel.defaultPrice
     const advanceAmount = pendingAdvance?.amount ?? 0
@@ -187,7 +217,11 @@ export async function createNewSale(
             organizationId,
             status: AdvancePaymentStatus.PENDING,
           },
-          data: { status: AdvancePaymentStatus.USED },
+          // An advance that booked only a bike model (nothing in stock then) is linked to the bike actually sold.
+          data: {
+            status: AdvancePaymentStatus.USED,
+            ...(advance.vehicleId ? {} : { vehicleId: vehicle.id, vehicleModelId: vehicle.vehicleModelId }),
+          },
         })
         if (updatedAdvance.count !== 1) {
           throw new Error("The selected advance was already used by another sale.")
@@ -207,9 +241,15 @@ export async function createNewSale(
       }
 
       const invoiceNumber = `INV-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`
+      const saleDate = new Date()
       const warrantyCharge =
         data.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
       const isFinance = data.paymentType === "FINANCE" || Boolean(financeCompanyId)
+      // Customer-paid charges are decided here from the owner's settings (never taken from the client) and saved
+      // on the sale, so a later settings change does not touch this sale. They are not part of the commission basis
+      // or of the finance amount: the finance loan (and the receivable) cover the bike price only.
+      const rmvCharge = rmvChargeFor(chargeSettings, isFinance)
+      const thirdPartyInsurance = data.thirdPartyInsurance ? chargeSettings.thirdPartyInsurance : 0
       const financeAmt = isFinance ? (data.financeAmount ?? 0) : 0
       const downPmt = isFinance ? (data.downPayment ?? 0) : 0
       const financeCommissionApplies = isFinance && commissionsAllowed
@@ -238,7 +278,11 @@ export async function createNewSale(
           userId,
           vehicleId: vehicle.id,
           invoiceNumber,
-          totalAmount: Math.max(0, subtotal + warrantyCharge - advanceAmount),
+          totalAmount: Math.max(0, subtotal + warrantyCharge + rmvCharge + thirdPartyInsurance - advanceAmount),
+          rmvCharge,
+          thirdPartyInsurance,
+          // The TIN typed on the sale wins; otherwise the one captured with the advance being used.
+          tinNumber: normalizeTin(data.tinNumber) ?? normalizeTin(pendingAdvance?.tinNumber),
           paymentMethod: isFinance ? (data.paymentMethod === "Cash" ? "Leasing" : data.paymentMethod) : data.paymentMethod,
           paymentType: isFinance ? "FINANCE" : "CASH",
           financeAmount: financeAmt,
@@ -247,14 +291,20 @@ export async function createNewSale(
           commissionRate: commRate,
           commissionAmount: finalCommissionAmt,
           warrantyOption: data.warrantyOption,
-          saleDate: new Date(),
+          saleDate,
           status: "Completed",
-          freeItems: data.freeItems,
+          freeItems: chosenFreeItems.map((item) => item.name),
+          freeItemLinks: { create: chosenFreeItems.map((item) => ({ freeItemId: item.id, itemName: item.name })) },
           freeServices: data.freeServices,
           advancePaymentId,
           financeCompanyId: isFinance ? financeCompanyId : null,
           insuranceCompanyId: effectiveInsuranceCompanyId,
           insuranceType,
+          // Office names are kept on the sale as they were.
+          financeOfficeId: isFinance && financeOffice ? financeOffice.id : null,
+          financeOfficeName: isFinance && financeOffice ? financeOffice.name : null,
+          insuranceOfficeId: effectiveInsuranceCompanyId && insuranceOffice ? insuranceOffice.id : null,
+          insuranceOfficeName: effectiveInsuranceCompanyId && insuranceOffice ? insuranceOffice.name : null,
           advanceDeducted: advanceAmount,
           financeCommission: isFinance ? finalCommissionAmt : null,
           insuranceCommission: insuranceCommissionAmt,
@@ -296,7 +346,18 @@ export async function createNewSale(
         entityType: "Sale",
         entityId: sale.id,
         branchId: vehicle.branchId,
-        description: `Invoice ${sale.invoiceNumber}: ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (${vehicle.chassisNumber}), ${isFinance ? "finance" : "cash"} sale`,
+        description: `Invoice ${sale.invoiceNumber}: ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (${vehicle.chassisNumber}), ${isFinance ? "finance" : "cash"} sale (RMV ${rmvCharge}, third-party insurance ${thirdPartyInsurance})`,
+      })
+
+      // What the seller earns on this sale (staff commission), frozen with the rates in force today.
+      await earnStaffCommission(tx, {
+        id: sale.id,
+        organizationId,
+        userId,
+        saleDate,
+        paymentType: isFinance ? "FINANCE" : "CASH",
+        financeAmount: financeAmt,
+        bikePrice: subtotal,
       })
 
       await tx.customer.update({
@@ -635,6 +696,16 @@ export async function processSale(input: ProcessSaleInput) {
         },
       })
 
+      await earnStaffCommission(tx, {
+        id: sale.id,
+        organizationId,
+        userId,
+        saleDate: sale.saleDate,
+        paymentType: sale.paymentType,
+        financeAmount: sale.financeAmount,
+        bikePrice: input.salePrice,
+      })
+
       // Step D: Create SaleItem record
       const saleItem = await tx.saleItem.create({
         data: {
@@ -794,7 +865,7 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
 
     // The DMT workflow rules (and the derived status) live in lib/dmt-server.ts.
     const { dmt, customerId, vehicleIds } = await applyDmtPatch(user as AuthorizedSaleUser, input.saleId, {
-      status: input.status,
+      status: input.status === DMTStatus.Cancelled ? undefined : input.status,
       hasMTA2: input.hasMTA2,
       hasNIC: input.hasNIC,
       hasPhotos: input.hasPhotos,
@@ -932,13 +1003,24 @@ export async function getRMVRegistry() {
             },
           },
         },
-        dmtRegistration: true,
+        dmtRegistration: {
+          include: { ownerCustomer: { select: { id: true, name: true, phone: true, nic: true, address: true } } },
+        },
       },
+    })
+
+    // The registry shows the CURRENT registered owner: when the registration was moved to a new owner by an
+    // ownership transfer, that person is listed and the original buyer is kept as a note.
+    const data = sales.map((sale) => {
+      const owner = sale.dmtRegistration?.ownerCustomer
+      return owner && owner.id !== sale.customer.id
+        ? { ...sale, customer: owner, transferredFrom: sale.customer.name }
+        : { ...sale, transferredFrom: null as string | null }
     })
 
     return {
       success: true,
-      data: sales,
+      data,
     }
   } catch (error) {
     console.error("getRMVRegistry error:", error)
