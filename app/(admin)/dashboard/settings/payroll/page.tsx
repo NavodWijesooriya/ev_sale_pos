@@ -23,7 +23,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const summary = await getPayrollSummary(month)
 
   return (
-    <div className="w-full max-w-5xl space-y-6">
+    <div className="w-full space-y-6">
       <PayrollSummaryView summary={summary} />
     </div>
   )

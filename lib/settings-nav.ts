@@ -167,9 +167,3 @@ export function firstSettingsHref(user: PermissionSubject): string | null {
   return visibleSettingsSections(user)[0]?.items[0]?.href ?? null
 }
 
-/** The settings item for a pathname (the staff profile belongs to Users), or undefined. */
-export function settingsItemForPath(pathname: string | null | undefined): SettingsItem | undefined {
-  if (!pathname) return undefined
-  return ALL_SETTINGS_ITEMS.find((item) => pathname === item.href || pathname.startsWith(item.href + "/"))
-}
-

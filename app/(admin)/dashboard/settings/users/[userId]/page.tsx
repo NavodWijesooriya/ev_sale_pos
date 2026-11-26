@@ -30,7 +30,7 @@ export default async function StaffProfilePage({
   if (!data) notFound()
 
   return (
-    <div className="w-full max-w-5xl space-y-6">
+    <div className="w-full space-y-6">
       <StaffProfileView data={data} />
     </div>
   )

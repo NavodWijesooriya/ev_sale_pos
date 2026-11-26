@@ -27,7 +27,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { hasAnyPermission, isOwner, type Permission } from "@/lib/permissions"
-import { firstSettingsHref } from "@/lib/settings-nav"
+import { visibleSettingsSections } from "@/lib/settings-nav"
 
 export interface NavItem {
   title: string
@@ -44,6 +44,9 @@ export interface NavItem {
 interface NavChild {
   title: string
   href?: string
+  icon?: React.ElementType
+  /** Small label shown above this entry (starts a section, e.g. in Settings). */
+  sectionLabel?: string
   anyPermission?: Permission[]
   /** Hidden from everyone except the dealership owner. */
   ownerOnly?: boolean
@@ -142,9 +145,9 @@ export const navigationItems: NavItem[] = [
     ],
   },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, anyPermission: ["VIEW_REPORTS"] },
-  // One item, no sub-items: the settings pages are listed in the settings menu (see lib/settings-nav.ts).
-  // It is shown only when the user can open at least one settings page, and links to the first of them.
-  { title: "Settings", href: "/dashboard/settings", icon: Settings },
+  // The children are filled in from lib/settings-nav.ts for the signed-in user (sections, icons, same permission
+  // rules as the pages). With nothing to show, the group disappears.
+  { title: "Settings", href: "/dashboard/settings", icon: Settings, children: [] },
   { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },
   { title: "Platform Admin", href: "/super-admin", icon: ShieldAlert, roles: ["SuperAdmin"] },
 ]
@@ -182,6 +185,10 @@ export function SidebarContent({
   const [financeExpanded, setFinanceExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/finance/") && !pathname.startsWith("/dashboard/finance/bank-deposits")),
   )
+  // null = follow the page: open on any /dashboard/settings/* page, until the user toggles it by hand.
+  const [settingsToggled, setSettingsToggled] = React.useState<boolean | null>(null)
+  const onSettingsPath = Boolean(pathname?.startsWith("/dashboard/settings"))
+  const settingsExpanded = settingsToggled ?? onSettingsPath
   const [supplierExpanded, setSupplierExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/suppliers")),
   )
@@ -202,18 +209,25 @@ export function SidebarContent({
     }
     return undefined
   }
+  const settingsChildren: NavChild[] = visibleSettingsSections(subject).flatMap((section) =>
+    section.items.map((item, index) => ({
+      title: item.title,
+      href: item.href,
+      icon: item.icon,
+      sectionLabel: index === 0 ? section.title : undefined,
+    })),
+  )
   const visibleItems = navigationItems
+    .map((item) => (item.title === "Settings" ? { ...item, children: settingsChildren } : item))
     .filter(
       (item) =>
         (!item.roles || item.roles.includes(userRole)) &&
-        (!item.anyPermission || hasAnyPermission(subject, item.anyPermission)) &&
-        (item.href !== "/dashboard/settings" || firstSettingsHref(subject) !== null),
+        (!item.anyPermission || hasAnyPermission(subject, item.anyPermission)),
     )
     .map((item) => (item.children ? { ...item, children: filterChildren(item.children) } : item))
     // A group with nothing left to show disappears; otherwise it links to the first child the user can open.
     .filter((item) => !item.children || item.children.length > 0)
     .map((item) => {
-      if (item.href === "/dashboard/settings") return { ...item, href: firstSettingsHref(subject) ?? item.href }
       const first = item.children ? firstHref(item.children) : undefined
       return first ? { ...item, href: first } : item
     })
@@ -224,6 +238,7 @@ export function SidebarContent({
     if (title === "Finance Management") return financeExpanded
     if (title === "Service Management") return serviceManagementExpanded
     if (title === "Supplier Management") return supplierExpanded
+    if (title === "Settings") return settingsExpanded
     return false
   }
   const hasActiveChild = (children: NavChild[]): boolean =>
@@ -305,8 +320,6 @@ export function SidebarContent({
               const Icon = item.icon
               const isActive = item.children
                 ? hasActiveChild(item.children)
-                : item.title === "Settings"
-                ? Boolean(pathname?.startsWith("/dashboard/settings"))
                 : item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
@@ -326,6 +339,7 @@ export function SidebarContent({
                           if (item.title === "Finance Management") setFinanceExpanded(true)
                           if (item.title === "Service Management") setServiceManagementExpanded(true)
                           if (item.title === "Supplier Management") setSupplierExpanded(true)
+                          if (item.title === "Settings") setSettingsToggled(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
@@ -339,6 +353,8 @@ export function SidebarContent({
                           setServiceManagementExpanded((expanded) => !expanded)
                         } else if (item.title === "Supplier Management") {
                           setSupplierExpanded((expanded) => !expanded)
+                        } else if (item.title === "Settings") {
+                          setSettingsToggled(!settingsExpanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}
@@ -427,19 +443,27 @@ export function SidebarContent({
                                   : <ChevronRight className="size-3.5 text-muted-foreground" />}
                               </button>
                             ) : child.href ? (
-                              <Link
-                                href={child.href}
-                                onClick={onNavigate}
-                                aria-current={pathname === child.href ? "page" : undefined}
-                                className={cn(
-                                  "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                                  isChildActive
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                              <>
+                                {child.sectionLabel && (
+                                  <p className="mb-1 mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground first:mt-1">
+                                    {child.sectionLabel}
+                                  </p>
                                 )}
-                              >
-                                {child.title}
-                              </Link>
+                                <Link
+                                  href={child.href}
+                                  onClick={onNavigate}
+                                  aria-current={isChildActive ? "page" : undefined}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                    isChildActive
+                                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                  )}
+                                >
+                                  {child.icon && <child.icon className="size-3.5 shrink-0" />}
+                                  {child.title}
+                                </Link>
+                              </>
                             ) : null}
                             {!isCollapsed && child.children && advancesExpanded && (
                               <div className="ml-3 mt-1 space-y-1 border-l border-sidebar-border pl-2">

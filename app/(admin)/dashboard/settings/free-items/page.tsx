@@ -19,7 +19,7 @@ export default async function FreeItemsPage() {
 
   const items = await getFreeItems()
   return (
-    <div className="w-full max-w-4xl">
+    <div className="w-full">
       <FreeItemsManager items={items} />
     </div>
   )
