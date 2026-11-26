@@ -66,6 +66,7 @@ export default async function SuperAdminDashboardPage() {
     businessName: o.businessName,
     subdomain: o.subdomain,
     domain: o.domain,
+    customDomain: o.customDomain,
     subscriptionPlan: o.subscriptionPlan,
     subscriptionStatus: o.subscriptionStatus,
     createdAt: o.createdAt.toISOString(),

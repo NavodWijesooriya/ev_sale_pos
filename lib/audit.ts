@@ -6,6 +6,7 @@ type Client = Prisma.TransactionClient | typeof prisma
 export type AuditAction =
   | "SALE_CREATED"
   | "SALE_CANCELLED"
+  | "DEALERSHIP_DOMAIN_CHANGED"
   | "SUPPLIER_COMMISSION_SLABS_CHANGED"
   | "SUPPLIER_TARGET_CHANGED"
   | "SUPPLIER_TARGETS_COPIED"
@@ -64,6 +65,7 @@ export type AuditAction =
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
   SALE_CANCELLED: "Sale cancelled",
+  DEALERSHIP_DOMAIN_CHANGED: "Dealership custom domain changed (platform)",
   SUPPLIER_COMMISSION_SLABS_CHANGED: "Supplier commission slabs changed",
   SUPPLIER_TARGET_CHANGED: "Supplier monthly target changed",
   SUPPLIER_TARGETS_COPIED: "Supplier targets copied from last month",

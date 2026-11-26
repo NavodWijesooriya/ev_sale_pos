@@ -1,5 +1,6 @@
 "use server"
 
+import { getHostContext } from "@/lib/host-tenant"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
@@ -22,6 +23,17 @@ async function authenticate(
     if (!email || typeof password !== "string" || !password) {
       authError = { message: "Email and password are required." }
       throw new Error(authError.message)
+    }
+
+    // A dealership's own domain only lets that dealership's people in; the platform portal is never offered there.
+    const hostContext = await getHostContext()
+    if (hostContext.info.kind === "custom") {
+      if (portal === "platform" || hostContext.info.role === "admin") {
+        return { success: false, error: "Platform administration is not available on this address." }
+      }
+      if (!hostContext.organizationId) {
+        return { success: false, error: "This domain is not configured for a dealership." }
+      }
     }
 
     const supabase = await createClient()
@@ -100,13 +112,22 @@ async function authenticate(
 
       const tenantUser = await prisma.user.findUnique({
         where: { email: userEmail },
-        select: { isActive: true },
+        select: { isActive: true, organizationId: true },
       })
 
       if (!tenantUser?.isActive) {
         return {
           success: false,
           error: "No active dealership account was found for this email.",
+        }
+      }
+
+      if (hostContext.organizationId && tenantUser.organizationId !== hostContext.organizationId) {
+        // Right password, wrong dealership: do not leave a session behind.
+        await supabase.auth.signOut()
+        return {
+          success: false,
+          error: "This account does not belong to this dealership. Please sign in at your own dealership's address.",
         }
       }
 
