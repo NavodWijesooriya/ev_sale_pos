@@ -27,6 +27,9 @@ export interface InvoiceSaleData {
   totalAmount: number
   discount?: number
   additionalCharges?: number
+  /** RMV charge and third-party insurance saved with the sale (0 on sales made before these charges existed). */
+  rmvCharge?: number | null
+  thirdPartyInsurance?: number | null
   warrantyOption?: string | null
   advancePayment?: {
     amount: number
@@ -137,6 +140,11 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
     "Finance Company"
 
   const vehicleTotalPrice = itemSubtotal + warrantyCharge + additionalCharges
+  const rmvCharge = sale.rmvCharge ?? 0
+  const thirdPartyInsurance = sale.thirdPartyInsurance ?? 0
+  const chargesTotal = rmvCharge + thirdPartyInsurance
+  // Bike price + RMV + third-party insurance (+ warranty / additional charges), before any advance or discount.
+  const grandTotal = vehicleTotalPrice + chargesTotal
   const financeAmount = sale.financeAmount || sale.financeDetail?.totalFinanceAmount || 0
   const downPaymentPaid = sale.downPayment || sale.financeDetail?.downPaymentPaid || 0
   const advanceDeduction =
@@ -883,6 +891,25 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   <span style={{ color: "#64748b" }}>Vehicle Total Price:</span>
                   <strong style={{ color: "#0f172a" }}>{formatLKR(vehicleTotalPrice)}</strong>
 
+                  {rmvCharge > 0 && (
+                    <>
+                      <span style={{ color: "#64748b" }}>RMV Charges:</span>
+                      <strong style={{ color: "#0f172a" }}>{formatLKR(rmvCharge)}</strong>
+                    </>
+                  )}
+                  {thirdPartyInsurance > 0 && (
+                    <>
+                      <span style={{ color: "#64748b" }}>Third-Party Insurance:</span>
+                      <strong style={{ color: "#0f172a" }}>{formatLKR(thirdPartyInsurance)}</strong>
+                    </>
+                  )}
+                  {chargesTotal > 0 && (
+                    <>
+                      <span style={{ color: "#64748b" }}>Grand Total:</span>
+                      <strong style={{ color: "#0f172a" }}>{formatLKR(grandTotal)}</strong>
+                    </>
+                  )}
+
                   <span style={{ color: "#64748b" }}>Finance Amount (Loan):</span>
                   <strong style={{ color: "#2563eb" }}>{formatLKR(financeAmount)}</strong>
 
@@ -1014,6 +1041,48 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                 <span>Vehicle Total Price</span>
                 <strong style={{ color: "#0f172a" }}>{formatLKR(vehicleTotalPrice)}</strong>
               </div>
+              {rmvCharge > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#475569",
+                }}
+              >
+                <span>RMV Charges</span>
+                <strong style={{ color: "#0f172a" }} data-testid="invoice-rmv-charge">{formatLKR(rmvCharge)}</strong>
+              </div>
+              )}
+              {thirdPartyInsurance > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#475569",
+                }}
+              >
+                <span>Third-Party Insurance</span>
+                <strong style={{ color: "#0f172a" }} data-testid="invoice-third-party-insurance">{formatLKR(thirdPartyInsurance)}</strong>
+              </div>
+              )}
+              {chargesTotal > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    paddingTop: "2px",
+                    borderTop: "1px dashed #cbd5e1",
+                  }}
+                >
+                  <span>Grand Total</span>
+                  <strong style={{ color: "#0f172a" }} data-testid="invoice-grand-total">{formatLKR(grandTotal)}</strong>
+                </div>
+              )}
 
               {isFinance ? (
                 <>
@@ -1052,7 +1121,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                       <strong>− {formatLKR(advanceDeduction)}</strong>
                     </div>
                   )}
-                  {advanceDeduction > 0 && (
+                  {(advanceDeduction > 0 || chargesTotal > 0) && (
                     <div
                       style={{
                         display: "flex",
@@ -1061,8 +1130,8 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                         color: "#0f172a",
                       }}
                     >
-                      <span>Net Cash Collected at Desk</span>
-                      <strong>{formatLKR(netDownPaymentCollected)}</strong>
+                      <span>Net Cash Collected at Desk{chargesTotal > 0 ? " (incl. RMV / insurance)" : ""}</span>
+                      <strong>{formatLKR(netDownPaymentCollected + chargesTotal)}</strong>
                     </div>
                   )}
                 </>
@@ -1119,7 +1188,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     color: "#047857",
                   }}
                 >
-                  {formatLKR(isFinance ? (downPaymentPaid > 0 ? (advanceDeduction > 0 ? netDownPaymentCollected : downPaymentPaid) : sale.totalAmount) : sale.totalAmount)}
+                  {formatLKR(isFinance ? (downPaymentPaid > 0 ? (advanceDeduction > 0 ? netDownPaymentCollected : downPaymentPaid) + chargesTotal : sale.totalAmount) : sale.totalAmount)}
                 </span>
               </div>
               <div
@@ -1131,7 +1200,7 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                 }}
               >
                 <span>{isFinance ? "Down Payment Settled" : "Amount Paid / Settled"}</span>
-                <strong style={{ color: "#047857" }}>{formatLKR(isFinance ? downPaymentPaid : paidAmount)}</strong>
+                <strong style={{ color: "#047857" }}>{formatLKR(isFinance ? downPaymentPaid + chargesTotal : paidAmount)}</strong>
               </div>
               <div
                 style={{

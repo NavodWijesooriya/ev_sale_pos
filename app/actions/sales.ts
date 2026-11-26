@@ -17,6 +17,7 @@ import { recordAudit } from "@/lib/audit"
 import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { initialFinanceTracking } from "@/lib/finance-receivables"
+import { loadSaleChargeSettings } from "@/lib/sale-charges"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { redactForUser } from "@/lib/redact"
@@ -24,6 +25,7 @@ import {
   createNewSaleSchema,
   extendedWarrantyPrice,
   insuranceCommissionFor,
+  rmvChargeFor,
   saleWarrantyOptions,
   type CreateNewSaleInput,
 } from "@/lib/validations/new-sale"
@@ -124,7 +126,7 @@ export async function createNewSale(
     // used to push the whole checkout past the interactive-transaction timeout). The vehicle and advance
     // guards below are compare-and-set updates inside the transaction, so a stale read here can never
     // sell a bike twice or use an advance twice.
-    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount] = await Promise.all([
+    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount, chargeSettings] = await Promise.all([
       prisma.customer.findFirst({
         where: { id: data.customerId, organizationId },
         select: { id: true },
@@ -163,6 +165,7 @@ export async function createNewSale(
           })
         : Promise.resolve(null),
       commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
+      loadSaleChargeSettings(prisma, organizationId),
     ])
 
     if (!customer) throw new Error("The selected customer was not found.")
@@ -210,6 +213,11 @@ export async function createNewSale(
       const warrantyCharge =
         data.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
       const isFinance = data.paymentType === "FINANCE" || Boolean(financeCompanyId)
+      // Customer-paid charges are decided here from the owner's settings (never taken from the client) and saved
+      // on the sale, so a later settings change does not touch this sale. They are not part of the commission basis
+      // or of the finance amount: the finance loan (and the receivable) cover the bike price only.
+      const rmvCharge = rmvChargeFor(chargeSettings, isFinance)
+      const thirdPartyInsurance = data.thirdPartyInsurance ? chargeSettings.thirdPartyInsurance : 0
       const financeAmt = isFinance ? (data.financeAmount ?? 0) : 0
       const downPmt = isFinance ? (data.downPayment ?? 0) : 0
       const financeCommissionApplies = isFinance && commissionsAllowed
@@ -238,7 +246,9 @@ export async function createNewSale(
           userId,
           vehicleId: vehicle.id,
           invoiceNumber,
-          totalAmount: Math.max(0, subtotal + warrantyCharge - advanceAmount),
+          totalAmount: Math.max(0, subtotal + warrantyCharge + rmvCharge + thirdPartyInsurance - advanceAmount),
+          rmvCharge,
+          thirdPartyInsurance,
           paymentMethod: isFinance ? (data.paymentMethod === "Cash" ? "Leasing" : data.paymentMethod) : data.paymentMethod,
           paymentType: isFinance ? "FINANCE" : "CASH",
           financeAmount: financeAmt,
@@ -296,7 +306,7 @@ export async function createNewSale(
         entityType: "Sale",
         entityId: sale.id,
         branchId: vehicle.branchId,
-        description: `Invoice ${sale.invoiceNumber}: ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (${vehicle.chassisNumber}), ${isFinance ? "finance" : "cash"} sale`,
+        description: `Invoice ${sale.invoiceNumber}: ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (${vehicle.chassisNumber}), ${isFinance ? "finance" : "cash"} sale (RMV ${rmvCharge}, third-party insurance ${thirdPartyInsurance})`,
       })
 
       await tx.customer.update({

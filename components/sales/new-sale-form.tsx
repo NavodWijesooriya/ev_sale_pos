@@ -47,6 +47,11 @@ import {
   saleWarrantyOptions,
   commissionBasisOptions,
   FULL_INSURANCE_COMMISSION,
+  DEFAULT_RMV_CHARGE_CASH,
+  DEFAULT_RMV_CHARGE_FINANCE,
+  DEFAULT_THIRD_PARTY_INSURANCE,
+  rmvChargeFor,
+  type SaleChargeSettings,
   insuranceCommissionFor,
   type CommissionBasis,
   type InsuranceTypeOption,
@@ -117,6 +122,8 @@ interface NewSaleFormProps {
   canManageCommission?: boolean
   /** Owner-configured fixed full-insurance commission (only sent to the owner). */
   fullInsuranceCommission?: number
+  /** Customer-paid charges added to this sale (RMV by payment type, optional third-party insurance). */
+  saleCharges?: SaleChargeSettings
   recentSales?: Array<{
     id: string
     customerName: string
@@ -148,6 +155,7 @@ const defaultValues: CreateNewSaleInput = {
   financeCommission: null,
   insuranceCommission: null,
   commissionRecipientId: "",
+  thirdPartyInsurance: false,
 }
 
 export function NewSaleForm({
@@ -158,6 +166,11 @@ export function NewSaleForm({
   staff = [],
   canManageCommission = false,
   fullInsuranceCommission = FULL_INSURANCE_COMMISSION,
+  saleCharges = {
+    rmvChargeFinance: DEFAULT_RMV_CHARGE_FINANCE,
+    rmvChargeCash: DEFAULT_RMV_CHARGE_CASH,
+    thirdPartyInsurance: DEFAULT_THIRD_PARTY_INSURANCE,
+  },
   onSaleComplete,
 }: NewSaleFormProps) {
   const router = useRouter()
@@ -196,9 +209,16 @@ export function NewSaleForm({
   const warrantyCharge =
     warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
   const totalVehiclePrice = subtotal + warrantyCharge
+  const thirdPartyChecked = Boolean(useWatch({ control: form.control, name: "thirdPartyInsurance" }))
+  // RMV follows the payment type; third-party insurance only when ticked. These are collected from the customer
+  // on top of the bike price (the finance loan and the commission basis stay on the bike price).
+  const rmvCharge = rmvChargeFor(saleCharges, paymentType === "FINANCE")
+  const thirdPartyAmount = thirdPartyChecked ? saleCharges.thirdPartyInsurance : 0
+  const chargesTotal = rmvCharge + thirdPartyAmount
+  const grandTotal = totalVehiclePrice + chargesTotal
   const advanceDeduction =
     pendingAdvance && advancePaymentId === pendingAdvance.id ? pendingAdvance.amount : 0
-  const finalTotal = Math.max(0, totalVehiclePrice - advanceDeduction)
+  const finalTotal = Math.max(0, grandTotal - advanceDeduction)
 
   // Auto-balance logic for Finance Sales
   const handleDownPaymentChange = (value: number) => {
@@ -1160,6 +1180,46 @@ export function NewSaleForm({
             </Card>
           )}
 
+          {/* Customer-paid charges: RMV (automatic) and optional third-party insurance */}
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle>RMV &amp; third-party insurance</CardTitle>
+              <CardDescription>
+                Added to the bike price. The RMV charge follows the payment type and cannot be edited here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sale-rmv-charge" className="text-xs font-semibold">
+                  RMV charge ({paymentType === "FINANCE" ? "Finance sale" : "Cash sale"})
+                </Label>
+                <Input id="sale-rmv-charge" readOnly value={formatLKR(rmvCharge)} className="bg-muted/40 font-semibold tabular-nums" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sale-third-party-insurance" className="text-xs font-semibold">Third-party insurance</Label>
+                <div className="flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2">
+                  <Checkbox
+                    id="sale-third-party-insurance"
+                    checked={thirdPartyChecked}
+                    onCheckedChange={(checked) =>
+                      form.setValue("thirdPartyInsurance", Boolean(checked), { shouldDirty: true })
+                    }
+                  />
+                  <Label htmlFor="sale-third-party-insurance" className="cursor-pointer text-sm font-normal">
+                    Add third-party insurance ({formatLKR(saleCharges.thirdPartyInsurance)})
+                  </Label>
+                </div>
+                {thirdPartyChecked && insuranceType !== "NONE" && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {insuranceType === "FULL_DEALER"
+                      ? "Full insurance normally already includes third-party cover."
+                      : "The customer is arranging their own insurance."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Insurance Details */}
           <Card className="rounded-2xl border-border/70 shadow-sm">
             <CardHeader>
@@ -1278,6 +1338,20 @@ export function NewSaleForm({
                         <span className="tabular-nums">+{formatLKR(warrantyCharge)}</span>
                       </div>
                     )}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">RMV charge</span>
+                      <span className="font-medium tabular-nums" data-testid="summary-rmv-charge">{formatLKR(rmvCharge)}</span>
+                    </div>
+                    {thirdPartyAmount > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Third-party insurance</span>
+                        <span className="font-medium tabular-nums" data-testid="summary-third-party">{formatLKR(thirdPartyAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-sm font-semibold">
+                      <span>Grand total</span>
+                      <span className="tabular-nums" data-testid="summary-grand-total">{formatLKR(grandTotal)}</span>
+                    </div>
                     <div className="flex items-center justify-between text-sm text-blue-600 dark:text-blue-400">
                       <span>Finance Loan ({selectedFinanceCompany?.name || "Leasing"})</span>
                       <span className="font-semibold tabular-nums">− {formatLKR(financeAmount)}</span>
@@ -1305,11 +1379,11 @@ export function NewSaleForm({
                       <div>
                         <span className="text-sm font-bold block text-foreground">Net Cash Due at POS</span>
                         <span className="text-[11px] text-muted-foreground">
-                          {advanceDeduction > 0 ? "Down payment after advance" : "Upfront down payment"}
+                          {advanceDeduction > 0 ? "Down payment after advance" : "Upfront down payment"} + RMV / insurance charges
                         </span>
                       </div>
                       <span className="text-2xl font-black tracking-tight tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {formatLKR(Math.max(0, downPayment - advanceDeduction))}
+                        {formatLKR(Math.max(0, downPayment + chargesTotal - advanceDeduction))}
                       </span>
                     </div>
                   </>
@@ -1343,6 +1417,20 @@ export function NewSaleForm({
                         </span>
                       </div>
                     )}
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">RMV charge</span>
+                      <span className="font-medium tabular-nums" data-testid="summary-rmv-charge">{formatLKR(rmvCharge)}</span>
+                    </div>
+                    {thirdPartyAmount > 0 && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Third-party insurance</span>
+                        <span className="font-medium tabular-nums" data-testid="summary-third-party">{formatLKR(thirdPartyAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                      <span>Grand total</span>
+                      <span className="tabular-nums" data-testid="summary-grand-total">{formatLKR(grandTotal)}</span>
+                    </div>
                     {pendingAdvance && advanceDeduction > 0 && (
                       <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
                         Pending customer advance will be applied to this sale.

@@ -38,7 +38,7 @@ test.describe.serial("bank deposits", () => {
     const row = await db.sale.findUniqueOrThrow({ where: { id: sale.saleId } })
     expect(row.branchId).toBe(fx.branchB.id)
     expect(row.paymentMethod).toBe("Cash")
-    expect(row.totalAmount).toBe(500000)
+    expect(row.totalAmount).toBe(510300)
     await close()
   })
 
@@ -47,9 +47,9 @@ test.describe.serial("bank deposits", () => {
     await depositFormFill(page, { branch: fx.branchB.name, account: ACC1, amount: 200000, slip: "SLIP-100" })
 
     // The reference figures come from that day's cash sales at this branch.
-    await expect(page.getByText("Cash sales that day:")).toContainText(money(500000), { timeout: 60_000 })
+    await expect(page.getByText("Cash sales that day:")).toContainText(money(510300), { timeout: 60_000 })
     await expect(page.getByText("Already deposited:")).toContainText(money(0))
-    await expect(page.getByText("Still to deposit:")).toContainText(money(500000))
+    await expect(page.getByText("Still to deposit:")).toContainText(money(510300))
 
     await page.getByRole("button", { name: "Record deposit" }).click()
     await expect
@@ -57,7 +57,7 @@ test.describe.serial("bank deposits", () => {
       .toBe(1)
     const deposit = await db.bankDeposit.findFirstOrThrow({ where: { organizationId: fx.orgId, slipNumber: "SLIP-100" } })
     expect(deposit.depositAmount).toBe(200000)
-    expect(deposit.cashSalesTotal).toBe(500000)
+    expect(deposit.cashSalesTotal).toBe(510300)
     expect(deposit.branchId).toBe(fx.branchB.id)
     expect(deposit.bankAccountId).toBe(acc1Id)
 
@@ -65,7 +65,7 @@ test.describe.serial("bank deposits", () => {
     await page.goto("/dashboard/finance/bank-deposits")
     await page.getByLabel("Branch / showroom").selectOption({ label: fx.branchB.name })
     await expect(page.getByText("Already deposited:")).toContainText(money(200000), { timeout: 60_000 })
-    await expect(page.getByText("Still to deposit:")).toContainText(money(300000))
+    await expect(page.getByText("Still to deposit:")).toContainText(money(310300))
     await close()
   })
 

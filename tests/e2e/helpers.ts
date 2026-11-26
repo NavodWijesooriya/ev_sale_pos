@@ -25,6 +25,10 @@ export interface SaleOptions {
   financeCompany?: string
   /** Finance sales: loan amount (down payment = price - loan). */
   financeAmount?: number
+  /** Tick the "Third-party insurance" box. */
+  thirdPartyInsurance?: boolean
+  /** Optional TIN number typed on the sale form. */
+  tinNumber?: string
 }
 
 /** Fill the POS form for a sale without submitting it. */
@@ -52,6 +56,9 @@ export async function fillSaleForm(page: Page, o: SaleOptions) {
       if (await balance.isVisible().catch(() => false)) await balance.click()
     }
   }
+
+  if (o.thirdPartyInsurance) await page.getByText(/Add third-party insurance/).click()
+  if (o.tinNumber) await page.locator("#sale-tin-number").fill(o.tinNumber)
 
   if (o.insurance) {
     await chooseOption(page, page.locator("#sale-insurance-type"), {

@@ -5,7 +5,8 @@ import { z } from "zod"
 import { recordAudit } from "@/lib/audit"
 import { requireOwner } from "@/lib/authorize"
 import { prisma } from "@/lib/prisma"
-import { loadSaleChargeSettings, type SaleChargeSettings } from "@/lib/sale-charges"
+import { loadSaleChargeSettings } from "@/lib/sale-charges"
+import type { SaleChargeSettings } from "@/lib/validations/new-sale"
 
 const amount = (label: string) =>
   z

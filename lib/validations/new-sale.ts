@@ -61,6 +61,8 @@ export const createNewSaleSchema = z.object({
   financeCommission: z.number().min(0).optional().nullable(),
   insuranceCommission: z.number().min(0).optional().nullable(),
   commissionRecipientId: z.string().trim().optional().or(z.literal("")),
+  // Ticked = add the owner-configured third-party insurance amount (the server decides the amount).
+  thirdPartyInsurance: z.boolean().optional(),
 })
 
 export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>
@@ -69,3 +71,14 @@ export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>
 export const DEFAULT_RMV_CHARGE_FINANCE = 14_300
 export const DEFAULT_RMV_CHARGE_CASH = 10_300
 export const DEFAULT_THIRD_PARTY_INSURANCE = 1_200
+
+export interface SaleChargeSettings {
+  rmvChargeFinance: number
+  rmvChargeCash: number
+  thirdPartyInsurance: number
+}
+
+/** RMV charge for a payment type. Finance sales and cash sales have different amounts. */
+export function rmvChargeFor(settings: SaleChargeSettings, isFinance: boolean): number {
+  return isFinance ? settings.rmvChargeFinance : settings.rmvChargeCash
+}

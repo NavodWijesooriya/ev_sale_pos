@@ -559,6 +559,9 @@ model Sale {
   totalAmount           Float
   discount              Float                  @default(0) // අලුතින් එකතු කළ කොටස
   additionalCharges     Float                  @default(0) // අලුතින් එකතු කළ කොටස
+  // Customer-paid charges added at sale time, saved separately from the bike price (snapshot of the owner settings then).
+  rmvCharge             Float                  @default(0)
+  thirdPartyInsurance   Float                  @default(0)
   advanceDeducted       Float                  @default(0) // Amount deducted from advance payment at checkout
   financeCommission     Float?
   insuranceCommission   Float?

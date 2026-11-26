@@ -71,9 +71,9 @@ test.describe.serial("customer advances", () => {
     const { page, close } = await pageAs(browser, "owner")
     const sale = await createSale(page, { customerName: C.advUse.name, chassis: "E2E-STOCK-ADV-01", paymentType: "CASH" })
     const row = await db.sale.findUniqueOrThrow({ where: { id: sale.saleId }, include: { vehicle: true } })
-    // Scooter S1 costs 500,000; the 50,000 advance is deducted.
+    // Scooter S1 costs 500,000 + RMV 10,300 (cash sale); the 50,000 advance is deducted.
     expect(row.advanceDeducted).toBe(50000)
-    expect(row.totalAmount).toBe(450000)
+    expect(row.totalAmount).toBe(460300)
     expect(row.advancePaymentId).toBe(useAdvanceId)
     expect(row.vehicle.status).toBe("Sold")
     const advance = await db.advancePayment.findUniqueOrThrow({ where: { id: useAdvanceId } })
@@ -90,7 +90,7 @@ test.describe.serial("customer advances", () => {
     const row = await db.sale.findUniqueOrThrow({ where: { id: sale.saleId } })
     expect(row.advanceDeducted).toBe(0)
     expect(row.advancePaymentId).toBeNull()
-    expect(row.totalAmount).toBe(500000)
+    expect(row.totalAmount).toBe(510300)
     expect((await db.advancePayment.findUniqueOrThrow({ where: { id: useAdvanceId } })).status).toBe("USED")
     await close()
   })

@@ -249,7 +249,10 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
     // totalAmount is already net of discount and includes additional charges, so
     // they must not be applied again (that double-counted them), and the deducted
     // advance is real revenue that totalAmount no longer contains.
-    const saleValue = sale.totalAmount + (sale.advanceDeducted || 0)
+    // RMV charge and third-party insurance are collected for others (RMV / the insurer), so they are not revenue:
+    // leaving them in would inflate profit by the pass-through amounts.
+    const saleValue =
+      sale.totalAmount + (sale.advanceDeducted || 0) - (sale.rmvCharge || 0) - (sale.thirdPartyInsurance || 0)
     const saleProfit = saleValue - vehicleCost
 
     const commission =
@@ -1067,11 +1070,13 @@ export interface MonthlySalesReportData {
  * For finance sales that is the down payment; for cash sales the invoiced amount.
  */
 function cashCollectedOnSale(
-  sale: { totalAmount: number; downPayment: number | null },
+  sale: { totalAmount: number; downPayment: number | null; rmvCharge?: number | null; thirdPartyInsurance?: number | null },
   isFinance: boolean,
 ): number {
   const invoiced = Math.max(0, sale.totalAmount)
-  return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0)) : invoiced
+  // The RMV charge and third-party insurance are always paid by the customer at the desk, even on finance sales.
+  const charges = (sale.rmvCharge || 0) + (sale.thirdPartyInsurance || 0)
+  return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0) + charges) : invoiced
 }
 
 /** `batch` limits the report to sales of bikes from one round / batch (e.g. "JM 01" or "JM0102"). */
