@@ -120,3 +120,22 @@ export async function callServerAction(
   })
   return response.text()
 }
+
+/** Open the Add CRM Customer dialog on the CRM customers page. */
+export async function openAddCrmDialog(page: Page) {
+  await page.goto("/dashboard/customers/crm")
+  await page.getByRole("button", { name: "Add CRM Customer" }).click()
+  const dialog = page.getByRole("dialog", { name: "Add CRM Customer" })
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+export async function fillLead(page: Page, o: { name: string; phone: string; nic?: string; tin?: string }) {
+  const dialog = page.getByRole("dialog", { name: "Add CRM Customer" })
+  await dialog.getByLabel("Full name *").fill(o.name)
+  await dialog.getByLabel("Phone number *").fill(o.phone)
+  if (o.nic) await dialog.getByLabel("NIC / Passport").fill(o.nic)
+  if (o.tin) await dialog.getByLabel(/TIN number/).fill(o.tin)
+  await dialog.getByLabel("Lead source *").selectOption("Hotline")
+  return dialog
+}
