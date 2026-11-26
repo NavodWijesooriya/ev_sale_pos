@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { SaleChargeSettings } from "@/lib/validations/new-sale"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 const toNumber = (value: string) => (value.trim() === "" ? Number.NaN : Number(value))
 
@@ -44,13 +45,10 @@ export function SaleChargeSettingsForm({ settings }: { settings: SaleChargeSetti
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sale Charges</h1>
-        <p className="text-sm text-muted-foreground">
-          These amounts are added to every <strong>new</strong> sale. Sales already made keep the amounts they were
-          saved with.
-        </p>
-      </div>
+      <SettingsPageHeader
+        page="sale-charges"
+        description="Added to every new sale. Sales already made keep the amounts they were saved with."
+      />
 
       <Card>
         <CardHeader>

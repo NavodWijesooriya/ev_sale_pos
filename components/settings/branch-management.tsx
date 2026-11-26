@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import {
   Table,
   TableBody,
@@ -213,35 +214,23 @@ export function BranchManagement({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Branch & Showroom Management
-            </h1>
-            <Badge
-              variant="outline"
-              className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs font-semibold py-0.5"
-            >
-              OrgAdmin Only
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Configure dealership physical branches, showrooms, and service centers for{" "}
-            <strong className="text-foreground">{dealershipName}</strong>.
-          </p>
-        </div>
-
-        {/* Action Button: Add New Branch */}
-        <Button
-          onClick={() => setIsAddOpen(true)}
-          className="h-9 gap-2 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add New Branch</span>
-        </Button>
-      </div>
+      <SettingsPageHeader
+        page="branches"
+        description={
+          <>
+            Showrooms, branches and service centres of <strong className="text-foreground">{dealershipName}</strong>.
+          </>
+        }
+        actions={
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            className="h-9 gap-2 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add New Branch</span>
+          </Button>
+        }
+      />
 
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

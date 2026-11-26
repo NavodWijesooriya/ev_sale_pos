@@ -8,6 +8,7 @@ import { updateStaffPermissions, type StaffUserItem } from "@/app/actions/staff"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import {
   ALL_PERMISSIONS,
   PERMISSION_DEFINITIONS,
@@ -66,13 +67,10 @@ export function PermissionsMatrix({ staff }: { staff: StaffUserItem[] }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Permissions</h1>
-        <p className="text-sm text-muted-foreground">
-          Tick what each staff member may do. Changes are enforced on the server and take effect on their next page load.
-          The owner always has every permission.
-        </p>
-      </div>
+      <SettingsPageHeader
+        page="permissions"
+        description="Tick what each staff member may do. Enforced on the server; the owner always has every permission."
+      />
 
       <Card>
         <CardHeader>

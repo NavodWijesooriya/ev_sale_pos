@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { downloadCsv } from "@/lib/csv"
 import { money } from "@/lib/staff-pay"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 export function PayrollSummaryView({ summary }: { summary: PayrollSummary }) {
   const router = useRouter()
@@ -42,11 +43,7 @@ export function PayrollSummaryView({ summary }: { summary: PayrollSummary }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Settings &amp; Permissions</p>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Staff Payroll</h1>
-        <p className="text-sm text-muted-foreground">Salary plus staff commission for every staff member, month by month.</p>
-      </div>
+      <SettingsPageHeader page="payroll" />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-end justify-between gap-3 space-y-0">

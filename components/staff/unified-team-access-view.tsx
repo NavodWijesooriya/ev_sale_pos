@@ -50,6 +50,7 @@ import { StaffPermissionsDialog } from "@/components/staff/staff-permissions-dia
 import { EMPTY_PAY_FORM, PayFields, payFormToRates, type PayFormState } from "@/components/staff/pay-fields"
 import { ALL_PERMISSIONS, isOwner } from "@/lib/permissions"
 import { UserRole } from "@prisma/client"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 interface UnifiedTeamAccessViewProps {
   initialStaff: StaffUserItem[]
@@ -214,19 +215,9 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Settings &amp; Permissions
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Team &amp; Access</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your dealership staff members, dynamically update roles, and control system login access.
-          </p>
-        </div>
-
-        {/* Action Controls */}
+      <SettingsPageHeader
+        page="users"
+        actions={
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-muted-foreground shadow-xs">
@@ -259,7 +250,8 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
             <span>Add Staff</span>
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Staff Table Card */}
       <Card className="rounded-2xl border-border/70 shadow-sm overflow-hidden">

@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner"
 import { updateDealershipAppearance } from "@/app/actions/dealership"
 import Link from "next/link"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 
 interface AppearanceSettingsProps {
   initialData: {
@@ -78,34 +79,21 @@ export function AppearanceSettings({ initialData }: AppearanceSettingsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Palette className="size-6 text-primary" />
-              Storefront Appearance & Branding
-            </h1>
-            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-              OrgAdmin
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Customize your customer-facing digital showroom branding, hero banner headline, and color theme.
-          </p>
-        </div>
-
-        {initialData.subdomain && (
-          <Link
-            href={`/site/${initialData.subdomain}`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline"
-          >
-            <span>Preview Live Showroom</span>
-            <ExternalLink className="size-3.5" />
-          </Link>
-        )}
-      </div>
+      <SettingsPageHeader
+        page="appearance"
+        actions={
+          initialData.subdomain ? (
+            <Link
+              href={`/site/${initialData.subdomain}`}
+              target="_blank"
+              className="inline-flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline"
+            >
+              <span>Preview Live Showroom</span>
+              <ExternalLink className="size-3.5" />
+            </Link>
+          ) : undefined
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Settings Form (7 cols) */}

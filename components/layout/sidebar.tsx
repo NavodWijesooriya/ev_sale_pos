@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils"
 import {
   Coins,
   BarChart3,
-  Bike,
   Boxes,
   Building2,
   ChevronDown,
@@ -17,7 +16,6 @@ import {
   HelpCircle,
   LayoutDashboard,
   Landmark,
-  Palette,
   PanelLeft,
   PanelLeftClose,
   ShieldAlert,
@@ -29,6 +27,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { hasAnyPermission, isOwner, type Permission } from "@/lib/permissions"
+import { firstSettingsHref } from "@/lib/settings-nav"
 
 export interface NavItem {
   title: string
@@ -143,24 +142,9 @@ export const navigationItems: NavItem[] = [
     ],
   },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3, anyPermission: ["VIEW_REPORTS"] },
-  { title: "Vehicle Models", href: "/dashboard/settings/vehicle-models", icon: Bike, roles: ["OrgAdmin", "BranchManager"] },
-  {
-    title: "Settings",
-    href: "/dashboard/settings/users",
-    icon: Settings,
-    anyPermission: ["MANAGE_USERS", "ACCESS_SETTINGS"],
-    children: [
-      { title: "Users", href: "/dashboard/settings/users", anyPermission: ["MANAGE_USERS"] },
-      { title: "Permissions", href: "/dashboard/settings/permissions", ownerOnly: true },
-      { title: "Commissions", href: "/dashboard/settings/commissions", ownerOnly: true },
-      { title: "Staff Payroll", href: "/dashboard/settings/payroll", ownerOnly: true },
-      { title: "Sale Charges", href: "/dashboard/settings/sale-charges", ownerOnly: true },
-      { title: "Free Items", href: "/dashboard/settings/free-items", ownerOnly: true },
-      { title: "Audit Logs", href: "/dashboard/settings/audit-logs", ownerOnly: true },
-      { title: "Branches", href: "/dashboard/settings/branches", anyPermission: ["ACCESS_SETTINGS"] },
-    ],
-  },
-  { title: "Storefront Branding", href: "/dashboard/settings/appearance", icon: Palette, roles: ["OrgAdmin", "SuperAdmin"] },
+  // One item, no sub-items: the settings pages are listed in the settings menu (see lib/settings-nav.ts).
+  // It is shown only when the user can open at least one settings page, and links to the first of them.
+  { title: "Settings", href: "/dashboard/settings", icon: Settings },
   { title: "Help Center", href: "/dashboard/help", icon: HelpCircle },
   { title: "Platform Admin", href: "/super-admin", icon: ShieldAlert, roles: ["SuperAdmin"] },
 ]
@@ -198,13 +182,6 @@ export function SidebarContent({
   const [financeExpanded, setFinanceExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/finance/") && !pathname.startsWith("/dashboard/finance/bank-deposits")),
   )
-  const [settingsExpanded, setSettingsExpanded] = React.useState(
-    Boolean(
-      ["users", "permissions", "commissions", "payroll", "sale-charges", "free-items", "audit-logs", "branches"].some((p) =>
-        pathname?.startsWith("/dashboard/settings/" + p),
-      ),
-    ),
-  )
   const [supplierExpanded, setSupplierExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/suppliers")),
   )
@@ -229,12 +206,14 @@ export function SidebarContent({
     .filter(
       (item) =>
         (!item.roles || item.roles.includes(userRole)) &&
-        (!item.anyPermission || hasAnyPermission(subject, item.anyPermission)),
+        (!item.anyPermission || hasAnyPermission(subject, item.anyPermission)) &&
+        (item.href !== "/dashboard/settings" || firstSettingsHref(subject) !== null),
     )
     .map((item) => (item.children ? { ...item, children: filterChildren(item.children) } : item))
     // A group with nothing left to show disappears; otherwise it links to the first child the user can open.
     .filter((item) => !item.children || item.children.length > 0)
     .map((item) => {
+      if (item.href === "/dashboard/settings") return { ...item, href: firstSettingsHref(subject) ?? item.href }
       const first = item.children ? firstHref(item.children) : undefined
       return first ? { ...item, href: first } : item
     })
@@ -245,7 +224,6 @@ export function SidebarContent({
     if (title === "Finance Management") return financeExpanded
     if (title === "Service Management") return serviceManagementExpanded
     if (title === "Supplier Management") return supplierExpanded
-    if (title === "Settings") return settingsExpanded
     return false
   }
   const hasActiveChild = (children: NavChild[]): boolean =>
@@ -327,6 +305,8 @@ export function SidebarContent({
               const Icon = item.icon
               const isActive = item.children
                 ? hasActiveChild(item.children)
+                : item.title === "Settings"
+                ? Boolean(pathname?.startsWith("/dashboard/settings"))
                 : item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : item.href === "/dashboard/services"
@@ -346,7 +326,6 @@ export function SidebarContent({
                           if (item.title === "Finance Management") setFinanceExpanded(true)
                           if (item.title === "Service Management") setServiceManagementExpanded(true)
                           if (item.title === "Supplier Management") setSupplierExpanded(true)
-                          if (item.title === "Settings") setSettingsExpanded(true)
                           onToggleCollapse?.()
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
@@ -360,8 +339,6 @@ export function SidebarContent({
                           setServiceManagementExpanded((expanded) => !expanded)
                         } else if (item.title === "Supplier Management") {
                           setSupplierExpanded((expanded) => !expanded)
-                        } else if (item.title === "Settings") {
-                          setSettingsExpanded((expanded) => !expanded)
                         }
                       }}
                       title={isCollapsed ? item.title : undefined}

@@ -19,7 +19,7 @@ export default async function CommissionSettingsPage() {
 
   const settings = await getCommissionSettings()
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="w-full max-w-3xl">
       <CommissionSettingsForm settings={settings} />
     </div>
   )

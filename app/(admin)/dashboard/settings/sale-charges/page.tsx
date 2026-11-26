@@ -19,7 +19,7 @@ export default async function SaleChargesPage() {
 
   const settings = await getSaleChargeSettings()
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="w-full max-w-3xl">
       <SaleChargeSettingsForm settings={settings} />
     </div>
   )
