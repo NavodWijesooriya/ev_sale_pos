@@ -45,8 +45,6 @@ interface NavChild {
   title: string
   href?: string
   icon?: React.ElementType
-  /** Small label shown above this entry (starts a section, e.g. in Settings). */
-  sectionLabel?: string
   anyPermission?: Permission[]
   /** Hidden from everyone except the dealership owner. */
   ownerOnly?: boolean
@@ -189,6 +187,8 @@ export function SidebarContent({
   const [settingsToggled, setSettingsToggled] = React.useState<boolean | null>(null)
   const onSettingsPath = Boolean(pathname?.startsWith("/dashboard/settings"))
   const settingsExpanded = settingsToggled ?? onSettingsPath
+  // Accordion inside Settings: null = follow the page (the group holding the current page is open), "" = all closed.
+  const [settingsGroup, setSettingsGroup] = React.useState<string | null>(null)
   const [supplierExpanded, setSupplierExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/suppliers")),
   )
@@ -209,13 +209,15 @@ export function SidebarContent({
     }
     return undefined
   }
-  const settingsChildren: NavChild[] = visibleSettingsSections(subject).flatMap((section) =>
-    section.items.map((item, index) => ({
-      title: item.title,
-      href: item.href,
-      icon: item.icon,
-      sectionLabel: index === 0 ? section.title : undefined,
-    })),
+  // Settings: each section is a collapsible group of pages. A section with a single visible page is a direct link.
+  const settingsChildren: NavChild[] = visibleSettingsSections(subject).map((section) =>
+    section.items.length === 1
+      ? { title: section.items[0].title, href: section.items[0].href, icon: section.items[0].icon }
+      : {
+          title: section.title,
+          icon: section.icon,
+          children: section.items.map((item) => ({ title: item.title, href: item.href, icon: item.icon })),
+        },
   )
   const visibleItems = navigationItems
     .map((item) => (item.title === "Settings" ? { ...item, children: settingsChildren } : item))
@@ -249,6 +251,14 @@ export function SidebarContent({
           ? hasActiveChild(child.children)
           : false,
     )
+  const activeSettingsGroup = settingsChildren.find((c) => c.children && hasActiveChild(c.children))?.title ?? ""
+  const openSettingsGroup = settingsGroup ?? activeSettingsGroup
+  const isGroupOpen = (parent: string, group: string) =>
+    parent === "Settings" ? openSettingsGroup === group : advancesExpanded
+  const toggleGroup = (parent: string, group: string) => {
+    if (parent === "Settings") setSettingsGroup(openSettingsGroup === group ? "" : group)
+    else setAdvancesExpanded((expanded) => !expanded)
+  }
 
   return (
     <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -428,44 +438,46 @@ export function SidebarContent({
                             {child.children ? (
                               <button
                                 type="button"
-                                onClick={() => setAdvancesExpanded((expanded) => !expanded)}
-                                aria-expanded={advancesExpanded}
+                                onClick={() => toggleGroup(item.title, child.title)}
+                                aria-expanded={isGroupOpen(item.title, child.title)}
                                 className={cn(
                                   "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
+                                  item.title === "Settings"
+                                    ? isChildActive
+                                      ? "font-semibold text-sidebar-accent-foreground hover:bg-sidebar-accent/70"
+                                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                    : isChildActive
+                                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                                )}
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  {child.icon && (
+                                    <child.icon className={cn("size-3.5 shrink-0", isChildActive && item.title === "Settings" && "text-primary")} />
+                                  )}
+                                  <span className="truncate">{child.title}</span>
+                                </span>
+                                {isGroupOpen(item.title, child.title)
+                                  ? <ChevronDown className="size-3.5 text-muted-foreground" />
+                                  : <ChevronRight className="size-3.5 text-muted-foreground" />}
+                              </button>
+                            ) : child.href ? (
+                              <Link
+                                href={child.href}
+                                onClick={onNavigate}
+                                aria-current={isChildActive ? "page" : undefined}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                                   isChildActive
                                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                                     : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                                 )}
                               >
+                                {child.icon && <child.icon className="size-3.5 shrink-0" />}
                                 {child.title}
-                                {advancesExpanded
-                                  ? <ChevronDown className="size-3.5 text-muted-foreground" />
-                                  : <ChevronRight className="size-3.5 text-muted-foreground" />}
-                              </button>
-                            ) : child.href ? (
-                              <>
-                                {child.sectionLabel && (
-                                  <p className="mb-1 mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground first:mt-1">
-                                    {child.sectionLabel}
-                                  </p>
-                                )}
-                                <Link
-                                  href={child.href}
-                                  onClick={onNavigate}
-                                  aria-current={isChildActive ? "page" : undefined}
-                                  className={cn(
-                                    "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                                    isChildActive
-                                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
-                                  )}
-                                >
-                                  {child.icon && <child.icon className="size-3.5 shrink-0" />}
-                                  {child.title}
-                                </Link>
-                              </>
+                              </Link>
                             ) : null}
-                            {!isCollapsed && child.children && advancesExpanded && (
+                            {!isCollapsed && child.children && isGroupOpen(item.title, child.title) && (
                               <div className="ml-3 mt-1 space-y-1 border-l border-sidebar-border pl-2">
                                 {child.children.map((nestedChild) => (
                                   nestedChild.href ? (
@@ -475,12 +487,13 @@ export function SidebarContent({
                                       onClick={onNavigate}
                                       aria-current={pathname === nestedChild.href ? "page" : undefined}
                                       className={cn(
-                                        "block rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                        "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                                         pathname?.startsWith(nestedChild.href)
                                           ? "bg-sidebar-accent text-sidebar-accent-foreground"
                                           : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                                       )}
                                     >
+                                      {nestedChild.icon && <nestedChild.icon className="size-3.5 shrink-0" />}
                                       {nestedChild.title}
                                     </Link>
                                   ) : null

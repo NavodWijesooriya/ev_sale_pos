@@ -3,6 +3,10 @@ import {
   Building2,
   Gift,
   Percent,
+  Lock,
+  SlidersHorizontal,
+  Store,
+  UserCog,
   Palette,
   ReceiptText,
   ScrollText,
@@ -44,6 +48,7 @@ export interface SettingsItem {
 
 export interface SettingsSection {
   title: string
+  icon: LucideIcon
   items: SettingsItem[]
 }
 
@@ -52,6 +57,7 @@ const ownerOnly = (user: PermissionSubject) => isOwner(user)
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   {
     title: "Team & Access",
+    icon: UserCog,
     items: [
       {
         key: "users",
@@ -81,6 +87,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     title: "Sales Setup",
+    icon: SlidersHorizontal,
     items: [
       {
         key: "sale-charges",
@@ -110,6 +117,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     title: "Business",
+    icon: Store,
     items: [
       {
         key: "branches",
@@ -139,6 +147,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     title: "Security",
+    icon: Lock,
     items: [
       {
         key: "audit-logs",
