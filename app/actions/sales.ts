@@ -19,6 +19,7 @@ import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { initialFinanceTracking } from "@/lib/finance-receivables"
 import { loadSaleChargeSettings } from "@/lib/sale-charges"
 import { loadActiveFreeItems } from "@/lib/free-items"
+import { earnStaffCommission } from "@/lib/staff-compensation"
 import { normalizeTin } from "@/lib/validations/tin"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
@@ -240,6 +241,7 @@ export async function createNewSale(
       }
 
       const invoiceNumber = `INV-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`
+      const saleDate = new Date()
       const warrantyCharge =
         data.warrantyOption === saleWarrantyOptions[1] ? extendedWarrantyPrice : 0
       const isFinance = data.paymentType === "FINANCE" || Boolean(financeCompanyId)
@@ -289,7 +291,7 @@ export async function createNewSale(
           commissionRate: commRate,
           commissionAmount: finalCommissionAmt,
           warrantyOption: data.warrantyOption,
-          saleDate: new Date(),
+          saleDate,
           status: "Completed",
           freeItems: chosenFreeItems.map((item) => item.name),
           freeItemLinks: { create: chosenFreeItems.map((item) => ({ freeItemId: item.id, itemName: item.name })) },
@@ -345,6 +347,17 @@ export async function createNewSale(
         entityId: sale.id,
         branchId: vehicle.branchId,
         description: `Invoice ${sale.invoiceNumber}: ${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} (${vehicle.chassisNumber}), ${isFinance ? "finance" : "cash"} sale (RMV ${rmvCharge}, third-party insurance ${thirdPartyInsurance})`,
+      })
+
+      // What the seller earns on this sale (staff commission), frozen with the rates in force today.
+      await earnStaffCommission(tx, {
+        id: sale.id,
+        organizationId,
+        userId,
+        saleDate,
+        paymentType: isFinance ? "FINANCE" : "CASH",
+        financeAmount: financeAmt,
+        bikePrice: subtotal,
       })
 
       await tx.customer.update({
@@ -681,6 +694,16 @@ export async function processSale(input: ProcessSaleInput) {
           status: "Completed",
           saleDate: new Date(),
         },
+      })
+
+      await earnStaffCommission(tx, {
+        id: sale.id,
+        organizationId,
+        userId,
+        saleDate: sale.saleDate,
+        paymentType: sale.paymentType,
+        financeAmount: sale.financeAmount,
+        bikePrice: input.salePrice,
       })
 
       // Step D: Create SaleItem record

@@ -45,7 +45,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { updateStaffAccess, addNewStaff, type BranchOption, type StaffUserItem } from "@/app/actions/staff"
+import Link from "next/link"
 import { StaffPermissionsDialog } from "@/components/staff/staff-permissions-dialog"
+import { EMPTY_PAY_FORM, PayFields, payFormToRates, type PayFormState } from "@/components/staff/pay-fields"
 import { ALL_PERMISSIONS, isOwner } from "@/lib/permissions"
 import { UserRole } from "@prisma/client"
 
@@ -53,6 +55,8 @@ interface UnifiedTeamAccessViewProps {
   initialStaff: StaffUserItem[]
   currentUserId: string
   branches?: BranchOption[]
+  /** Only the owner sees salary and staff commission. */
+  canManagePay?: boolean
 }
 
 const roleOptions: Array<{ value: UserRole; label: string; description: string }> = [
@@ -63,7 +67,7 @@ const roleOptions: Array<{ value: UserRole; label: string; description: string }
   { value: UserRole.Technician, label: "Technician", description: "After-sales services & job cards" },
 ]
 
-export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = [] }: UnifiedTeamAccessViewProps) {
+export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = [], canManagePay = false }: UnifiedTeamAccessViewProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [staffList, setStaffList] = React.useState<StaffUserItem[]>(initialStaff)
@@ -79,6 +83,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
     password: "",
     role: UserRole.SalesRep as UserRole,
   })
+  const [addPay, setAddPay] = React.useState<PayFormState>(EMPTY_PAY_FORM)
 
   // Sync state if props update from server
   React.useEffect(() => {
@@ -175,6 +180,8 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
         email: addForm.email.trim(),
         password: addForm.password,
         role: addForm.role,
+        // The server ignores this unless the signed-in user is the owner.
+        ...(canManagePay ? { pay: payFormToRates(addPay) } : {}),
       })
 
       if (!res.success) {
@@ -190,6 +197,7 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
         password: "",
         role: UserRole.SalesRep,
       })
+      setAddPay(EMPTY_PAY_FORM)
 
       startTransition(() => {
         router.refresh()
@@ -232,6 +240,15 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
               </div>
             )}
           </div>
+
+          {canManagePay && (
+            <Link
+              href="/dashboard/settings/payroll"
+              className="inline-flex h-8 items-center rounded-lg border bg-card px-3 text-xs font-medium shadow-xs hover:bg-muted"
+            >
+              Staff payroll
+            </Link>
+          )}
 
           <Button
             onClick={() => setIsAddStaffOpen(true)}
@@ -286,7 +303,17 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
                         <div className="flex items-center gap-2.5">
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 font-medium text-sm text-foreground">
-                              <span>{user.name}</span>
+                              {canManagePay ? (
+                                <Link
+                                  href={`/dashboard/settings/users/${user.id}`}
+                                  className="text-primary hover:underline"
+                                  data-testid="staff-profile-link"
+                                >
+                                  {user.name}
+                                </Link>
+                              ) : (
+                                <span>{user.name}</span>
+                              )}
                               {isCurrent && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
                                   You
@@ -478,6 +505,13 @@ export function UnifiedTeamAccessView({ initialStaff, currentUserId, branches = 
                 </SelectContent>
               </Select>
             </div>
+
+            {canManagePay && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-sm font-medium">Salary &amp; staff commission (optional)</p>
+                <PayFields idPrefix="add-pay" form={addPay} onChange={setAddPay} disabled={isSubmittingNewStaff} />
+              </div>
+            )}
 
             <DialogFooter className="pt-2">
               <Button

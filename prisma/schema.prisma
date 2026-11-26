@@ -143,6 +143,59 @@ model User {
   commissionSales  Sale[]           @relation("CommissionRecipient")
   advancePayments  AdvancePayment[]
   assignedServices ServiceRecord[]  @relation("AssignedTechnician")
+
+  // What this staff member earns (salary + commissions). Owner-only data.
+  compensations   StaffCompensation[]
+  saleCommissions StaffSaleCommission[]
+}
+
+// Staff pay settings, one row per change with the day it starts applying (Colombo day start).
+// The rates in force on a sale's date are the latest row with effectiveFrom <= that date,
+// so changing a rate never touches commissions already earned.
+model StaffCompensation {
+  id                     String   @id @default(uuid())
+  organizationId         String
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  effectiveFrom          DateTime
+  basicSalary            Float    @default(0) // LKR per month
+  saleCommissionType     String   @default("FIXED") // FIXED (LKR per bike) or PERCENT (% of bike price)
+  saleCommissionValue    Float    @default(0)
+  financeCommissionType  String   @default("FIXED") // FIXED (LKR per finance sale) or PERCENT (% of finance amount)
+  financeCommissionValue Float    @default(0)
+  createdById            String?
+  createdAt              DateTime @default(now())
+
+  @@unique([userId, effectiveFrom])
+  @@index([organizationId, userId])
+}
+
+// What a staff member earned on one sale, frozen with the rates used. This is the STAFF member's earning,
+// separate from the dealership's own finance / insurance commission (CommissionSettlement).
+model StaffSaleCommission {
+  id                     String    @id @default(uuid())
+  organizationId         String
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saleId                 String    @unique
+  sale                   Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleDate               DateTime
+  saleCommission         Float     @default(0)
+  financeCommission      Float     @default(0)
+  // Rates and amounts the figures were worked out from
+  bikePrice              Float     @default(0)
+  financeAmount          Float     @default(0)
+  saleCommissionType     String    @default("FIXED")
+  saleCommissionValue    Float     @default(0)
+  financeCommissionType  String    @default("FIXED")
+  financeCommissionValue Float     @default(0)
+  source                 String    @default("SALE") // SALE (earned when the sale was made) or RECALCULATED (owner)
+  status                 String    @default("ACTIVE") // ACTIVE or VOIDED
+  voidedAt               DateTime?
+  voidReason             String?
+  createdAt              DateTime  @default(now())
+
+  @@index([organizationId, userId, saleDate])
 }
 
 model Branch {
@@ -592,6 +645,7 @@ model Sale {
   dmtRegistration DMTRegistration? // අලුතින් එකතු කළ කොටස
   payments        Payment[]
   freeItemLinks   SaleFreeItem[]
+  staffCommission StaffSaleCommission?
 
   // Finance / insurance company office chosen for this sale (name kept as it was)
   financeOfficeId     String?

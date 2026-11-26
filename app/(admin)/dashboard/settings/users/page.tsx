@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { getAuthSession } from "@/lib/auth"
-import { hasPermission } from "@/lib/permissions"
+import { hasPermission, isOwner } from "@/lib/permissions"
 import { getStaffInitialData } from "@/app/actions/staff"
 import { UnifiedTeamAccessView } from "@/components/staff/unified-team-access-view"
 
@@ -36,6 +36,7 @@ export default async function TeamAccessPage() {
         initialStaff={staff}
         currentUserId={session.user.id}
         branches={branches}
+        canManagePay={isOwner(session.user)}
       />
     </div>
   )

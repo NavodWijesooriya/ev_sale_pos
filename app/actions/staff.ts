@@ -6,6 +6,8 @@ import { getAuthSession } from "@/lib/auth"
 import bcrypt from "bcrypt"
 import { UserRole } from "@prisma/client"
 import { recordAudit } from "@/lib/audit"
+import { colomboDayStart } from "@/lib/staff-compensation"
+import { describeRate, rateError } from "@/lib/staff-pay"
 import {
   branchFilter,
   defaultPermissionsForRole,
@@ -540,11 +542,29 @@ export interface AddNewStaffInput {
   password: string
   role: string
   branchId?: string | null
+  /** Salary and commission. Only an owner's value is used: anyone else's is ignored. */
+  pay?: {
+    basicSalary: number
+    saleCommissionType: "FIXED" | "PERCENT"
+    saleCommissionValue: number
+    financeCommissionType: "FIXED" | "PERCENT"
+    financeCommissionValue: number
+  }
 }
 
 export async function addNewStaff(data: AddNewStaffInput) {
   try {
     const { organizationId, user: actor } = await requireUserManager()
+
+    // Salary / commission is owner-only; checked before anything is created.
+    const pay = isOwner(actor) && data.pay ? data.pay : null
+    if (pay) {
+      const problem =
+        rateError("Basic salary", "FIXED", pay.basicSalary) ??
+        rateError("Sale commission", pay.saleCommissionType, pay.saleCommissionValue) ??
+        rateError("Finance commission", pay.financeCommissionType, pay.financeCommissionValue)
+      if (problem) return { success: false, error: problem }
+    }
 
     const name = data.name?.trim()
     const email = data.email?.toLowerCase().trim()
@@ -653,6 +673,23 @@ export async function addNewStaff(data: AddNewStaffInput) {
       userId: newUser.id,
       description: `Created ${newUser.role} account for ${newUser.name}`,
     })
+
+    // Pay history starts today; it applies to sales this person makes from now on.
+    if (pay && (pay.basicSalary > 0 || pay.saleCommissionValue > 0 || pay.financeCommissionValue > 0)) {
+      await prisma.staffCompensation.create({
+        data: { organizationId, userId: newUser.id, effectiveFrom: colomboDayStart(new Date()), createdById: actor.id, ...pay },
+      })
+      await recordAudit(
+        prisma,
+        { id: actor.id, name: actor.name, organizationId, branchId: actor.branchId },
+        {
+          action: "STAFF_PAY_CHANGED",
+          entityType: "User",
+          entityId: newUser.id,
+          description: `${newUser.name} set up: salary ${pay.basicSalary}, sale commission ${describeRate(pay.saleCommissionType, pay.saleCommissionValue, "bike")}, finance commission ${describeRate(pay.financeCommissionType, pay.financeCommissionValue, "finance")}`,
+        },
+      )
+    }
 
     revalidatePath("/dashboard/settings/users")
     revalidatePath("/dashboard/staff")

@@ -7,6 +7,8 @@ export type AuditAction =
   | "SALE_CREATED"
   | "SALE_CHARGE_SETTINGS_CHANGED"
   | "VEHICLE_OWNERSHIP_TRANSFERRED"
+  | "STAFF_PAY_CHANGED"
+  | "STAFF_COMMISSION_RECALCULATED"
   | "FREE_ITEM_CREATED"
   | "FREE_ITEM_UPDATED"
   | "FREE_ITEM_ACTIVATED"
@@ -71,6 +73,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   COMMISSION_SETTINGS_CHANGED: "Commission settings changed",
   SALE_CHARGE_SETTINGS_CHANGED: "Sale charge settings changed",
   VEHICLE_OWNERSHIP_TRANSFERRED: "Bike ownership transferred",
+  STAFF_PAY_CHANGED: "Staff salary / commission changed",
+  STAFF_COMMISSION_RECALCULATED: "Staff commission recalculated",
   FREE_ITEM_CREATED: "Free item added",
   FREE_ITEM_UPDATED: "Free item updated",
   FREE_ITEM_ACTIVATED: "Free item activated",

@@ -153,6 +153,7 @@ export const navigationItems: NavItem[] = [
       { title: "Users", href: "/dashboard/settings/users", anyPermission: ["MANAGE_USERS"] },
       { title: "Permissions", href: "/dashboard/settings/permissions", ownerOnly: true },
       { title: "Commissions", href: "/dashboard/settings/commissions", ownerOnly: true },
+      { title: "Staff Payroll", href: "/dashboard/settings/payroll", ownerOnly: true },
       { title: "Sale Charges", href: "/dashboard/settings/sale-charges", ownerOnly: true },
       { title: "Free Items", href: "/dashboard/settings/free-items", ownerOnly: true },
       { title: "Audit Logs", href: "/dashboard/settings/audit-logs", ownerOnly: true },
@@ -199,7 +200,7 @@ export function SidebarContent({
   )
   const [settingsExpanded, setSettingsExpanded] = React.useState(
     Boolean(
-      ["users", "permissions", "commissions", "sale-charges", "free-items", "audit-logs", "branches"].some((p) =>
+      ["users", "permissions", "commissions", "payroll", "sale-charges", "free-items", "audit-logs", "branches"].some((p) =>
         pathname?.startsWith("/dashboard/settings/" + p),
       ),
     ),
