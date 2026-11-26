@@ -5,6 +5,7 @@ type Client = Prisma.TransactionClient | typeof prisma
 
 export type AuditAction =
   | "SALE_CREATED"
+  | "SALE_CHARGE_SETTINGS_CHANGED"
   | "GRN_CREATED"
   | "GRN_PAYABLE_UPDATED"
   | "SUPPLIER_PAYMENT_RECORDED"
@@ -62,6 +63,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   STAFF_UPDATED: "Staff account updated",
   STAFF_STATUS_CHANGED: "Staff access changed",
   COMMISSION_SETTINGS_CHANGED: "Commission settings changed",
+  SALE_CHARGE_SETTINGS_CHANGED: "Sale charge settings changed",
   ADVANCE_RECORDED: "Customer advance recorded",
   ADVANCE_REFUNDED: "Customer advance refunded",
   BRANCH_CREATED: "Branch created",

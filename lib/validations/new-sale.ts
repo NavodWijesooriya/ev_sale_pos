@@ -64,3 +64,8 @@ export const createNewSaleSchema = z.object({
 })
 
 export type CreateNewSaleInput = z.infer<typeof createNewSaleSchema>
+
+/** Defaults for the customer-paid sale charges; the owner can change them under Settings > Sale Charges. */
+export const DEFAULT_RMV_CHARGE_FINANCE = 14_300
+export const DEFAULT_RMV_CHARGE_CASH = 10_300
+export const DEFAULT_THIRD_PARTY_INSURANCE = 1_200
