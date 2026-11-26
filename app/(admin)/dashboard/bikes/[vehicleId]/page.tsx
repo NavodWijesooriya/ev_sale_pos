@@ -2,6 +2,8 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { getBikeDetails } from "@/app/actions/bike-details"
 import { BikeDmtWorkflow } from "@/components/bikes/bike-dmt-workflow"
+import { OwnershipHistoryList } from "@/components/bikes/ownership-history"
+import { TransferOwnershipDialog } from "@/components/bikes/transfer-ownership-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { colomboDateKey } from "@/lib/dates"
@@ -86,12 +88,33 @@ export default async function BikeDetailsPage({ params }: { params: Promise<{ ve
                   }
                 />
                 <Field label="Sold on" value={colomboDateKey(new Date(bike.sale.saleDate))} />
-                <Field label="Customer" value={bike.sale.customerName} />
+                <Field label="Original buyer" value={bike.sale.customerName} />
                 <Field label="Phone" value={bike.sale.customerPhone} />
                 <Field label="NIC" value={bike.sale.customerNic} />
               </dl>
             </CardContent>
           </Card>
+          {bike.ownership && (
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                <div>
+                  <CardTitle>Ownership history</CardTitle>
+                  <CardDescription>The original sale stays as it was; transfers only change who owns the bike.</CardDescription>
+                </div>
+                {bike.canTransfer && (
+                  <TransferOwnershipDialog vehicles={[{ id: bike.id, label: bike.model }]} />
+                )}
+              </CardHeader>
+              <CardContent>
+                <OwnershipHistoryList history={bike.ownership} />
+                {bike.dmtOwnerName && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    DMT / RMV registration is in the name of <strong className="text-foreground">{bike.dmtOwnerName}</strong>.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
           {bike.dmt && <BikeDmtWorkflow saleId={bike.sale.id} initial={bike.dmt} canEdit={bike.canEditDmt} />}
         </>
       ) : (

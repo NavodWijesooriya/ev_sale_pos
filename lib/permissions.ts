@@ -96,6 +96,11 @@ export const PERMISSION_DEFINITIONS = {
     label: "Manage customers",
     description: "View, add and edit customers and CRM leads.",
   },
+  TRANSFER_OWNERSHIP: {
+    group: "Customers & Service",
+    label: "Transfer bike ownership",
+    description: "Change the owner of a sold bike to another customer and print the transfer slip. The owner can always do this.",
+  },
   MANAGE_WARRANTY_SERVICE: {
     group: "Customers & Service",
     label: "Warranty & service",

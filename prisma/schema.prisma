@@ -77,9 +77,10 @@ model Organization {
   bankAccounts          BankAccount[]
   bankDeposits          BankDeposit[]
   stockTransfers        StockTransfer[]
-  customDomain          String?                @unique
+  customDomain          String?                    @unique
   freeItems             FreeItem[]
   companyOffices        CompanyOffice[]
+  ownershipTransfers    VehicleOwnershipTransfer[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
@@ -245,12 +246,13 @@ model Vehicle {
   chargingTime           String? // e.g., "4-6 Hours"
   createdAt              DateTime      @default(now())
 
-  grnItems        GRNItem[]
-  saleItems       SaleItem[]
-  sales           Sale[]              @relation("SaleVehicle")
-  serviceRecords  ServiceRecord[]
-  advancePayments AdvancePayment[]
-  transferItems   StockTransferItem[]
+  grnItems           GRNItem[]
+  saleItems          SaleItem[]
+  sales              Sale[]                     @relation("SaleVehicle")
+  serviceRecords     ServiceRecord[]
+  advancePayments    AdvancePayment[]
+  transferItems      StockTransferItem[]
+  ownershipTransfers VehicleOwnershipTransfer[]
 
   // Unit numbers (JM0101 ...) derive from the dealership's batch number, so they are unique per dealership.
   @@unique([organizationId, unitGrnNumber])
@@ -466,9 +468,12 @@ model Customer {
 
   sales                    Sale[]
   advancePayments          AdvancePayment[]
-  advanceTransfersReceived AdvanceTransfer[] @relation("AdvanceTransferToCustomer")
+  advanceTransfersReceived AdvanceTransfer[]          @relation("AdvanceTransferToCustomer")
   serviceRecords           ServiceRecord[]
   testRides                TestRide[]
+  transfersFrom            VehicleOwnershipTransfer[] @relation("OwnershipTransferFrom")
+  transfersTo              VehicleOwnershipTransfer[] @relation("OwnershipTransferTo")
+  dmtOwned                 DMTRegistration[]          @relation("DmtOwner")
 
   // A NIC identifies one customer per dealership (NULL stays allowed many times).
   @@unique([organizationId, nic])
@@ -790,6 +795,9 @@ model DMTRegistration {
   isInsuranceOk      Boolean           @default(false) // Insurance Card/Policy
   lastNotifiedAt     DateTime? // Last SMS/WhatsApp notification timestamp
   numberPlateStatus  NumberPlateStatus @default(PENDING)
+  // Set when the registration is moved to a new owner by an ownership transfer; null: the buyer of the sale
+  ownerCustomerId    String?
+  ownerCustomer      Customer?         @relation("DmtOwner", fields: [ownerCustomerId], references: [id], onDelete: SetNull)
 }
 
 // ==========================================
@@ -1202,4 +1210,43 @@ model CompanyOffice {
   @@unique([financeCompanyId, name])
   @@unique([insuranceCompanyId, name])
   @@index([organizationId])
+}
+
+// A change of owner of a SOLD bike. The original sale (prices, commissions, receivables) is never touched: its
+// customer stays the buyer. Current owner = toCustomer of the latest transfer, else the buyer of the sale.
+model VehicleOwnershipTransfer {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slipNumber     String       @unique
+  vehicleId      String
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  saleId         String? // the sale the bike was sold in (for reference only)
+  fromCustomerId String
+  fromCustomer   Customer     @relation("OwnershipTransferFrom", fields: [fromCustomerId], references: [id], onDelete: Restrict)
+  toCustomerId   String
+  toCustomer     Customer     @relation("OwnershipTransferTo", fields: [toCustomerId], references: [id], onDelete: Restrict)
+  transferDate   DateTime // Colombo calendar day, stored at UTC midnight of that date
+  reason         String?      @db.Text
+  transferFee    Float        @default(0)
+
+  // Document checklist
+  docTransferForm     Boolean @default(false) // transfer form signed
+  docNicCopies        Boolean @default(false) // NIC copies of both parties
+  docRegistrationBook Boolean @default(false) // original registration document (if registered)
+
+  // DMT / RMV registration moved to the new owner (the previous DMT owner is kept here)
+  dmtOwnerUpdated         Boolean @default(false)
+  dmtPreviousOwnerId      String? // null: the buyer of the sale was the registration owner
+  // Finance sale: the staff member confirmed the leasing company may still hold ownership
+  financeWarningConfirmed Boolean @default(false)
+
+  createdById   String
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  @@index([vehicleId, transferDate])
+  @@index([fromCustomerId])
+  @@index([toCustomerId])
+  @@index([organizationId, transferDate])
 }

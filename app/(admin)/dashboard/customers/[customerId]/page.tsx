@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation"
 import { UserRole } from "@prisma/client"
 import { getAuthSession } from "@/lib/auth"
 import { getCustomerProfile } from "@/app/actions/customers"
+import { getCustomerOwnership } from "@/app/actions/ownership-transfer"
+import { CustomerOwnershipCard } from "@/components/customers/customer-ownership-card"
 import {
   CustomerProfile,
   type CustomerProfileData,
@@ -39,10 +41,15 @@ export default async function CustomerDetailPage({ params }: CustomerProfilePage
     notFound()
   }
 
+  const ownership = await getCustomerOwnership(customerId)
+
   return (
-    <CustomerProfile
-      customer={res.data as CustomerProfileData}
-      canManageFreeServiceEntitlement={session.user.role === UserRole.OrgAdmin}
-    />
+    <div className="space-y-6">
+      <CustomerProfile
+        customer={res.data as CustomerProfileData}
+        canManageFreeServiceEntitlement={session.user.role === UserRole.OrgAdmin}
+      />
+      <CustomerOwnershipCard ownership={ownership} />
+    </div>
   )
 }
