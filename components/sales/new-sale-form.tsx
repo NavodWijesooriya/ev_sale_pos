@@ -102,6 +102,7 @@ export interface CustomerData {
   phone: string
   email?: string | null
   nic?: string | null
+  tinNumber?: string | null
   address?: string | null
 }
 
@@ -365,6 +366,8 @@ export function NewSaleForm({
     advanceRequestId.current += 1
     const requestId = advanceRequestId.current
     form.setValue("customerId", id, { shouldDirty: true, shouldValidate: true })
+    // Default the TIN from the customer's record; the cashier can still change it for this sale only.
+    form.setValue("tinNumber", customers.find((customer) => customer.id === id)?.tinNumber ?? "", { shouldDirty: true })
     form.setValue("advancePaymentId", "", { shouldDirty: true })
     setPendingAdvance(null)
     setCustomerQuery("")

@@ -306,6 +306,8 @@ export function AdvanceFormDialog({
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
                             setSelectedCustomerId(c.id)
+                            // Default the TIN from the customer's record (still editable).
+                            setTinNumber(c.tinNumber ?? "")
                             setCustomerQuery("")
                             setCustomerOpen(false)
                           }}

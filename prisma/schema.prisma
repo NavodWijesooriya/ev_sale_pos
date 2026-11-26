@@ -445,6 +445,7 @@ model Customer {
   phone               String
   email               String?
   nic                 String? // normalised: no spaces, upper-case; unique per organization when set
+  tinNumber           String? // optional TIN, offered as the default on new sales and advances
   address             String?
   crn                 String?          @unique
   title               String?

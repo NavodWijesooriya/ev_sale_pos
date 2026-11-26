@@ -400,6 +400,7 @@ export async function seedE2E(): Promise<E2EFixtures> {
     ["E2E-STOCK-HIST-03", branchA.id],
     ["E2E-STOCK-HIST-04", branchA.id],
     ["E2E-STOCK-ADVM-01", branchA.id],
+    ["E2E-STOCK-CTIN-01", branchA.id],
   ]
   for (const [chassis, branchId] of stock) {
     await prisma.vehicle.create({

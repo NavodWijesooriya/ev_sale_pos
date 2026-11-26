@@ -52,6 +52,7 @@ export interface CustomerProfileData {
   phone: string
   email?: string | null
   nic?: string | null
+  tinNumber?: string | null
   address?: string | null
   title?: string | null
   city?: string | null
@@ -288,6 +289,13 @@ export function CustomerProfile({
                     <span className="flex items-center gap-1.5 font-mono">
                       <FileText className="size-3.5 text-muted-foreground shrink-0" />
                       NIC: <strong className="text-foreground">{customer.nic}</strong>
+                    </span>
+                  )}
+
+                  {customer.tinNumber && (
+                    <span className="flex items-center gap-1.5 font-mono" data-testid="profile-tin">
+                      <FileText className="size-3.5 text-muted-foreground shrink-0" />
+                      TIN: <strong className="text-foreground">{customer.tinNumber}</strong>
                     </span>
                   )}
 

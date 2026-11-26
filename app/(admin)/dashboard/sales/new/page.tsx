@@ -75,6 +75,7 @@ export default async function NewSalePage() {
     phone: customer.phone,
     email: customer.email,
     nic: customer.nic,
+    tinNumber: customer.tinNumber,
     address: customer.address,
   }))
 

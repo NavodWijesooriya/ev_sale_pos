@@ -75,6 +75,7 @@ export interface AdvancePaymentCustomerOption {
   id: string
   name: string
   nic: string | null
+  tinNumber?: string | null
 }
 
 export interface AdvancePaymentBranchOption {
@@ -557,7 +558,7 @@ export async function getAdvancePaymentFormOptions(): Promise<{
   const [customers, branches, models] = await Promise.all([
     prisma.customer.findMany({
       where: { organizationId },
-      select: { id: true, name: true, nic: true },
+      select: { id: true, name: true, nic: true, tinNumber: true },
       orderBy: { name: "asc" },
     }),
     prisma.branch.findMany({

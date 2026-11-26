@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { normalizeTin, optionalTinSchema } from "@/lib/validations/tin"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { hasAnyPermission, type Permission } from "@/lib/permissions"
@@ -245,6 +246,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
     const phone = String(formData.get("phone") ?? "").trim()
     const email = String(formData.get("email") ?? "").trim()
     const nic = normalizeNic(String(formData.get("nic") ?? ""))
+    const tin = optionalTinSchema.safeParse(String(formData.get("tinNumber") ?? ""))
     const address = String(formData.get("address") ?? "").trim()
     const title = String(formData.get("title") ?? "").trim()
     const city = String(formData.get("city") ?? "").trim()
@@ -263,6 +265,9 @@ export async function updateCustomer(customerId: string, formData: FormData) {
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return { success: false, error: "Enter a valid email address." }
+    }
+    if (!tin.success) {
+      return { success: false, error: tin.error.issues[0]?.message ?? "Enter a valid TIN." }
     }
     if (title && !isOneOf(title, CUSTOMER_TITLES)) {
       return { success: false, error: "Select a valid customer title." }
@@ -319,6 +324,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
         phone,
         email: email || null,
         nic,
+        tinNumber: normalizeTin(tin.data),
         address: address || null,
         title: title || null,
         city: city || null,
