@@ -200,6 +200,7 @@ model VehicleModel {
   minDownPayment  Float?
 
   vehicles  Vehicle[]
+  advancePayments AdvancePayment[]
   testRides TestRide[]
 }
 
@@ -651,6 +652,9 @@ model AdvancePayment {
   customer       Customer             @relation(fields: [customerId], references: [id])
   vehicleId      String?
   vehicle        Vehicle?             @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  // Bike model booked when no specific bike is in stock yet; the bike is linked (vehicleId) when the sale is made
+  vehicleModelId String?
+  vehicleModel   VehicleModel?        @relation(fields: [vehicleModelId], references: [id], onDelete: SetNull)
   nicNumber      String
   tinNumber      String? // optional customer TIN, carried into the sale when the advance is used
   bikeModel      String
@@ -673,6 +677,7 @@ model AdvancePayment {
   @@index([organizationId, status])
   @@index([customerId, status])
   @@index([vehicleId])
+  @@index([vehicleModelId])
 }
 
 model AdvanceRefund {

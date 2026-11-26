@@ -11,6 +11,7 @@ import type {
   AdvancePaymentBranchOption,
   AdvancePaymentCustomerOption,
   AdvancePaymentRecord,
+  AdvanceVehicleModelOption,
   AvailableVehicleOption,
 } from "@/app/actions/advances"
 import { AdvanceFormDialog } from "@/components/sales/advance-form-dialog"
@@ -58,6 +59,9 @@ interface AdvanceTableProps {
   customers: AdvancePaymentCustomerOption[]
   branches: AdvancePaymentBranchOption[]
   vehicles: AvailableVehicleOption[]
+  models: AdvanceVehicleModelOption[]
+  /** Owner, or staff the owner allowed to refund. The server checks this again. */
+  canRefund: boolean
 }
 
 type StatusFilter = "ALL" | "PENDING" | "USED" | "REFUNDED" | "TRANSFERRED"
@@ -167,7 +171,7 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline">{status}</Badge>
 }
 
-export function AdvanceTable({ advances, customers, branches, vehicles }: AdvanceTableProps) {
+export function AdvanceTable({ advances, customers, branches, vehicles, models, canRefund }: AdvanceTableProps) {
   const [search, setSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL")
   const [isAddOpen, setIsAddOpen] = React.useState(false)
@@ -237,6 +241,7 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
               <TableHead className="w-[24%]">Customer Name / TIN</TableHead>
               <TableHead className="w-[26%]">Vehicle Chassis No</TableHead>
               <TableHead className="w-[16%]">Payment Method</TableHead>
+              <TableHead className="w-28">Added By</TableHead>
               <TableHead className="w-24">Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="w-12 text-right">Actions</TableHead>
@@ -275,7 +280,9 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
                     ) : (
                       <div>
                         <div className="text-xs font-medium text-foreground">{advance.bikeModel}</div>
-                        <div className="text-[11px] text-muted-foreground">General Advance</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {advance.vehicleModelId ? "Model booking (no bike linked yet)" : "General Advance"}
+                        </div>
                       </div>
                     )}
                   </TableCell>
@@ -283,6 +290,9 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
                     <span className="text-xs font-medium text-foreground">
                       {advance.paymentMethod || advance.paymentDetails || "Cash"}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-foreground" data-testid="advance-staff">
+                    {advance.staffName}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={advance.status} />
@@ -307,13 +317,15 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
                           <ArrowRightLeft className="size-4 text-primary" />
                           <span>Transfer Advance</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={advance.status !== "PENDING"}
-                          onClick={() => setRefundingAdvance(advance)}
-                        >
-                          <Undo2 className="size-4 text-muted-foreground" />
-                          <span>Refund Advance</span>
-                        </DropdownMenuItem>
+                        {canRefund && (
+                          <DropdownMenuItem
+                            disabled={advance.status !== "PENDING"}
+                            onClick={() => setRefundingAdvance(advance)}
+                          >
+                            <Undo2 className="size-4 text-muted-foreground" />
+                            <span>Refund Advance</span>
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -322,7 +334,7 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
             })}
             {filteredAdvances.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="h-32 text-center text-sm text-muted-foreground">
                   No advance payments found matching your filter criteria.
                 </TableCell>
               </TableRow>
@@ -337,6 +349,7 @@ export function AdvanceTable({ advances, customers, branches, vehicles }: Advanc
         onOpenChange={setIsAddOpen}
         initialCustomers={customers}
         vehicles={vehicles}
+        models={models}
       />
 
       {/* Transfer Advance Modal */}

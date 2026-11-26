@@ -84,3 +84,33 @@ export async function createSale(page: Page, o: SaleOptions): Promise<{ saleId: 
   expect(invoiceNumber).toMatch(/^INV-/)
   return { saleId, invoiceNumber }
 }
+
+/**
+ * Calls a server action straight from the browser session, the way a hand-made request would, bypassing the screen.
+ * Used to prove that a rule is enforced on the server and not only hidden in the UI.
+ * `page` must be signed in and already on a page of the app that loads the action's client reference.
+ */
+export async function callServerAction(page: Page, actionName: string, args: unknown[]): Promise<string> {
+  const scripts: string[] = await page.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .filter((name) => name.includes("/_next/static/") && name.endsWith(".js")),
+  )
+  let actionId = ""
+  for (const url of scripts) {
+    const body = await (await page.request.get(url)).text()
+    // Next lists every server action of a module as {"<id>":{"name":"<function>"}} next to its client reference.
+    const match = new RegExp(`"([0-9a-f]{32,})":\\{"name":"${actionName}"`).exec(body)
+    if (match) {
+      actionId = match[1]
+      break
+    }
+  }
+  if (!actionId) throw new Error(`Server action ${actionName} was not found in the loaded scripts.`)
+  const response = await page.request.post(page.url(), {
+    headers: { "Next-Action": actionId, "Content-Type": "text/plain;charset=UTF-8", Accept: "text/x-component" },
+    data: JSON.stringify(args),
+  })
+  return response.text()
+}

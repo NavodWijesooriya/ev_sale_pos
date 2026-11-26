@@ -163,7 +163,7 @@ export async function createNewSale(
               organizationId,
               status: AdvancePaymentStatus.PENDING,
             },
-            select: { id: true, amount: true, tinNumber: true },
+            select: { id: true, amount: true, tinNumber: true, vehicleId: true },
           })
         : Promise.resolve(null),
       commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
@@ -192,7 +192,11 @@ export async function createNewSale(
             organizationId,
             status: AdvancePaymentStatus.PENDING,
           },
-          data: { status: AdvancePaymentStatus.USED },
+          // An advance that booked only a bike model (nothing in stock then) is linked to the bike actually sold.
+          data: {
+            status: AdvancePaymentStatus.USED,
+            ...(advance.vehicleId ? {} : { vehicleId: vehicle.id, vehicleModelId: vehicle.vehicleModelId }),
+          },
         })
         if (updatedAdvance.count !== 1) {
           throw new Error("The selected advance was already used by another sale.")

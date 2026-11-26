@@ -54,6 +54,11 @@ export const PERMISSION_DEFINITIONS = {
     label: "Delete sales",
     description: "Delete or void sale records.",
   },
+  REFUND_ADVANCES: {
+    group: "Sales & Billing",
+    label: "Refund advances",
+    description: "Refund a customer advance payment. The owner can always do this.",
+  },
   VIEW_COST_PRICE: {
     group: "Sales & Billing",
     label: "View cost price & profit",

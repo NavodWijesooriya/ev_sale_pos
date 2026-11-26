@@ -43,6 +43,11 @@ export interface AdvancePaymentRecord {
   bikeModel: string
   vehicleId?: string | null
   chassisNumber?: string | null
+  /** Bike model booked without a specific bike in stock (the bike is linked when the sale is made). */
+  vehicleModelId?: string | null
+  /** Staff member who recorded the advance. */
+  staffId: string
+  staffName: string
   amount: number
   advanceDate: string
   createdAt?: string
@@ -56,6 +61,8 @@ export interface AdvancePaymentRecord {
 export interface AdvanceRefundRecord {
   id: string
   customerName: string
+  /** Staff member who recorded the original advance. */
+  staffName: string
   nicNumber: string
   amount: number
   advanceDate: string
@@ -73,6 +80,13 @@ export interface AdvancePaymentCustomerOption {
 export interface AdvancePaymentBranchOption {
   id: string
   name: string
+}
+
+export interface AdvanceVehicleModelOption {
+  id: string
+  brand: string
+  modelName: string
+  defaultPrice: number
 }
 
 export interface PendingAdvanceTransferRecord {
@@ -448,6 +462,7 @@ export async function getAdvancePayments(): Promise<AdvancePaymentRecord[]> {
     include: {
       customer: { select: { name: true } },
       vehicle: { select: { chassisNumber: true } },
+      staff: { select: { name: true } },
     },
     orderBy: [{ advanceDate: "desc" }, { id: "desc" }],
   })
@@ -461,6 +476,9 @@ export async function getAdvancePayments(): Promise<AdvancePaymentRecord[]> {
     bikeModel: advance.bikeModel,
     vehicleId: advance.vehicleId || null,
     chassisNumber: advance.vehicle?.chassisNumber || null,
+    vehicleModelId: advance.vehicleModelId || null,
+    staffId: advance.staffId,
+    staffName: advance.staff?.name || "Unknown",
     amount: advance.amount,
     advanceDate: advance.advanceDate.toISOString(),
     createdAt: advance.createdAt ? advance.createdAt.toISOString() : advance.advanceDate.toISOString(),
@@ -481,6 +499,7 @@ export async function getRefundedAdvancePayments(): Promise<AdvanceRefundRecord[
     },
     include: {
       customer: { select: { name: true } },
+      staff: { select: { name: true } },
       refunds: {
         orderBy: { refundDate: "desc" },
         select: {
@@ -500,6 +519,7 @@ export async function getRefundedAdvancePayments(): Promise<AdvanceRefundRecord[
       refundRecords.push({
         id: advance.id,
         customerName: advance.customer.name,
+        staffName: advance.staff.name,
         nicNumber: advance.nicNumber,
         amount: advance.amount,
         advanceDate: advance.advanceDate.toISOString(),
@@ -514,6 +534,7 @@ export async function getRefundedAdvancePayments(): Promise<AdvanceRefundRecord[
       refundRecords.push({
         id: refund.id,
         customerName: advance.customer.name,
+        staffName: advance.staff.name,
         nicNumber: advance.nicNumber,
         amount: refund.refundAmount,
         advanceDate: advance.advanceDate.toISOString(),
@@ -530,9 +551,10 @@ export async function getRefundedAdvancePayments(): Promise<AdvanceRefundRecord[
 export async function getAdvancePaymentFormOptions(): Promise<{
   customers: AdvancePaymentCustomerOption[]
   branches: AdvancePaymentBranchOption[]
+  models: AdvanceVehicleModelOption[]
 }> {
   const { organizationId } = await requireOrganizationUser()
-  const [customers, branches] = await Promise.all([
+  const [customers, branches, models] = await Promise.all([
     prisma.customer.findMany({
       where: { organizationId },
       select: { id: true, name: true, nic: true },
@@ -543,9 +565,15 @@ export async function getAdvancePaymentFormOptions(): Promise<{
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    // Every model of the dealership, not only the ones in stock: an advance can book a model that has no bike yet.
+    prisma.vehicleModel.findMany({
+      where: { organizationId },
+      select: { id: true, brand: true, modelName: true, defaultPrice: true },
+      orderBy: [{ brand: "asc" }, { modelName: "asc" }],
+    }),
   ])
 
-  return { customers, branches }
+  return { customers, branches, models }
 }
 
 export async function createAdvancePayment(
@@ -723,6 +751,13 @@ export async function refundAdvancePayment(
   if (!session?.user || !hasPermission(session.user, "CREATE_SALE")) {
     return { success: false, error: "You do not have permission to manage customer advances." }
   }
+  // Refunding pays money back: only the owner, or staff the owner has allowed, may do it. Checked here, not in the screen.
+  if (!hasPermission(session.user, "REFUND_ADVANCES")) {
+    return {
+      success: false,
+      error: "Only the dealership owner, or staff the owner has allowed to refund advances, can refund an advance.",
+    }
+  }
 
   const advanceId = typeof id === "string" ? id.trim() : ""
   if (!advanceId) {
@@ -873,6 +908,8 @@ export interface RecordAdvancePaymentInput {
   customerId: string
   tinNumber?: string | null
   vehicleId?: string | null
+  /** Book a bike model that is not in stock (no specific bike). Ignored when a bike is selected. */
+  vehicleModelId?: string | null
   amount: number
   paymentMethod: string
   notes?: string | null
@@ -904,6 +941,7 @@ export async function recordAdvancePayment(data: RecordAdvancePaymentInput) {
     let bikeModel = "General Advance"
     let selectedBranchId = data.branchId || null
     let vehicleId = data.vehicleId?.trim() || null
+    let vehicleModelId: string | null = null
 
     if (vehicleId) {
       const vehicle = await prisma.vehicle.findFirst({
@@ -912,12 +950,25 @@ export async function recordAdvancePayment(data: RecordAdvancePaymentInput) {
       })
       if (vehicle) {
         bikeModel = `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName}`
+        vehicleModelId = vehicle.vehicleModelId
         if (!selectedBranchId) {
           selectedBranchId = vehicle.branchId
         }
       } else {
         vehicleId = null
       }
+    }
+
+    // No bike chosen: the advance can still book a bike model that is not in stock.
+    const requestedModelId = data.vehicleModelId?.trim() || null
+    if (!vehicleId && requestedModelId) {
+      const model = await prisma.vehicleModel.findFirst({
+        where: { id: requestedModelId, organizationId },
+        select: { id: true, brand: true, modelName: true },
+      })
+      if (!model) return { success: false, error: "The selected bike model was not found." }
+      bikeModel = `${model.brand} ${model.modelName}`
+      vehicleModelId = model.id
     }
 
     if (!selectedBranchId) {
@@ -941,6 +992,7 @@ export async function recordAdvancePayment(data: RecordAdvancePaymentInput) {
         organizationId,
         customerId: customer.id,
         vehicleId: vehicleId || null,
+        vehicleModelId,
         nicNumber: customer.nic || "N/A",
         tinNumber: normalizeTin(data.tinNumber),
         bikeModel,
