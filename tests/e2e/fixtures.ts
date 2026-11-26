@@ -23,11 +23,13 @@ export async function loginAndSave(browser: Browser, role: RoleKey) {
   const user = loadFixtures().users[role]
   const context = await browser.newContext({ baseURL: BASE_URL })
   const page = await context.newPage()
-  await page.goto("/login")
-  await page.getByLabel("Work email").fill(user.email)
+  // The platform operator signs in at the admin portal; the workspace login refuses that account.
+  const platform = role === "platformAdmin"
+  await page.goto(platform ? "/admin-portal/login" : "/login")
+  await page.getByLabel(platform ? "Administrator email" : "Work email").fill(user.email)
   await page.getByRole("textbox", { name: "Password" }).fill(user.password)
-  await page.getByRole("button", { name: /sign in/i }).click()
-  await page.waitForURL(/\/dashboard/, { timeout: 90_000 })
+  await page.getByRole("button", { name: /sign in|log in|continue/i }).click()
+  await page.waitForURL(platform ? /\/admin-portal(?!\/login)/ : /\/dashboard/, { timeout: 90_000 })
   await context.storageState({ path: authPath(role) })
   await context.close()
 }
