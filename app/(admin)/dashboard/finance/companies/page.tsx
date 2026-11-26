@@ -29,6 +29,7 @@ export default async function FinanceCompaniesPage() {
         contactNo: company.contactNo,
         defaultCommissionRate: company.defaultCommissionRate,
         officers: company.officers.map(({ id, name, contactNo }) => ({ id, name, contactNo })),
+        offices: company.offices.map(({ id, name, address, phone, isActive }) => ({ id, name, address, phone, isActive })),
       }))}
     />
   )

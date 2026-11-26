@@ -98,6 +98,7 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
         "Sale Date",
         "Customer",
         "Branch",
+        "Finance Office",
         "Finance Amount (Rs.)",
         "Received (Rs.)",
         "Balance (Rs.)",
@@ -114,6 +115,7 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
           colomboDateKey(new Date(i.saleDate)),
           i.customerName,
           i.branchName,
+          i.officeName ?? "",
           i.totalFinanceAmount,
           i.receivedAmount,
           i.balanceAmount,
@@ -259,6 +261,7 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
                       <TableHead>Sale date</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Branch</TableHead>
+                      <TableHead>Office</TableHead>
                       <TableHead className="text-right">Finance amount</TableHead>
                       <TableHead className="text-right">Received</TableHead>
                       <TableHead className="text-right">Balance</TableHead>
@@ -274,6 +277,7 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
                         <TableCell>{colomboDateKey(new Date(i.saleDate))}</TableCell>
                         <TableCell>{i.customerName}</TableCell>
                         <TableCell>{i.branchName}</TableCell>
+                        <TableCell data-testid="receivable-office">{i.officeName ?? "—"}</TableCell>
                         <TableCell className="text-right">{money(i.totalFinanceAmount)}</TableCell>
                         <TableCell className="text-right">{money(i.receivedAmount)}</TableCell>
                         <TableCell className="text-right font-medium">

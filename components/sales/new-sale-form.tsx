@@ -109,6 +109,8 @@ export interface FinanceInsuranceOption {
   id: string
   name: string
   defaultCommissionRate: number | null
+  /** Active offices of the company (for the Office dropdown). */
+  offices?: Array<{ id: string; name: string }>
 }
 
 interface NewSaleFormProps {
@@ -955,6 +957,7 @@ export function NewSaleForm({
                           value={field.value ?? ""}
                           onValueChange={(value) => {
                             field.onChange(value === "__none__" ? "" : value)
+                            form.setValue("financeOfficeId", "", { shouldDirty: true })
                             const company = financeCompanies.find((c) => c.id === value)
                             const rate = company?.defaultCommissionRate != null ? company.defaultCommissionRate : 1
                             form.setValue("commissionRate", rate, { shouldDirty: true })
@@ -993,6 +996,35 @@ export function NewSaleForm({
                       E.g. People's Leasing, Commercial Credit, LB Finance, etc.
                     </p>
                   </div>
+
+                  {/* 1b. Office of the finance company */}
+                  {(selectedFinanceCompany?.offices ?? []).length > 0 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="sale-finance-office" className="text-xs font-semibold">Finance company office</Label>
+                      <Controller
+                        name="financeOfficeId"
+                        control={form.control}
+                        render={({ field }) => (
+                          <Select
+                            value={field.value || "__none__"}
+                            onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                          >
+                            <SelectTrigger id="sale-finance-office" className="w-full bg-background">
+                              <SelectValue placeholder="Select office" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Not specified</SelectItem>
+                              {(selectedFinanceCompany?.offices ?? []).map((office) => (
+                                <SelectItem key={office.id} value={office.id}>
+                                  {office.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                  )}
 
                   {/* 2. Down Payment */}
                   <div className="space-y-2">
@@ -1305,7 +1337,10 @@ export function NewSaleForm({
                     render={({ field }) => (
                       <Select
                         value={field.value || "__none__"}
-                        onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                        onValueChange={(value) => {
+                          field.onChange(value === "__none__" ? "" : value)
+                          form.setValue("insuranceOfficeId", "", { shouldDirty: true })
+                        }}
                       >
                         <SelectTrigger id="sale-insurance-company" className="w-full bg-background">
                           <SelectValue placeholder="Select company" />
@@ -1318,6 +1353,35 @@ export function NewSaleForm({
                               {canManageCommission && company.defaultCommissionRate != null
                                 ? ` (${company.defaultCommissionRate}%)`
                                 : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              )}
+
+
+              {(selectedInsuranceCompany?.offices ?? []).length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="sale-insurance-office" className="text-xs font-semibold">Insurance company office</Label>
+                  <Controller
+                    name="insuranceOfficeId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || "__none__"}
+                        onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                      >
+                        <SelectTrigger id="sale-insurance-office" className="w-full bg-background">
+                          <SelectValue placeholder="Select office" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Not specified</SelectItem>
+                          {(selectedInsuranceCompany?.offices ?? []).map((office) => (
+                            <SelectItem key={office.id} value={office.id}>
+                              {office.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

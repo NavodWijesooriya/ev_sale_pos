@@ -64,6 +64,8 @@ interface SaleOverviewProps {
     /** Names of the free items given with this sale (saved as they were at the time). */
     freeItems?: string[] | null
     freeServices?: number | null
+    financeOfficeName?: string | null
+    insuranceOfficeName?: string | null
     deliveryDate?: Date | string | null
     paymentMethod: PaymentMethod
     status: string
@@ -346,6 +348,14 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
                   )}
                 </div>
               </div>
+
+              {(sale.financeOfficeName || sale.insuranceOfficeName) && (
+                <div className="rounded-lg border bg-muted/40 p-3 text-xs" data-testid="sale-offices">
+                  <span className="text-[11px] font-semibold uppercase text-muted-foreground">Company offices</span>
+                  {sale.financeOfficeName && <p className="mt-1 font-medium text-foreground">Finance: {sale.financeOfficeName}</p>}
+                  {sale.insuranceOfficeName && <p className="mt-1 font-medium text-foreground">Insurance: {sale.insuranceOfficeName}</p>}
+                </div>
+              )}
 
               {sale.freeItems && sale.freeItems.length > 0 && (
                 <div className="rounded-lg border bg-muted/40 p-3 text-xs" data-testid="sale-free-items">

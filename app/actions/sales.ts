@@ -123,13 +123,15 @@ export async function createNewSale(
     const advancePaymentId = data.advancePaymentId?.trim() || null
     const financeCompanyId = data.financeCompanyId?.trim() || null
     const insuranceCompanyId = data.insuranceCompanyId?.trim() || null
+    const financeOfficeId = data.financeOfficeId?.trim() || null
+    const insuranceOfficeId = data.insuranceOfficeId?.trim() || null
     // Non-owner/admin users can never set commissions: anything sent by the client is ignored.
     const commissionRecipientId = commissionsAllowed ? data.commissionRecipientId?.trim() || null : null
     // All read-only lookups happen BEFORE the transaction so it only holds the writes (a slow database
     // used to push the whole checkout past the interactive-transaction timeout). The vehicle and advance
     // guards below are compare-and-set updates inside the transaction, so a stale read here can never
     // sell a bike twice or use an advance twice.
-    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount, chargeSettings, activeFreeItems] = await Promise.all([
+    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount, chargeSettings, activeFreeItems, financeOffice, insuranceOffice] = await Promise.all([
       prisma.customer.findFirst({
         where: { id: data.customerId, organizationId },
         select: { id: true },
@@ -170,6 +172,19 @@ export async function createNewSale(
       commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
       loadSaleChargeSettings(prisma, organizationId),
       loadActiveFreeItems(prisma, organizationId),
+      // The office must be an active office of the company that was chosen.
+      financeOfficeId && financeCompanyId
+        ? prisma.companyOffice.findFirst({
+            where: { id: financeOfficeId, financeCompanyId, organizationId, isActive: true },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+      insuranceOfficeId && insuranceCompanyId
+        ? prisma.companyOffice.findFirst({
+            where: { id: insuranceOfficeId, insuranceCompanyId, organizationId, isActive: true },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
     ])
 
     if (!customer) throw new Error("The selected customer was not found.")
@@ -181,6 +196,8 @@ export async function createNewSale(
       throw new Error("The selected insurance company was not found.")
     }
     if (advancePaymentId && !pendingAdvance) throw new Error("The selected customer advance is no longer pending.")
+    if (financeOfficeId && !financeOffice) throw new Error("The selected finance company office is not available.")
+    if (insuranceOfficeId && !insuranceOffice) throw new Error("The selected insurance company office is not available.")
     // Only active items can be given on a new sale; their names are saved on the sale as a snapshot.
     const chosenFreeItems = activeFreeItems.filter((item) => data.freeItemIds.includes(item.id))
     if (chosenFreeItems.length !== new Set(data.freeItemIds).size) {
@@ -281,6 +298,11 @@ export async function createNewSale(
           financeCompanyId: isFinance ? financeCompanyId : null,
           insuranceCompanyId: effectiveInsuranceCompanyId,
           insuranceType,
+          // Office names are kept on the sale as they were.
+          financeOfficeId: isFinance && financeOffice ? financeOffice.id : null,
+          financeOfficeName: isFinance && financeOffice ? financeOffice.name : null,
+          insuranceOfficeId: effectiveInsuranceCompanyId && insuranceOffice ? insuranceOffice.id : null,
+          insuranceOfficeName: effectiveInsuranceCompanyId && insuranceOffice ? insuranceOffice.name : null,
           advanceDeducted: advanceAmount,
           financeCommission: isFinance ? finalCommissionAmt : null,
           insuranceCommission: insuranceCommissionAmt,

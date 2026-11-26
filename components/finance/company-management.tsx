@@ -6,6 +6,7 @@ import {
   Building2,
   LoaderCircle,
   MoreHorizontal,
+  MapPin,
   Pencil,
   Plus,
   ShieldCheck,
@@ -52,6 +53,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  CompanyOfficesDialog,
+  OfficeRowsEditor,
+  emptyOfficeRow,
+  type CompanyOfficeItem,
+} from "@/components/finance/company-offices"
+import type { OfficeInput } from "@/lib/company-offices"
+import {
   Table,
   TableBody,
   TableCell,
@@ -72,6 +80,7 @@ export interface ManagedCompany {
   contactNo: string
   defaultCommissionRate: number | null
   officers: CompanyOfficer[]
+  offices: CompanyOfficeItem[]
 }
 
 interface CompanyManagementProps {
@@ -100,15 +109,19 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
   const [editingCompany, setEditingCompany] = React.useState<ManagedCompany | null>(null)
   const [formValues, setFormValues] = React.useState<CompanyFormState>(emptyCompanyForm)
   const [officerCompanyId, setOfficerCompanyId] = React.useState<string | null>(null)
+  const [officeCompanyId, setOfficeCompanyId] = React.useState<string | null>(null)
+  const [officeRows, setOfficeRows] = React.useState<OfficeInput[]>([])
   const [officerName, setOfficerName] = React.useState("")
   const [officerContactNo, setOfficerContactNo] = React.useState("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const companies = initialCompanies
   const officerCompany = companies.find((company) => company.id === officerCompanyId) ?? null
+  const officeCompany = companies.find((company) => company.id === officeCompanyId) ?? null
 
   function openCreateDialog() {
     setEditingCompany(null)
     setFormValues(emptyCompanyForm)
+    setOfficeRows([emptyOfficeRow()])
     setDialogOpen(true)
   }
 
@@ -142,10 +155,10 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
       const result = isFinance
         ? editingCompany
           ? await updateFinanceCompany({ ...input, id: editingCompany.id })
-          : await createFinanceCompany(input)
+          : await createFinanceCompany({ ...input, offices: officeRows })
         : editingCompany
           ? await updateInsuranceCompany({ ...input, id: editingCompany.id })
-          : await createInsuranceCompany(input)
+          : await createInsuranceCompany({ ...input, offices: officeRows })
       if (!result.success) {
         toast.error(result.error)
         return
@@ -274,6 +287,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                   <TableHead>Contact</TableHead>
                   <TableHead>Default Commission</TableHead>
                   <TableHead>Officers</TableHead>
+                  <TableHead>Offices</TableHead>
                   <TableHead className="w-12 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -289,6 +303,9 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{company.officers.length}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{company.offices.length}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -309,6 +326,10 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                             <UsersRound className="size-4" />
                             Manage Officers
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setOfficeCompanyId(company.id)}>
+                            <MapPin className="size-4" />
+                            Manage Offices
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEditDialog(company)}>
                             <Pencil className="size-4" />
                             Edit Company
@@ -327,7 +348,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                 ))}
                 {companies.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-28 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
                       No companies added yet.
                     </TableCell>
                   </TableRow>
@@ -339,7 +360,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingCompany ? "Edit" : "Add"} {companyTitle}</DialogTitle>
             <DialogDescription>
@@ -383,6 +404,28 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                 placeholder="Optional"
               />
             </div>
+            {editingCompany ? (
+              <p className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                <span>
+                  {editingCompany.offices.length} {editingCompany.offices.length === 1 ? "office" : "offices"} on record.
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => {
+                    setDialogOpen(false)
+                    setOfficeCompanyId(editingCompany.id)
+                  }}
+                >
+                  <MapPin className="size-3.5" />
+                  Manage offices
+                </Button>
+              </p>
+            ) : (
+              <OfficeRowsEditor rows={officeRows} onChange={setOfficeRows} idPrefix={companyType} />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
@@ -395,6 +438,12 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
           </form>
         </DialogContent>
       </Dialog>
+
+      <CompanyOfficesDialog
+        kind={kind}
+        company={officeCompany ? { id: officeCompany.id, name: officeCompany.name, offices: officeCompany.offices } : null}
+        onClose={() => setOfficeCompanyId(null)}
+      />
 
       <Dialog
         open={Boolean(officerCompanyId)}

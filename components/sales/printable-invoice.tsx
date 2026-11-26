@@ -34,6 +34,9 @@ export interface InvoiceSaleData {
   /** Names of the free items given with the sale (saved as they were). */
   freeItems?: string[] | null
   freeServices?: number | null
+  /** Offices of the finance / insurance company chosen on the sale (names as saved). */
+  financeOfficeName?: string | null
+  insuranceOfficeName?: string | null
   warrantyOption?: string | null
   advancePayment?: {
     amount: number
@@ -536,6 +539,12 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                     <span>{sale.customer.nic}</span>
                   </>
                 )}
+                {sale.insuranceOfficeName && (
+                  <>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>Insurance Office:</span>
+                    <span data-testid="invoice-insurance-office">{sale.insuranceOfficeName}</span>
+                  </>
+                )}
                 {sale.freeItems && sale.freeItems.length > 0 && (
                   <>
                     <span style={{ color: "#64748b", fontWeight: 600 }}>Free Items:</span>
@@ -903,6 +912,13 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
 
                   <span style={{ color: "#64748b" }}>Finance Company:</span>
                   <strong style={{ color: "#1d4ed8" }}>{financeCompanyName}</strong>
+
+                  {sale.financeOfficeName && (
+                    <>
+                      <span style={{ color: "#64748b" }}>Finance Office:</span>
+                      <strong style={{ color: "#0f172a" }} data-testid="invoice-finance-office">{sale.financeOfficeName}</strong>
+                    </>
+                  )}
 
                   <span style={{ color: "#64748b" }}>Vehicle Total Price:</span>
                   <strong style={{ color: "#0f172a" }}>{formatLKR(vehicleTotalPrice)}</strong>

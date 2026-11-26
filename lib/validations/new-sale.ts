@@ -52,6 +52,9 @@ export const createNewSaleSchema = z.object({
   commissionAmount: z.number().min(0).optional().nullable(),
   insuranceType: z.enum(insuranceTypeOptions),
   insuranceCompanyId: z.string().trim().optional().or(z.literal("")),
+  // Optional office of the chosen finance / insurance company (checked against that company on the server).
+  financeOfficeId: z.string().trim().optional().or(z.literal("")),
+  insuranceOfficeId: z.string().trim().optional().or(z.literal("")),
   financeCommission: z.number().min(0).optional().nullable(),
   insuranceCommission: z.number().min(0).optional().nullable(),
   commissionRecipientId: z.string().trim().optional().or(z.literal("")),

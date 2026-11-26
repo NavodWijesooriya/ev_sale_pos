@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
+import { cleanOffices, type OfficeInput } from "@/lib/company-offices"
 
 const financeCompaniesPath = "/dashboard/finance/companies"
 const insuranceCompaniesPath = "/dashboard/finance/insurance"
@@ -62,6 +63,8 @@ export interface CompanyInput {
   name: string
   contactNo: string
   defaultCommissionRate?: number | null
+  /** Offices added together with a NEW company (the edit form manages offices separately). */
+  offices?: OfficeInput[]
 }
 
 export interface OfficerInput {
@@ -86,7 +89,7 @@ export async function getFinanceCompanies() {
   const { organizationId } = await requireOrganization()
   return prisma.financeCompany.findMany({
     where: { organizationId },
-    include: { officers: true },
+    include: { officers: true, offices: { orderBy: { name: "asc" } } },
     orderBy: { name: "asc" },
   })
 }
@@ -95,7 +98,7 @@ export async function getInsuranceCompanies() {
   const { organizationId } = await requireOrganization()
   return prisma.insuranceCompany.findMany({
     where: { organizationId },
-    include: { officers: true },
+    include: { officers: true, offices: { orderBy: { name: "asc" } } },
     orderBy: { name: "asc" },
   })
 }
@@ -110,7 +113,10 @@ export async function createFinanceCompany(input: CompanyInput) {
     })
     if (duplicate) return { success: false as const, error: "A finance company with that name already exists." }
 
-    await prisma.financeCompany.create({ data: { organizationId, ...fields } })
+    const offices = cleanOffices(input.offices)
+    await prisma.financeCompany.create({
+      data: { organizationId, ...fields, offices: { create: offices.map((office) => ({ organizationId, ...office })) } },
+    })
     revalidateFinancePages()
     return { success: true as const }
   } catch (error) {
@@ -213,7 +219,10 @@ export async function createInsuranceCompany(input: CompanyInput) {
     })
     if (duplicate) return { success: false as const, error: "An insurance company with that name already exists." }
 
-    await prisma.insuranceCompany.create({ data: { organizationId, ...fields } })
+    const offices = cleanOffices(input.offices)
+    await prisma.insuranceCompany.create({
+      data: { organizationId, ...fields, offices: { create: offices.map((office) => ({ organizationId, ...office })) } },
+    })
     revalidateFinancePages()
     return { success: true as const }
   } catch (error) {

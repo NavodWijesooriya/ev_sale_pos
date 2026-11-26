@@ -80,16 +80,21 @@ export default async function NewSalePage() {
     address: customer.address,
   }))
 
+  const activeOffices = (offices: Array<{ id: string; name: string; isActive: boolean }>) =>
+    offices.filter((office) => office.isActive).map(({ id, name }) => ({ id, name }))
+
   const financeOptions: FinanceInsuranceOption[] = financeCompanies.map((c) => ({
     id: c.id,
     name: c.name,
     defaultCommissionRate: canManageCommission ? c.defaultCommissionRate : null,
+    offices: activeOffices(c.offices),
   }))
 
   const insuranceOptions: FinanceInsuranceOption[] = insuranceCompanies.map((c) => ({
     id: c.id,
     name: c.name,
     defaultCommissionRate: canManageCommission ? c.defaultCommissionRate : null,
+    offices: activeOffices(c.offices),
   }))
 
   const staffOptions: StaffOption[] = (canManageCommission ? ((result.data as any).staff ?? []) : []).map((s: any) => ({

@@ -115,6 +115,8 @@ export interface ReceivableItem {
   saleDate: string
   customerName: string
   branchName: string
+  /** Finance company office chosen on the sale (name as saved), if any. */
+  officeName: string | null
   totalFinanceAmount: number
   receivedAmount: number
   balanceAmount: number
@@ -172,6 +174,7 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
             saleDate: true,
             customer: { select: { name: true } },
             branch: { select: { name: true } },
+            financeOfficeName: true,
           },
         },
       },
@@ -202,6 +205,7 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
       saleDate: d.sale.saleDate.toISOString(),
       customerName: d.sale.customer.name,
       branchName: d.sale.branch.name,
+      officeName: d.sale.financeOfficeName,
       totalFinanceAmount: d.totalFinanceAmount,
       receivedAmount: d.receivedAmount,
       balanceAmount: d.balanceAmount,

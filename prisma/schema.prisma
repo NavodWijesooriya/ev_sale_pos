@@ -79,20 +79,21 @@ model Organization {
   stockTransfers        StockTransfer[]
   customDomain          String?                @unique
   freeItems             FreeItem[]
+  companyOffices        CompanyOffice[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
 model CommissionSettings {
-  organizationId          String       @id
-  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId            String       @id
+  organization              Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   // Fixed dealer commission (LKR) for Full Insurance issued through the dealership on a cash sale.
-  fullInsuranceCommission Float        @default(2000)
+  fullInsuranceCommission   Float        @default(2000)
   // Customer-paid charges added to every NEW sale (each sale snapshots the amounts it was made with).
-  rmvChargeFinance          Float      @default(14300) // RMV charge (LKR) on Finance sales
-  rmvChargeCash             Float      @default(10300) // RMV charge (LKR) on Cash sales
-  thirdPartyInsuranceAmount Float      @default(1200) // Third-party insurance (LKR), added when the box is ticked
-  updatedAt              DateTime     @updatedAt
-  updatedById             String?
+  rmvChargeFinance          Float        @default(14300) // RMV charge (LKR) on Finance sales
+  rmvChargeCash             Float        @default(10300) // RMV charge (LKR) on Cash sales
+  thirdPartyInsuranceAmount Float        @default(1200) // Third-party insurance (LKR), added when the box is ticked
+  updatedAt                 DateTime     @updatedAt
+  updatedById               String?
 }
 
 // Append-only record of critical staff actions. Viewable by the owner only.
@@ -165,6 +166,7 @@ model Branch {
   transfersOut     StockTransfer[]   @relation("StockTransferFrom")
   transfersIn      StockTransfer[]   @relation("StockTransferTo")
 }
+
 // ==========================================
 // 2. Inventory & Procurement
 // ==========================================
@@ -200,9 +202,9 @@ model VehicleModel {
   defaultPrice    Float
   minDownPayment  Float?
 
-  vehicles  Vehicle[]
+  vehicles        Vehicle[]
   advancePayments AdvancePayment[]
-  testRides TestRide[]
+  testRides       TestRide[]
 }
 
 enum VehicleStatus {
@@ -586,6 +588,14 @@ model Sale {
   payments        Payment[]
   freeItemLinks   SaleFreeItem[]
 
+  // Finance / insurance company office chosen for this sale (name kept as it was)
+  financeOfficeId     String?
+  financeOffice       CompanyOffice? @relation("SaleFinanceOffice", fields: [financeOfficeId], references: [id], onDelete: SetNull)
+  financeOfficeName   String?
+  insuranceOfficeId   String?
+  insuranceOffice     CompanyOffice? @relation("SaleInsuranceOffice", fields: [insuranceOfficeId], references: [id], onDelete: SetNull)
+  insuranceOfficeName String?
+
   @@index([organizationId, financeCompanyId])
   @@index([organizationId, insuranceCompanyId])
   @@index([commissionRecipientId])
@@ -603,6 +613,7 @@ model FinanceCompany {
 
   sales    Sale[]           @relation("SaleFinanceCompany")
   officers FinanceOfficer[]
+  offices  CompanyOffice[]
 
   financeDetails  FinanceDetail[]
   receipts        FinanceReceipt[]
@@ -633,6 +644,7 @@ model InsuranceCompany {
 
   sales    Sale[]             @relation("SaleInsuranceCompany")
   officers InsuranceOfficer[]
+  offices  CompanyOffice[]
 
   @@unique([organizationId, name])
 }
@@ -1162,4 +1174,30 @@ model SaleFreeItem {
 
   @@index([saleId])
   @@index([freeItemId])
+}
+
+// An office / branch location of a finance company or an insurance company (not a person: see FinanceOfficer /
+// InsuranceOfficer for the officers). One table for both kinds: exactly one of the two company ids is set
+// (enforced by a CHECK constraint in the migration). A sale keeps the office NAME as a snapshot.
+model CompanyOffice {
+  id                 String            @id @default(uuid())
+  organizationId     String
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  financeCompanyId   String?
+  financeCompany     FinanceCompany?   @relation(fields: [financeCompanyId], references: [id], onDelete: Cascade)
+  insuranceCompanyId String?
+  insuranceCompany   InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id], onDelete: Cascade)
+  name               String
+  address            String?
+  phone              String?
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  financeSales   Sale[] @relation("SaleFinanceOffice")
+  insuranceSales Sale[] @relation("SaleInsuranceOffice")
+
+  @@unique([financeCompanyId, name])
+  @@unique([insuranceCompanyId, name])
+  @@index([organizationId])
 }
