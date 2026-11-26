@@ -51,6 +51,10 @@ export interface InvoiceSaleData {
     name: string
   } | null
   status: string
+  /** Set when the sale was cancelled: the invoice then prints a CANCELLED watermark. */
+  cancelledAt?: Date | string | null
+  cancelType?: string | null
+  cancelReason?: string | null
   organization: {
     id: string
     businessName: string
@@ -313,6 +317,48 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
           position: "relative",
         }}
       >
+        {sale.status === "CANCELLED" && (
+          <div
+            data-testid="cancelled-watermark"
+            aria-label="Cancelled"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 20,
+            }}
+          >
+            <div style={{ transform: "rotate(-30deg)", textAlign: "center", color: "rgba(220, 38, 38, 0.55)" }}>
+              <div
+                style={{
+                  fontSize: "120px",
+                  fontWeight: 900,
+                  letterSpacing: "10px",
+                  lineHeight: 1,
+                  border: "10px solid rgba(220, 38, 38, 0.55)",
+                  borderRadius: "16px",
+                  padding: "8px 28px",
+                }}
+              >
+                CANCELLED
+              </div>
+              <div style={{ marginTop: "14px", fontSize: "20px", fontWeight: 700 }}>
+                {sale.cancelledAt
+                  ? new Date(sale.cancelledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                  : ""}
+                {sale.cancelReason ? ` · ${sale.cancelReason}` : ""}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TOP SECTION: Header & Meta */}
         <div>
           <header

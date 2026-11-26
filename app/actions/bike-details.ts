@@ -7,6 +7,7 @@ import { applyDmtPatch, dmtRevalidationPaths, type DmtPatch } from "@/lib/dmt-se
 import { branchFilter, hasAnyPermission, hasPermission } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 import { loadOwnershipHistory, type OwnershipHistory } from "@/lib/ownership"
+import { activeSale } from "@/lib/sale-status"
 
 export interface BikeDetails {
   id: string
@@ -67,6 +68,7 @@ export async function getBikeDetails(vehicleId: string): Promise<BikeDetails | n
       branch: { select: { name: true } },
       grn: { select: { grnNumber: true } },
       sales: {
+        where: activeSale,
         take: 1,
         orderBy: { saleDate: "desc" },
         include: {

@@ -4,6 +4,7 @@ import { VehicleStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { SuperAdminView, OrganizationRow } from "@/components/admin-portal/super-admin-view"
+import { activeSale } from "@/lib/sale-status"
 
 export const instant = false
 
@@ -41,7 +42,7 @@ export default async function SuperAdminDashboardPage() {
     prisma.organization.count(),
     prisma.vehicle.count({ where: { status: VehicleStatus.AVAILABLE } }),
     prisma.vehicle.count(),
-    prisma.sale.aggregate({ _sum: { totalAmount: true } }),
+    prisma.sale.aggregate({ where: activeSale, _sum: { totalAmount: true } }),
     prisma.user.count(),
     prisma.organization.findMany({
       include: {

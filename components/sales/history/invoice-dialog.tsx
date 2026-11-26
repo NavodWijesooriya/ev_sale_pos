@@ -19,6 +19,10 @@ export interface SalesHistoryInvoice {
   totalAmount: number
   paymentMethod: string | null
   paymentType?: string | null
+  status?: string
+  cancelType?: string | null
+  cancelReason?: string | null
+  cancelledAt?: Date | string | null
   financeAmount?: number | null
   downPayment?: number | null
   financeCompany?: { name: string } | null

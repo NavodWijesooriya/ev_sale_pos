@@ -1,5 +1,6 @@
 "use server"
 
+import { activeSale } from "@/lib/sale-status"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { recordAudit } from "@/lib/audit"
@@ -8,6 +9,7 @@ import { colomboDayRange, colomboMonthKey, parseDateKey, parseMonthKey, colomboD
 import { prisma } from "@/lib/prisma"
 import { ratesInForce } from "@/lib/staff-compensation"
 import {
+
   commissionsFor,
   describeRate,
   NO_COMPENSATION,
@@ -409,7 +411,7 @@ export async function getPayrollSummary(month?: string): Promise<PayrollSummary>
     }),
     prisma.sale.groupBy({
       by: ["userId"],
-      where: { organizationId: owner.organizationId, saleDate: { gte: period.first, lte: period.last } },
+      where: { organizationId: owner.organizationId, ...activeSale, saleDate: { gte: period.first, lte: period.last } },
       _count: { _all: true },
     }),
   ])

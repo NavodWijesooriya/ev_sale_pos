@@ -865,7 +865,7 @@ export async function updateDMTRegistration(input: UpdateDMTRegistrationInput) {
 
     // The DMT workflow rules (and the derived status) live in lib/dmt-server.ts.
     const { dmt, customerId, vehicleIds } = await applyDmtPatch(user as AuthorizedSaleUser, input.saleId, {
-      status: input.status,
+      status: input.status === DMTStatus.Cancelled ? undefined : input.status,
       hasMTA2: input.hasMTA2,
       hasNIC: input.hasNIC,
       hasPhotos: input.hasPhotos,

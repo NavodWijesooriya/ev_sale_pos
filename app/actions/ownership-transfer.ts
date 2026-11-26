@@ -11,6 +11,7 @@ import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MES
 import { loadOwnedVehicles, loadOwnershipHistory } from "@/lib/ownership"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
+import { activeSale } from "@/lib/sale-status"
 
 const transferSchema = z.object({
   vehicleId: z.string().trim().min(1, "Select the bike."),
@@ -87,6 +88,7 @@ export async function getTransferContext(vehicleId: string): Promise<{ success: 
         status: true,
         vehicleModel: { select: { brand: true, modelName: true } },
         sales: {
+          where: activeSale,
           take: 1,
           orderBy: { saleDate: "desc" },
           select: {
@@ -153,6 +155,7 @@ export async function transferVehicleOwnership(
             status: true,
             chassisNumber: true,
             sales: {
+              where: activeSale,
               take: 1,
               orderBy: { saleDate: "desc" },
               select: {

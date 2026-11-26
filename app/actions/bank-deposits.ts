@@ -23,17 +23,25 @@ function dateOnly(key: string): Date {
 
 /**
  * Cash taken at a branch on a Colombo calendar day: invoiced amount of sales paid in cash
- * (already net of any customer advance). Shown as a reference next to the deposit, not enforced.
+ * (already net of any customer advance), minus cash refunded to customers that day because a sale was cancelled.
+ * A cancelled sale still counts on the day it was made, because the cash really was taken then; its refund is what
+ * takes the cash back out, on the day it was paid. Shown as a reference next to the deposit, not enforced.
  */
 async function cashSalesFor(db: Db, organizationId: string, branchId: string, dateKey: string) {
   const day = parseDateKey(dateKey)
   if (!day) return 0
   const { start, end } = colomboDayRange(day.year, day.month, day.day)
-  const total = await db.sale.aggregate({
-    where: { organizationId, branchId, paymentMethod: "Cash", saleDate: { gte: start, lte: end } },
-    _sum: { totalAmount: true },
-  })
-  return round2(total._sum.totalAmount ?? 0)
+  const [total, refunds] = await Promise.all([
+    db.sale.aggregate({
+      where: { organizationId, branchId, paymentMethod: "Cash", saleDate: { gte: start, lte: end } },
+      _sum: { totalAmount: true },
+    }),
+    db.sale.aggregate({
+      where: { organizationId, branchId, cancelRefundMethod: "Cash", cancelledAt: { gte: start, lte: end } },
+      _sum: { cancelRefundAmount: true },
+    }),
+  ])
+  return round2((total._sum.totalAmount ?? 0) - (refunds._sum.cancelRefundAmount ?? 0))
 }
 
 export interface DepositOptions {

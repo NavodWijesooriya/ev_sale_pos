@@ -1,5 +1,6 @@
 "use server"
 
+import { activeSale } from "@/lib/sale-status"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
 import { batchVehicleWhere } from "@/lib/batch"
@@ -8,6 +9,7 @@ import { redactKeys } from "@/lib/redact"
 import { VehicleStatus } from "@prisma/client"
 import { getCommissionReports, type CommissionReportData } from "./finance-reports"
 import {
+
   colomboDateKey,
   colomboDayRange,
   colomboMonthKey,
@@ -180,6 +182,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
     },
     include: {
       customer: {
@@ -392,6 +395,7 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       sale: {
         organizationId,
         ...branchFilter(user),
+        ...activeSale,
       },
       status: {
         not: "Completed",
@@ -725,6 +729,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     _sum: {
@@ -744,6 +749,7 @@ export async function getAnalyticsData(
     where: {
       sale: {
         organizationId,
+        ...activeSale,
         saleDate: { gte: start, lte: end },
       },
     },
@@ -784,6 +790,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     select: {
@@ -854,6 +861,7 @@ export async function getAnalyticsData(
     where: {
       sale: {
         organizationId,
+        ...activeSale,
         saleDate: { gte: start, lte: end },
       },
     },
@@ -901,6 +909,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     _count: { id: true },
@@ -914,7 +923,7 @@ export async function getAnalyticsData(
   }))
 
   const recentSalesRaw = await prisma.sale.findMany({
-    where: { organizationId, ...branchFilter(user) },
+    where: { organizationId, ...branchFilter(user), ...activeSale },
     include: {
       customer: { select: { name: true, phone: true } },
       branch: { select: { name: true } },
@@ -950,6 +959,7 @@ export async function getAnalyticsData(
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: start, lte: end },
     },
     include: {
@@ -1097,6 +1107,7 @@ export async function getDailySalesReport(dateStr?: string, batch?: string): Pro
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: startOfDay, lte: endOfDay },
       ...(batch?.trim() ? { items: { some: { vehicle: batchVehicleWhere(batch) } } } : {}),
     },
@@ -1194,6 +1205,7 @@ export async function getMonthlySalesReport(yearMonthStr?: string, batch?: strin
     where: {
       organizationId,
       ...branchFilter(user),
+      ...activeSale,
       saleDate: { gte: startOfMonth, lte: endOfMonth },
       ...(batch?.trim() ? { items: { some: { vehicle: batchVehicleWhere(batch) } } } : {}),
     },

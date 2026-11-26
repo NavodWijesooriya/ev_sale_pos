@@ -53,10 +53,24 @@ import { Separator } from "@/components/ui/separator"
 import { updateDMTRegistration } from "@/app/actions/sales"
 import { DMTStatus, PaymentMethod } from "@prisma/client"
 import { VehicleDocumentTracker } from "@/components/customers/vehicle-document-tracker"
+import { CancelSaleButton } from "@/components/sales/cancel-sale-dialog"
+import { CancelledBadge } from "@/components/sales/cancelled-badge"
+import { cancelTypeLabel, refundMethodLabel } from "@/lib/sale-status"
+import { formatLKR } from "@/lib/currency"
 
 interface SaleOverviewProps {
+  /** True when the signed-in user may cancel sales (owner, or staff with the Cancel sales permission). */
+  canCancel?: boolean
   sale: {
     id: string
+    invoiceNumber?: string
+    cancelledAt?: Date | string | null
+    cancelledByName?: string | null
+    cancelType?: string | null
+    cancelReason?: string | null
+    cancelRefundAmount?: number | null
+    cancelRefundMethod?: string | null
+    cancelAdvanceReleased?: number | null
     saleDate: Date | string
     totalAmount: number
     discount: number
@@ -141,7 +155,8 @@ interface SaleOverviewProps {
   }
 }
 
-export function SaleOverview({ sale }: SaleOverviewProps) {
+export function SaleOverview({ sale, canCancel = false }: SaleOverviewProps) {
+  const isCancelled = sale.status === "CANCELLED"
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -272,7 +287,7 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
             <h1 className="text-2xl font-black tracking-tight text-foreground">
               EV Bike Sale Overview & Handover
             </h1>
-            {renderDMTBadge(dmtStatus)}
+            {isCancelled ? <CancelledBadge type={sale.cancelType} reason={sale.cancelReason} /> : renderDMTBadge(dmtStatus)}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             Purchased by <strong className="text-foreground">{sale.customer.name}</strong> • Handled by {sale.soldBy.name || sale.soldBy.email}
@@ -280,6 +295,9 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {canCancel && !isCancelled && (
+            <CancelSaleButton saleId={sale.id} invoiceNumber={sale.invoiceNumber ?? `INV-${sale.id.slice(0, 8).toUpperCase()}`} />
+          )}
           <Link href={`/dashboard/sales/${sale.id}/invoice`}>
             <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-medium">
               <FileText className="size-4 text-primary" />
@@ -296,6 +314,22 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
           </Button>
         </div>
       </div>
+
+      {isCancelled && (
+        <div data-testid="cancelled-banner" className="space-y-1 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm print:hidden">
+          <p className="font-bold text-red-600">
+            This sale was cancelled{sale.cancelledAt ? ` on ${new Date(sale.cancelledAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}` : ""}{sale.cancelledByName ? ` by ${sale.cancelledByName}` : ""}.
+          </p>
+          <p className="text-red-700 dark:text-red-300">
+            {cancelTypeLabel(sale.cancelType)}{sale.cancelReason ? `: ${sale.cancelReason}` : ""}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {sale.cancelRefundAmount ? `Refunded ${formatLKR(sale.cancelRefundAmount)} by ${refundMethodLabel(sale.cancelRefundMethod)}. ` : "No refund was paid. "}
+            {sale.cancelAdvanceReleased ? `${formatLKR(sale.cancelAdvanceReleased)} customer advance went back to Pending. ` : ""}
+            The bike is back in stock.
+          </p>
+        </div>
+      )}
 
       {/* Grid of Sections: Delivery Note & Warranty (Left), DMT Registration (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

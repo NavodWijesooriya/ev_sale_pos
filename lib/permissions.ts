@@ -59,6 +59,11 @@ export const PERMISSION_DEFINITIONS = {
     label: "Refund advances",
     description: "Refund a customer advance payment. The owner can always do this.",
   },
+  CANCEL_SALE: {
+    group: "Sales & Billing",
+    label: "Cancel sales",
+    description: "Cancel a sale (entered by mistake, or the customer returned the bike). The owner can always do this.",
+  },
   VIEW_COST_PRICE: {
     group: "Sales & Billing",
     label: "View cost price & profit",

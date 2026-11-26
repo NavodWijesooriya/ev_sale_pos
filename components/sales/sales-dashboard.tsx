@@ -57,10 +57,12 @@ export function SalesDashboard({
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Calculations for KPI Cards
-  const totalRevenue = initialSales.reduce((acc, s) => acc + s.totalAmount, 0)
-  const totalUnitsSold = initialSales.length
+  // Cancelled sales stay in the history table below but are not revenue, units sold or finance deals.
+  const liveSales = initialSales.filter((s) => s.status !== "CANCELLED")
+  const totalRevenue = liveSales.reduce((acc, s) => acc + s.totalAmount, 0)
+  const totalUnitsSold = liveSales.length
   const inStockUnits = initialVehicles.length
-  const financeDealsCount = initialSales.filter((s) => !!s.financeDetail).length
+  const financeDealsCount = liveSales.filter((s) => !!s.financeDetail).length
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -78,7 +80,7 @@ export function SalesDashboard({
   }
 
   // Prepared recent completed transactions for persistent right summary panel
-  const recentSales = initialSales.slice(0, 3).map((s) => ({
+  const recentSales = liveSales.slice(0, 3).map((s) => ({
     id: s.id,
     customerName: s.customer.name,
     vehicleName: s.items[0]?.vehicle

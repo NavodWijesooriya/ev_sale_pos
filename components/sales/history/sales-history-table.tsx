@@ -1,5 +1,6 @@
 "use client"
 
+import { CancelledBadge, ShowCancelledToggle } from "@/components/sales/cancelled-badge"
 import * as React from "react"
 import { batchOfUnit, matchesBatch } from "@/lib/batch"
 import { Download, Eye, Search } from "lucide-react"
@@ -19,6 +20,7 @@ import { colomboDateKey } from "@/lib/dates"
 import { emptyDateFilter, isDateFilterActive, matchesDateFilter, type DateFilter } from "@/lib/date-filter"
 import { DateFilterFields } from "@/components/shared/date-filter-fields"
 import {
+
   InvoiceDialog,
   type SalesHistoryInvoice,
 } from "@/components/sales/history/invoice-dialog"
@@ -33,11 +35,13 @@ const modelOf = (sale: SalesHistoryInvoice) =>
 export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
   const [query, setQuery] = React.useState("")
   const [dates, setDates] = React.useState<DateFilter>(emptyDateFilter)
+  const [showCancelled, setShowCancelled] = React.useState(true)
   const [selectedSale, setSelectedSale] = React.useState<SalesHistoryInvoice | null>(null)
 
   const filteredSales = React.useMemo(() => {
     const search = query.trim().toLocaleLowerCase()
     return sales.filter((sale) => {
+      if (!showCancelled && sale.status === "CANCELLED") return false
       if (!matchesDateFilter(sale.saleDate, dates)) return false
       if (!search) return true
       const vehicleText = sale.items
@@ -52,14 +56,16 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
         sale.items.some(({ vehicle }) => matchesBatch(search, vehicle.unitGrnNumber, batchOfUnit(vehicle.unitGrnNumber)))
       )
     })
-  }, [query, dates, sales])
+  }, [query, dates, sales, showCancelled])
+  const cancelledCount = sales.filter((sale) => sale.status === "CANCELLED").length
 
   // The export is exactly what the table shows: same search, same dates.
   function exportCsv() {
     const rows = [
-      ["Invoice No", "Date", "Customer", "Bike Model", "Chassis No", "Total (Rs.)", "Advance Deducted (Rs.)", "Payment Method"],
+      ["Invoice No", "Status", "Date", "Customer", "Bike Model", "Chassis No", "Total (Rs.)", "Advance Deducted (Rs.)", "Payment Method"],
       ...filteredSales.map((sale) => [
         sale.invoiceNumber,
+        sale.status === "CANCELLED" ? "CANCELLED" : "Completed",
         colomboDateKey(new Date(sale.saleDate)),
         sale.customer.name,
         modelOf(sale),
@@ -89,6 +95,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
               />
             </div>
             <DateFilterFields value={dates} onChange={setDates} idPrefix="sales-history" />
+            <ShowCancelledToggle checked={showCancelled} onChange={setShowCancelled} count={cancelledCount} />
           </div>
           <Button
             type="button"
@@ -119,8 +126,13 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
             <TableBody>
               {filteredSales.length ? (
                 filteredSales.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell className="font-medium">{sale.invoiceNumber}</TableCell>
+                  <TableRow key={sale.id} className={sale.status === "CANCELLED" ? "bg-red-500/5" : undefined}>
+                    <TableCell className="font-medium">
+                      {sale.invoiceNumber}
+                      {sale.status === "CANCELLED" && (
+                        <CancelledBadge type={sale.cancelType} reason={sale.cancelReason} className="mt-1 block" />
+                      )}
+                    </TableCell>
                     <TableCell data-testid="sale-date">{colomboDateKey(new Date(sale.saleDate))}</TableCell>
                     <TableCell>{sale.customer.name}</TableCell>
                     <TableCell className="max-w-56">

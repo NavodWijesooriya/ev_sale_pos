@@ -7,6 +7,7 @@ import { getAuthSession } from "@/lib/auth"
 import { hasAnyPermission, type Permission } from "@/lib/permissions"
 import { CustomerCategory, CustomerType } from "@prisma/client"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
+import { activeSale } from "@/lib/sale-status"
 
 /**
  * Enforces session authentication and extracts the user's organizationId
@@ -102,6 +103,7 @@ export async function getCustomers(customerType?: CustomerType) {
       },
       include: {
         sales: {
+          where: activeSale,
           select: {
             id: true,
             totalAmount: true,
@@ -367,6 +369,7 @@ export async function getCustomerProfile(customerId: string) {
       },
       include: {
         sales: {
+          where: activeSale,
           orderBy: { saleDate: "desc" },
           include: {
             branch: {

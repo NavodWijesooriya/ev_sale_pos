@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { activeSale } from "@/lib/sale-status"
 
 type Client = Prisma.TransactionClient | typeof prisma
 
@@ -40,7 +41,7 @@ const ownerSelect = { id: true, name: true, phone: true, nic: true } as const
 export async function loadOwnershipHistory(client: Client, organizationId: string, vehicleId: string): Promise<OwnershipHistory> {
   const [sale, transfers] = await Promise.all([
     client.sale.findFirst({
-      where: { vehicleId, organizationId },
+      where: { vehicleId, organizationId, ...activeSale },
       orderBy: { saleDate: "desc" },
       select: { id: true, customer: { select: ownerSelect } },
     }),
@@ -77,7 +78,7 @@ export async function loadOwnershipHistory(client: Client, organizationId: strin
 export async function loadOwnedVehicles(client: Client, organizationId: string, customerId: string) {
   const [bought, received] = await Promise.all([
     client.sale.findMany({
-      where: { organizationId, customerId },
+      where: { organizationId, customerId, ...activeSale },
       select: { vehicleId: true },
     }),
     client.vehicleOwnershipTransfer.findMany({

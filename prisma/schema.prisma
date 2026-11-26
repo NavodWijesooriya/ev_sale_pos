@@ -636,7 +636,7 @@ model Sale {
   deliveryDate          DateTime? // අලුතින් එකතු කළ කොටස
   paymentMethod         String?
   warrantyOption        String?
-  status                String                 @default("Completed")
+  status                String                 @default("Completed") // Completed or CANCELLED (see lib/sale-status.ts)
   freeItems             String[]               @default([])
   freeServices          Int                    @default(0)
 
@@ -646,6 +646,16 @@ model Sale {
   payments        Payment[]
   freeItemLinks   SaleFreeItem[]
   staffCommission StaffSaleCommission?
+
+  // Cancellation (void / customer return). The sale is never deleted: it stays with status CANCELLED.
+  cancelledAt           DateTime?
+  cancelledById         String? // plain text so the history survives staff deletion
+  cancelledByName       String?
+  cancelType            String? // MISTAKE ("Entered by mistake") or RETURNED ("Customer returned the bike")
+  cancelReason          String?
+  cancelRefundAmount    Float     @default(0) // money handed back to the customer on cancellation
+  cancelRefundMethod    String? // Cash, BankTransfer or CHEQUE
+  cancelAdvanceReleased Float     @default(0) // customer advance that went back to PENDING
 
   // Finance / insurance company office chosen for this sale (name kept as it was)
   financeOfficeId     String?
@@ -658,6 +668,7 @@ model Sale {
   @@index([organizationId, financeCompanyId])
   @@index([organizationId, insuranceCompanyId])
   @@index([commissionRecipientId])
+  @@index([organizationId, status])
 }
 
 model FinanceCompany {
@@ -800,6 +811,7 @@ enum FinanceStatus {
   Pending
   Received
   Partial // some of the finance amount has been received, a balance remains
+  Cancelled // the sale was cancelled: nothing is owed any more
 }
 
 model FinanceDetail {
@@ -830,6 +842,7 @@ enum DMTStatus {
   DocumentsCollected
   Processing
   Completed
+  Cancelled // the sale was cancelled: no registration will happen
 }
 
 // අලුතින් එකතු කළ DMT Tracking Model එක
@@ -989,6 +1002,7 @@ enum SettlementType {
 enum SettlementStatus {
   PENDING
   SETTLED
+  CANCELLED // the sale was cancelled: this commission is void
 }
 
 // Whether a commission has actually been received/paid out. One row per sale and commission type;
