@@ -55,6 +55,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   CompanyOfficesDialog,
   OfficeRowsEditor,
   emptyOfficeRow,
@@ -261,6 +269,107 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
     }
   }
 
+  function renderChevron(company: ManagedCompany, isOpen: boolean) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-expanded={isOpen}
+        aria-label={`${isOpen ? "Collapse" : "Expand"} ${company.name}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          toggleOne(company.id)
+        }}
+      >
+        {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+      </Button>
+    )
+  }
+
+  function renderAddress(company: ManagedCompany) {
+    const address = company.headOfficeAddress?.trim()
+    if (!address) return null
+    return (
+      <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground" data-testid="company-address">
+        <MapPin className="mt-0.5 size-3 shrink-0" />
+        <span className="break-words">{address}</span>
+      </p>
+    )
+  }
+
+  function renderActions(company: ManagedCompany) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${company.name}`} />}
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setOfficerCompanyId(company.id)}>
+            <UsersRound className="size-4" />
+            Manage Officers
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setOfficeCompanyId(company.id)}>
+            <MapPin className="size-4" />
+            Manage Offices
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openEditDialog(company)}>
+            <Pencil className="size-4" />
+            Edit Company
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={() => void removeCompany(company)}>
+            <Trash2 className="size-4" />
+            Delete Company
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
+  function renderOffices(company: ManagedCompany) {
+    if (company.offices.length === 0) {
+      return (
+        <p className="text-sm text-muted-foreground" data-testid="company-offices-panel">
+          No offices added.{" "}
+          <button type="button" className="font-medium text-primary hover:underline" onClick={() => setOfficeCompanyId(company.id)}>
+            Add office
+          </button>
+        </p>
+      )
+    }
+    return (
+      <div className="space-y-2" data-testid="company-offices-panel">
+        <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] gap-3 text-xs font-medium text-muted-foreground sm:grid">
+          <span>Office</span>
+          <span>Address</span>
+          <span>Phone</span>
+          <span>Status</span>
+        </div>
+        {company.offices.map((office) => (
+          <div
+            key={office.id}
+            className={`grid gap-x-3 gap-y-0.5 rounded-md border bg-background p-2 text-sm sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] sm:items-center ${
+              office.isActive ? "" : "opacity-55"
+            }`}
+            data-testid="office-row"
+          >
+            <span className="font-medium">{office.name}</span>
+            <span className="break-words text-muted-foreground">{office.address || "—"}</span>
+            <span>{office.phone || "—"}</span>
+            <span>
+              <Badge variant={office.isActive ? "default" : "secondary"}>{office.isActive ? "Active" : "Inactive"}</Badge>
+            </span>
+          </div>
+        ))}
+        <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setOfficeCompanyId(company.id)}>
+          Manage offices
+        </button>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="space-y-6">
@@ -303,157 +412,106 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
               </div>
             )}
 
-            <div className="hidden grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_5rem_5rem_2.5rem] gap-3 px-3 text-xs font-medium text-muted-foreground md:grid">
-              <span />
-              <span>Company</span>
-              <span>Contact</span>
-              <span>Default Commission</span>
-              <span>Officers</span>
-              <span>Offices</span>
-              <span className="text-right">Actions</span>
+            {/* Desktop / tablet: one real table, so the header and every row share the same columns. */}
+            <div className="hidden md:block">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-12" />
+                  <col />
+                  <col className="w-44" />
+                  <col className="w-40" />
+                  <col className="w-24" />
+                  <col className="w-24" />
+                  <col className="w-16" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead />
+                    <TableHead>Company</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Default Commission</TableHead>
+                    <TableHead>Officers</TableHead>
+                    <TableHead>Offices</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {companies.map((company) => {
+                    const isOpen = expanded.has(company.id)
+                    return (
+                      <React.Fragment key={company.id}>
+                        <TableRow
+                          className="cursor-pointer align-top"
+                          data-testid={`company-row-${company.name}`}
+                          onClick={() => toggleOne(company.id)}
+                        >
+                          <TableCell>{renderChevron(company, isOpen)}</TableCell>
+                          <TableCell className="whitespace-normal">
+                            <p className="font-medium">{company.name}</p>
+                            {renderAddress(company)}
+                          </TableCell>
+                          <TableCell className="whitespace-normal break-words">{company.contactNo}</TableCell>
+                          <TableCell>
+                            {company.defaultCommissionRate == null ? (
+                              <span className="text-muted-foreground">Not set</span>
+                            ) : (
+                              `${company.defaultCommissionRate}%`
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{company.officers.length}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{company.offices.length}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                            {renderActions(company)}
+                          </TableCell>
+                        </TableRow>
+                        {isOpen && (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={7} className="whitespace-normal bg-muted/20 p-3 pl-14">
+                              {renderOffices(company)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             </div>
 
-            {companies.map((company) => {
-              const isOpen = expanded.has(company.id)
-              return (
-                <div key={company.id} className="rounded-lg border" data-testid={`company-row-${company.name}`}>
-                  <div
-                    className="grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2.5rem] items-start gap-x-3 gap-y-2 p-3 hover:bg-muted/30 md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_5rem_5rem_2.5rem] md:items-center"
-                    onClick={() => toggleOne(company.id)}
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-expanded={isOpen}
-                      aria-label={`${isOpen ? "Collapse" : "Expand"} ${company.name}`}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        toggleOne(company.id)
-                      }}
-                    >
-                      {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                    </Button>
-                    <div className="min-w-0">
-                      <p className="font-medium">{company.name}</p>
-                      {company.headOfficeAddress && (
-                        <p className="flex items-start gap-1 text-xs text-muted-foreground" data-testid="company-address">
-                          <MapPin className="mt-0.5 size-3 shrink-0" />
-                          <span className="break-words">{company.headOfficeAddress}</span>
-                        </p>
-                      )}
+            {/* Mobile: stacked cards, nothing shares a line it cannot fit on. */}
+            <div className="space-y-3 md:hidden">
+              {companies.map((company) => {
+                const isOpen = expanded.has(company.id)
+                return (
+                  <div key={company.id} className="rounded-lg border" data-testid={`company-card-${company.name}`}>
+                    <div className="flex items-start gap-2 p-3" onClick={() => toggleOne(company.id)}>
+                      {renderChevron(company, isOpen)}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{company.name}</p>
+                        {renderAddress(company)}
+                        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                          <dt className="text-muted-foreground">Contact</dt>
+                          <dd className="break-words">{company.contactNo}</dd>
+                          <dt className="text-muted-foreground">Default commission</dt>
+                          <dd>{company.defaultCommissionRate == null ? "Not set" : `${company.defaultCommissionRate}%`}</dd>
+                          <dt className="text-muted-foreground">Officers</dt>
+                          <dd>{company.officers.length}</dd>
+                          <dt className="text-muted-foreground">Offices</dt>
+                          <dd>{company.offices.length}</dd>
+                        </dl>
+                      </div>
+                      <div onClick={(event) => event.stopPropagation()}>{renderActions(company)}</div>
                     </div>
-                    <div className="col-start-3 row-start-1 text-right md:col-start-7 md:row-start-auto" onClick={(event) => event.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Actions for ${company.name}`}
-                            />
-                          }
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setOfficerCompanyId(company.id)}>
-                            <UsersRound className="size-4" />
-                            Manage Officers
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setOfficeCompanyId(company.id)}>
-                            <MapPin className="size-4" />
-                            Manage Offices
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditDialog(company)}>
-                            <Pencil className="size-4" />
-                            Edit Company
-                          </DropdownMenuItem>
-                          <DropdownMenuItem variant="destructive" onClick={() => void removeCompany(company)}>
-                            <Trash2 className="size-4" />
-                            Delete Company
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    <div className="col-span-3 col-start-1 flex flex-wrap items-center gap-x-4 gap-y-1 pl-11 text-sm md:contents">
-                      <span className="md:block">
-                        <span className="text-xs text-muted-foreground md:hidden">Contact: </span>
-                        {company.contactNo}
-                      </span>
-                      <span className="md:block">
-                        <span className="text-xs text-muted-foreground md:hidden">Commission: </span>
-                        {company.defaultCommissionRate == null ? (
-                          <span className="text-muted-foreground">Not set</span>
-                        ) : (
-                          `${company.defaultCommissionRate}%`
-                        )}
-                      </span>
-                      <span className="md:block">
-                        <span className="mr-1 text-xs text-muted-foreground md:hidden">Officers</span>
-                        <Badge variant="secondary">{company.officers.length}</Badge>
-                      </span>
-                      <span className="md:block">
-                        <span className="mr-1 text-xs text-muted-foreground md:hidden">Offices</span>
-                        <Badge variant="secondary">{company.offices.length}</Badge>
-                      </span>
-                    </div>
+                    {isOpen && <div className="border-t bg-muted/20 p-3">{renderOffices(company)}</div>}
                   </div>
+                )
+              })}
+            </div>
 
-                  {isOpen && (
-                    <div className="border-t bg-muted/20 p-3 md:pl-14" data-testid="company-offices-panel">
-                      {company.offices.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No offices added.{" "}
-                          <button
-                            type="button"
-                            className="font-medium text-primary hover:underline"
-                            onClick={() => setOfficeCompanyId(company.id)}
-                          >
-                            Add office
-                          </button>
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] gap-3 text-xs font-medium text-muted-foreground sm:grid">
-                            <span>Office</span>
-                            <span>Address</span>
-                            <span>Phone</span>
-                            <span>Status</span>
-                          </div>
-                          {company.offices.map((office) => (
-                            <div
-                              key={office.id}
-                              className={`grid gap-x-3 gap-y-0.5 rounded-md border bg-background p-2 text-sm sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] sm:items-center ${
-                                office.isActive ? "" : "opacity-55"
-                              }`}
-                              data-testid="office-row"
-                            >
-                              <span className="font-medium">{office.name}</span>
-                              <span className="break-words text-muted-foreground">{office.address || "—"}</span>
-                              <span>{office.phone || "—"}</span>
-                              <span>
-                                <Badge variant={office.isActive ? "default" : "secondary"}>
-                                  {office.isActive ? "Active" : "Inactive"}
-                                </Badge>
-                              </span>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-primary hover:underline"
-                            onClick={() => setOfficeCompanyId(company.id)}
-                          >
-                            Manage offices
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
             {companies.length === 0 && (
               <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No companies added yet.
