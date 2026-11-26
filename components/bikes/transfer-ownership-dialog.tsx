@@ -162,7 +162,7 @@ export function TransferOwnershipDialog({ vehicles, buttonLabel = "Transfer owne
           <DialogHeader>
             <DialogTitle>Transfer ownership</DialogTitle>
             <DialogDescription>
-              The bike changes owner. The original sale, its prices, commissions and finance receivable stay as they were.
+              The bike changes owner. The original sale and its records stay exactly as they were.
             </DialogDescription>
           </DialogHeader>
 

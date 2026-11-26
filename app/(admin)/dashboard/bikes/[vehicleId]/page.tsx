@@ -82,9 +82,13 @@ export default async function BikeDetailsPage({ params }: { params: Promise<{ ve
                 <Field
                   label="Invoice"
                   value={
-                    <Link href={`/dashboard/sales/${bike.sale.id}`} className="text-primary hover:underline">
-                      {bike.sale.invoiceNumber}
-                    </Link>
+                    bike.canViewSale ? (
+                      <Link href={`/dashboard/sales/${bike.sale.id}`} className="text-primary hover:underline">
+                        {bike.sale.invoiceNumber}
+                      </Link>
+                    ) : (
+                      bike.sale.invoiceNumber
+                    )
                   }
                 />
                 <Field label="Sold on" value={colomboDateKey(new Date(bike.sale.saleDate))} />
@@ -106,7 +110,7 @@ export default async function BikeDetailsPage({ params }: { params: Promise<{ ve
                 )}
               </CardHeader>
               <CardContent>
-                <OwnershipHistoryList history={bike.ownership} />
+                <OwnershipHistoryList history={bike.ownership} linkCustomers={bike.canViewCustomers} />
                 {bike.dmtOwnerName && (
                   <p className="mt-3 text-xs text-muted-foreground">
                     DMT / RMV registration is in the name of <strong className="text-foreground">{bike.dmtOwnerName}</strong>.

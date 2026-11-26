@@ -135,6 +135,8 @@ interface SaleOverviewProps {
       isNumberPlateOk?: boolean
       isInsuranceOk?: boolean
       lastNotifiedAt?: Date | string | null
+      /** Set when the registration was moved to a new owner by an ownership transfer. */
+      ownerCustomer?: { name: string } | null
     } | null
   }
 }
@@ -348,6 +350,16 @@ export function SaleOverview({ sale }: SaleOverviewProps) {
                   )}
                 </div>
               </div>
+
+              {sale.dmtRegistration?.ownerCustomer && (
+                <div className="rounded-lg border bg-muted/40 p-3 text-xs" data-testid="sale-registered-owner">
+                  <span className="text-[11px] font-semibold uppercase text-muted-foreground">Registered owner</span>
+                  <p className="mt-1 font-medium text-foreground">
+                    {sale.dmtRegistration.ownerCustomer.name}{" "}
+                    <span className="font-normal text-muted-foreground">(transferred from {sale.customer.name}, the buyer on this sale)</span>
+                  </p>
+                </div>
+              )}
 
               {(sale.financeOfficeName || sale.insuranceOfficeName) && (
                 <div className="rounded-lg border bg-muted/40 p-3 text-xs" data-testid="sale-offices">

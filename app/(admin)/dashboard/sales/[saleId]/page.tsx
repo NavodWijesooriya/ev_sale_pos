@@ -77,7 +77,7 @@ export default async function SaleDetailPage({ params }: SalePageProps) {
         },
       },
       financeDetail: true,
-      dmtRegistration: true,
+      dmtRegistration: { include: { ownerCustomer: { select: { name: true } } } },
     },
   })
 

@@ -115,7 +115,10 @@ export async function getTransferContext(vehicleId: string): Promise<{ success: 
         currentOwner: history.currentOwner,
         saleDate: colomboDateKey(sale.saleDate),
         isFinanceSale,
-        financeCompanyName: sale.financeCompany?.name ?? sale.financeDetail?.financeCompany ?? null,
+        // Sales details stay with staff who may see sales: others only get the warning, not the lender's name.
+        financeCompanyName: hasPermission(user, "CREATE_SALE")
+          ? (sale.financeCompany?.name ?? sale.financeDetail?.financeCompany ?? null)
+          : null,
         dmtOpen: Boolean(sale.dmtRegistration) && sale.dmtRegistration?.status !== "Completed",
       },
     }

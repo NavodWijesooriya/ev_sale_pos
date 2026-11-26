@@ -980,13 +980,24 @@ export async function getRMVRegistry() {
             },
           },
         },
-        dmtRegistration: true,
+        dmtRegistration: {
+          include: { ownerCustomer: { select: { id: true, name: true, phone: true, nic: true, address: true } } },
+        },
       },
+    })
+
+    // The registry shows the CURRENT registered owner: when the registration was moved to a new owner by an
+    // ownership transfer, that person is listed and the original buyer is kept as a note.
+    const data = sales.map((sale) => {
+      const owner = sale.dmtRegistration?.ownerCustomer
+      return owner && owner.id !== sale.customer.id
+        ? { ...sale, customer: owner, transferredFrom: sale.customer.name }
+        : { ...sale, transferredFrom: null as string | null }
     })
 
     return {
       success: true,
-      data: sales,
+      data,
     }
   } catch (error) {
     console.error("getRMVRegistry error:", error)

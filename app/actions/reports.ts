@@ -73,6 +73,8 @@ export interface PendingDMTItem {
   customerName: string
   customerPhone: string
   customerNIC?: string | null
+  /** Original buyer, when the registration moved to a new owner (then customerName is the new owner). */
+  transferredFrom?: string | null
   vehicleSummary: string
   chassisNumber: string
   branchName: string
@@ -396,6 +398,8 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       },
     },
     include: {
+      // Set when the registration was moved to a new owner by an ownership transfer
+      ownerCustomer: { select: { name: true, phone: true, nic: true } },
       sale: {
         include: {
           customer: {
@@ -464,9 +468,11 @@ export async function getAdvancedReportsData(): Promise<AdvancedReportsData> {
       id: reg.id,
       saleId: reg.saleId,
       saleDate: reg.sale.saleDate.toISOString(),
-      customerName: reg.sale.customer.name,
-      customerPhone: reg.sale.customer.phone,
-      customerNIC: reg.sale.customer.nic,
+      // The current registered owner (the new owner after an ownership transfer), with the original buyer as a note
+      customerName: (reg.ownerCustomer ?? reg.sale.customer).name,
+      customerPhone: (reg.ownerCustomer ?? reg.sale.customer).phone,
+      customerNIC: (reg.ownerCustomer ?? reg.sale.customer).nic,
+      transferredFrom: reg.ownerCustomer ? reg.sale.customer.name : null,
       vehicleSummary,
       chassisNumber,
       branchName: reg.sale.branch.name,

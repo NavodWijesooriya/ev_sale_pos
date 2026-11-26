@@ -206,6 +206,7 @@ export function PrintableMonthlyReport({ data }: PrintableMonthlyReportProps) {
                   </td>
                   <td className="border border-slate-300 p-1 font-medium">
                     {r.customerName} ({r.customerPhone})
+                    {r.transferredFrom ? ` - transferred from ${r.transferredFrom}` : ""}
                   </td>
                   <td className="border border-slate-300 p-1">
                     {r.vehicleSummary} - <span className="font-mono">{r.chassisNumber}</span>
