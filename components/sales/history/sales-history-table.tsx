@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { batchOfUnit, matchesBatch } from "@/lib/batch"
-import { Eye, Search } from "lucide-react"
+import { Download, Eye, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -14,6 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatLKR } from "@/lib/currency"
+import { downloadCsv } from "@/lib/csv"
+import { colomboDateKey } from "@/lib/dates"
+import { emptyDateFilter, isDateFilterActive, matchesDateFilter, type DateFilter } from "@/lib/date-filter"
+import { DateFilterFields } from "@/components/shared/date-filter-fields"
 import {
   InvoiceDialog,
   type SalesHistoryInvoice,
@@ -23,14 +27,19 @@ interface SalesHistoryTableProps {
   sales: SalesHistoryInvoice[]
 }
 
+const modelOf = (sale: SalesHistoryInvoice) =>
+  sale.items.map(({ vehicle }) => `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName}`).join(", ")
+
 export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
   const [query, setQuery] = React.useState("")
+  const [dates, setDates] = React.useState<DateFilter>(emptyDateFilter)
   const [selectedSale, setSelectedSale] = React.useState<SalesHistoryInvoice | null>(null)
 
   const filteredSales = React.useMemo(() => {
     const search = query.trim().toLocaleLowerCase()
-    if (!search) return sales
     return sales.filter((sale) => {
+      if (!matchesDateFilter(sale.saleDate, dates)) return false
+      if (!search) return true
       const vehicleText = sale.items
         .map(({ vehicle }) => `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName} ${vehicle.chassisNumber}`)
         .join(" ")
@@ -43,20 +52,54 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
         sale.items.some(({ vehicle }) => matchesBatch(search, vehicle.unitGrnNumber, batchOfUnit(vehicle.unitGrnNumber)))
       )
     })
-  }, [query, sales])
+  }, [query, dates, sales])
+
+  // The export is exactly what the table shows: same search, same dates.
+  function exportCsv() {
+    const rows = [
+      ["Invoice No", "Date", "Customer", "Bike Model", "Chassis No", "Total (Rs.)", "Advance Deducted (Rs.)", "Payment Method"],
+      ...filteredSales.map((sale) => [
+        sale.invoiceNumber,
+        colomboDateKey(new Date(sale.saleDate)),
+        sale.customer.name,
+        modelOf(sale),
+        sale.items.map(({ vehicle }) => vehicle.chassisNumber).join(", "),
+        sale.totalAmount,
+        sale.advancePayment?.amount ?? 0,
+        sale.paymentMethod ?? "",
+      ]),
+    ]
+    const range = dates.date || [dates.from, dates.to].filter(Boolean).join("_to_")
+    downloadCsv(`sales-history${range ? `_${range}` : ""}`, rows)
+  }
 
   return (
     <>
       <div className="space-y-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            aria-label="Search sales history"
-            className="pl-9"
-            placeholder="Search invoice, customer, or vehicle..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Search sales history"
+                className="pl-9"
+                placeholder="Search invoice, customer, or vehicle..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <DateFilterFields value={dates} onChange={setDates} idPrefix="sales-history" />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={exportCsv}
+            disabled={filteredSales.length === 0}
+          >
+            <Download className="size-4" />
+            Export CSV
+          </Button>
         </div>
 
         <div className="overflow-hidden rounded-xl border bg-card">
@@ -66,7 +109,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                 <TableHead>Invoice No</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead>Vehicle</TableHead>
+                <TableHead>Bike Model</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Advance Deducted</TableHead>
                 <TableHead>Payment Method</TableHead>
@@ -78,14 +121,15 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                 filteredSales.map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">{sale.invoiceNumber}</TableCell>
-                    <TableCell>
-                      {new Date(sale.saleDate).toLocaleDateString("en-LK")}
-                    </TableCell>
+                    <TableCell data-testid="sale-date">{colomboDateKey(new Date(sale.saleDate))}</TableCell>
                     <TableCell>{sale.customer.name}</TableCell>
                     <TableCell className="max-w-56">
                       {sale.items.map(({ vehicle }) => (
                         <div key={vehicle.chassisNumber} className="truncate">
-                          {vehicle.vehicleModel.brand} {vehicle.vehicleModel.modelName}
+                          <span data-testid="sale-model">
+                            {vehicle.vehicleModel.brand} {vehicle.vehicleModel.modelName}
+                          </span>
+                          <span className="block text-[11px] text-muted-foreground">{vehicle.chassisNumber}</span>
                         </div>
                       ))}
                     </TableCell>
@@ -115,7 +159,11 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} className="h-28 text-center text-muted-foreground">
-                    {sales.length ? "No sales match your search." : "No sales have been recorded yet."}
+                    {sales.length
+                      ? isDateFilterActive(dates) || query.trim()
+                        ? "No sales match your search or dates."
+                        : "No sales match your search."
+                      : "No sales have been recorded yet."}
                   </TableCell>
                 </TableRow>
               )}

@@ -39,6 +39,8 @@ import {
 } from "lucide-react"
 import { PaymentMethod, FinanceStatus, DMTStatus } from "@prisma/client"
 import { formatLKR } from "@/lib/currency"
+import { emptyDateFilter, matchesDateFilter, type DateFilter } from "@/lib/date-filter"
+import { DateFilterFields } from "@/components/shared/date-filter-fields"
 
 export interface SaleRecordItem {
   id: string
@@ -104,13 +106,15 @@ interface SalesHistoryTableProps {
 
 export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [dates, setDates] = useState<DateFilter>(emptyDateFilter)
 
-  // Filtered sales based on search query
+  // Filtered sales based on search query and dates (the CSV export below uses the same list)
   const filteredSales = useMemo(() => {
-    if (!searchQuery.trim()) return sales
+    const dated = sales.filter((sale) => matchesDateFilter(sale.saleDate, dates))
+    if (!searchQuery.trim()) return dated
     const q = searchQuery.toLowerCase()
 
-    return sales.filter((sale) => {
+    return dated.filter((sale) => {
       const matchCustomer =
         sale.customer.name.toLowerCase().includes(q) ||
         sale.customer.phone.toLowerCase().includes(q) ||
@@ -133,7 +137,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
 
       return matchCustomer || matchId || matchBranch || matchUser || matchVehicle || matchFinance
     })
-  }, [sales, searchQuery])
+  }, [sales, searchQuery, dates])
 
   // Payment badge helper
   const renderPaymentBadge = (method: PaymentMethod) => {
@@ -272,6 +276,9 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10"
           />
+        </div>
+        <div className="mt-2">
+          <DateFilterFields value={dates} onChange={setDates} idPrefix="sales-dashboard" />
         </div>
       </CardHeader>
 
