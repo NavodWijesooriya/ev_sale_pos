@@ -4,6 +4,8 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import {
   Building2,
+  ChevronDown,
+  ChevronRight,
   LoaderCircle,
   MoreHorizontal,
   MapPin,
@@ -59,14 +61,6 @@ import {
   type CompanyOfficeItem,
 } from "@/components/finance/company-offices"
 import type { OfficeInput } from "@/lib/company-offices"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 export interface CompanyOfficer {
   id: string
@@ -78,6 +72,7 @@ export interface ManagedCompany {
   id: string
   name: string
   contactNo: string
+  headOfficeAddress: string | null
   defaultCommissionRate: number | null
   officers: CompanyOfficer[]
   offices: CompanyOfficeItem[]
@@ -91,12 +86,14 @@ interface CompanyManagementProps {
 interface CompanyFormState {
   name: string
   contactNo: string
+  headOfficeAddress: string
   defaultCommissionRate: string
 }
 
 const emptyCompanyForm: CompanyFormState = {
   name: "",
   contactNo: "",
+  headOfficeAddress: "",
   defaultCommissionRate: "",
 }
 
@@ -105,6 +102,8 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
   const isFinance = kind === "finance"
   const companyType = isFinance ? "finance" : "insurance"
   const companyTitle = isFinance ? "Finance Company" : "Insurance Company"
+  const companiesTitle = isFinance ? "Finance Companies" : "Insurance Companies"
+  const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set())
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingCompany, setEditingCompany] = React.useState<ManagedCompany | null>(null)
   const [formValues, setFormValues] = React.useState<CompanyFormState>(emptyCompanyForm)
@@ -118,6 +117,20 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
   const officerCompany = companies.find((company) => company.id === officerCompanyId) ?? null
   const officeCompany = companies.find((company) => company.id === officeCompanyId) ?? null
 
+  const allExpanded = companies.length > 0 && companies.every((company) => expanded.has(company.id))
+
+  function toggleOne(id: string) {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setExpanded(allExpanded ? new Set() : new Set(companies.map((company) => company.id)))
+  }
+
   function openCreateDialog() {
     setEditingCompany(null)
     setFormValues(emptyCompanyForm)
@@ -130,6 +143,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
     setFormValues({
       name: company.name,
       contactNo: company.contactNo,
+      headOfficeAddress: company.headOfficeAddress ?? "",
       defaultCommissionRate: company.defaultCommissionRate?.toString() ?? "",
     })
     setDialogOpen(true)
@@ -150,6 +164,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
       const input = {
         name: formValues.name,
         contactNo: formValues.contactNo,
+        headOfficeAddress: formValues.headOfficeAddress,
         defaultCommissionRate: parsedRate,
       }
       const result = isFinance
@@ -254,7 +269,7 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
               Finance Management
             </p>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{companyTitle}s</h1>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{companiesTitle}</h1>
             <p className="text-sm text-muted-foreground">
               Manage company contacts, commission defaults, and assigned officers.
             </p>
@@ -279,35 +294,56 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Default Commission</TableHead>
-                  <TableHead>Officers</TableHead>
-                  <TableHead>Offices</TableHead>
-                  <TableHead className="w-12 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {companies.map((company) => (
-                  <TableRow key={company.id}>
-                    <TableCell className="font-medium">{company.name}</TableCell>
-                    <TableCell>{company.contactNo}</TableCell>
-                    <TableCell>
-                      {company.defaultCommissionRate == null
-                        ? <span className="text-muted-foreground">Not set</span>
-                        : `${company.defaultCommissionRate}%`}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{company.officers.length}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{company.offices.length}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
+          <CardContent className="space-y-3">
+            {companies.length > 0 && (
+              <div className="flex justify-end">
+                <Button type="button" variant="outline" size="sm" onClick={toggleAll}>
+                  {allExpanded ? "Collapse all" : "Expand all"}
+                </Button>
+              </div>
+            )}
+
+            <div className="hidden grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_5rem_5rem_2.5rem] gap-3 px-3 text-xs font-medium text-muted-foreground md:grid">
+              <span />
+              <span>Company</span>
+              <span>Contact</span>
+              <span>Default Commission</span>
+              <span>Officers</span>
+              <span>Offices</span>
+              <span className="text-right">Actions</span>
+            </div>
+
+            {companies.map((company) => {
+              const isOpen = expanded.has(company.id)
+              return (
+                <div key={company.id} className="rounded-lg border" data-testid={`company-row-${company.name}`}>
+                  <div
+                    className="grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2.5rem] items-start gap-x-3 gap-y-2 p-3 hover:bg-muted/30 md:grid-cols-[2rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_5rem_5rem_2.5rem] md:items-center"
+                    onClick={() => toggleOne(company.id)}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-expanded={isOpen}
+                      aria-label={`${isOpen ? "Collapse" : "Expand"} ${company.name}`}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        toggleOne(company.id)
+                      }}
+                    >
+                      {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                    </Button>
+                    <div className="min-w-0">
+                      <p className="font-medium">{company.name}</p>
+                      {company.headOfficeAddress && (
+                        <p className="flex items-start gap-1 text-xs text-muted-foreground" data-testid="company-address">
+                          <MapPin className="mt-0.5 size-3 shrink-0" />
+                          <span className="break-words">{company.headOfficeAddress}</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="col-start-3 row-start-1 text-right md:col-start-7 md:row-start-auto" onClick={(event) => event.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
@@ -334,27 +370,95 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                             <Pencil className="size-4" />
                             Edit Company
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => void removeCompany(company)}
-                          >
+                          <DropdownMenuItem variant="destructive" onClick={() => void removeCompany(company)}>
                             <Trash2 className="size-4" />
                             Delete Company
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {companies.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-                      No companies added yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                    </div>
+                    <div className="col-span-3 col-start-1 flex flex-wrap items-center gap-x-4 gap-y-1 pl-11 text-sm md:contents">
+                      <span className="md:block">
+                        <span className="text-xs text-muted-foreground md:hidden">Contact: </span>
+                        {company.contactNo}
+                      </span>
+                      <span className="md:block">
+                        <span className="text-xs text-muted-foreground md:hidden">Commission: </span>
+                        {company.defaultCommissionRate == null ? (
+                          <span className="text-muted-foreground">Not set</span>
+                        ) : (
+                          `${company.defaultCommissionRate}%`
+                        )}
+                      </span>
+                      <span className="md:block">
+                        <span className="mr-1 text-xs text-muted-foreground md:hidden">Officers</span>
+                        <Badge variant="secondary">{company.officers.length}</Badge>
+                      </span>
+                      <span className="md:block">
+                        <span className="mr-1 text-xs text-muted-foreground md:hidden">Offices</span>
+                        <Badge variant="secondary">{company.offices.length}</Badge>
+                      </span>
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="border-t bg-muted/20 p-3 md:pl-14" data-testid="company-offices-panel">
+                      {company.offices.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No offices added.{" "}
+                          <button
+                            type="button"
+                            className="font-medium text-primary hover:underline"
+                            onClick={() => setOfficeCompanyId(company.id)}
+                          >
+                            Add office
+                          </button>
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] gap-3 text-xs font-medium text-muted-foreground sm:grid">
+                            <span>Office</span>
+                            <span>Address</span>
+                            <span>Phone</span>
+                            <span>Status</span>
+                          </div>
+                          {company.offices.map((office) => (
+                            <div
+                              key={office.id}
+                              className={`grid gap-x-3 gap-y-0.5 rounded-md border bg-background p-2 text-sm sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_5rem] sm:items-center ${
+                                office.isActive ? "" : "opacity-55"
+                              }`}
+                              data-testid="office-row"
+                            >
+                              <span className="font-medium">{office.name}</span>
+                              <span className="break-words text-muted-foreground">{office.address || "—"}</span>
+                              <span>{office.phone || "—"}</span>
+                              <span>
+                                <Badge variant={office.isActive ? "default" : "secondary"}>
+                                  {office.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                              </span>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-primary hover:underline"
+                            onClick={() => setOfficeCompanyId(company.id)}
+                          >
+                            Manage offices
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {companies.length === 0 && (
+              <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                No companies added yet.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -387,6 +491,15 @@ export function CompanyManagement({ kind, initialCompanies }: CompanyManagementP
                 onChange={(event) => setFormValues((current) => ({ ...current, contactNo: event.target.value }))}
                 maxLength={40}
                 required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${companyType}-company-address`}>Head office address (optional)</Label>
+              <Input
+                id={`${companyType}-company-address`}
+                value={formValues.headOfficeAddress}
+                onChange={(event) => setFormValues((current) => ({ ...current, headOfficeAddress: event.target.value }))}
+                maxLength={300}
               />
             </div>
             <div className="space-y-2">

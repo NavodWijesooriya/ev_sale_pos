@@ -607,6 +607,7 @@ model FinanceCompany {
   organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                  String
   contactNo             String
+  headOfficeAddress     String?
   defaultCommissionRate Float?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
@@ -638,6 +639,7 @@ model InsuranceCompany {
   organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                  String
   contactNo             String
+  headOfficeAddress     String?
   defaultCommissionRate Float?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt

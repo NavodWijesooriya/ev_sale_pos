@@ -28,6 +28,8 @@ function companyFields(input: CompanyInput) {
   const name = input.name?.trim()
   const contactNo = input.contactNo?.trim()
   const rate = input.defaultCommissionRate
+  const headOfficeAddress = input.headOfficeAddress?.trim() ?? ""
+  if (headOfficeAddress.length > 300) throw new Error("The head office address is too long (300 characters at most).")
 
   if (!name || name.length < 2) throw new Error("Company name must be at least 2 characters.")
   if (!contactNo) throw new Error("Company contact number is required.")
@@ -35,7 +37,7 @@ function companyFields(input: CompanyInput) {
     throw new Error("Default commission rate must be between 0 and 100.")
   }
 
-  return { name, contactNo, defaultCommissionRate: rate ?? null }
+  return { name, contactNo, defaultCommissionRate: rate ?? null, headOfficeAddress: headOfficeAddress || null }
 }
 
 function officerFields(input: OfficerInput) {
@@ -63,6 +65,8 @@ export interface CompanyInput {
   name: string
   contactNo: string
   defaultCommissionRate?: number | null
+  /** Optional head office address, shown under the company name in the list. */
+  headOfficeAddress?: string | null
   /** Offices added together with a NEW company (the edit form manages offices separately). */
   offices?: OfficeInput[]
 }
