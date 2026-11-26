@@ -114,7 +114,8 @@ test.describe.serial("platform admin manages dealership owners", () => {
     await confirm.click()
 
     await expect.poll(() => user(labB.email), { timeout: 90_000 }).toBeNull()
-    expect(await authUserByEmail(labB.email)).toBeNull()
+    // The action removes the database row first and the Supabase login after it, so wait for the login too.
+    await expect.poll(() => authUserByEmail(labB.email), { timeout: 60_000 }).toBeNull()
     expect(await audits("OWNER_ACCOUNT_DELETED")).toBe(1)
     await expect(owners.getByRole("row").filter({ hasText: labB.email })).toHaveCount(0, { timeout: 60_000 })
     await close()
