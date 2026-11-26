@@ -18,6 +18,7 @@ import { applyDmtPatch, dmtRevalidationPaths } from "@/lib/dmt-server"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { initialFinanceTracking } from "@/lib/finance-receivables"
 import { loadSaleChargeSettings } from "@/lib/sale-charges"
+import { loadActiveFreeItems } from "@/lib/free-items"
 import { normalizeTin } from "@/lib/validations/tin"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
@@ -128,7 +129,7 @@ export async function createNewSale(
     // used to push the whole checkout past the interactive-transaction timeout). The vehicle and advance
     // guards below are compare-and-set updates inside the transaction, so a stale read here can never
     // sell a bike twice or use an advance twice.
-    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount, chargeSettings] = await Promise.all([
+    const [customer, vehicle, financeCompany, insuranceCompany, pendingAdvance, fullInsuranceAmount, chargeSettings, activeFreeItems] = await Promise.all([
       prisma.customer.findFirst({
         where: { id: data.customerId, organizationId },
         select: { id: true },
@@ -168,6 +169,7 @@ export async function createNewSale(
         : Promise.resolve(null),
       commissionsAllowed ? loadFullInsuranceCommission(prisma, organizationId) : Promise.resolve(0),
       loadSaleChargeSettings(prisma, organizationId),
+      loadActiveFreeItems(prisma, organizationId),
     ])
 
     if (!customer) throw new Error("The selected customer was not found.")
@@ -179,6 +181,11 @@ export async function createNewSale(
       throw new Error("The selected insurance company was not found.")
     }
     if (advancePaymentId && !pendingAdvance) throw new Error("The selected customer advance is no longer pending.")
+    // Only active items can be given on a new sale; their names are saved on the sale as a snapshot.
+    const chosenFreeItems = activeFreeItems.filter((item) => data.freeItemIds.includes(item.id))
+    if (chosenFreeItems.length !== new Set(data.freeItemIds).size) {
+      throw new Error("A selected free item is no longer available. Refresh the page and choose again.")
+    }
 
     const subtotal = vehicle.vehicleModel.defaultPrice
     const advanceAmount = pendingAdvance?.amount ?? 0
@@ -267,7 +274,8 @@ export async function createNewSale(
           warrantyOption: data.warrantyOption,
           saleDate: new Date(),
           status: "Completed",
-          freeItems: data.freeItems,
+          freeItems: chosenFreeItems.map((item) => item.name),
+          freeItemLinks: { create: chosenFreeItems.map((item) => ({ freeItemId: item.id, itemName: item.name })) },
           freeServices: data.freeServices,
           advancePaymentId,
           financeCompanyId: isFinance ? financeCompanyId : null,

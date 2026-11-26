@@ -78,6 +78,7 @@ model Organization {
   bankDeposits          BankDeposit[]
   stockTransfers        StockTransfer[]
   customDomain          String?                @unique
+  freeItems             FreeItem[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
@@ -583,6 +584,7 @@ model Sale {
   financeDetail   FinanceDetail?
   dmtRegistration DMTRegistration? // අලුතින් එකතු කළ කොටස
   payments        Payment[]
+  freeItemLinks   SaleFreeItem[]
 
   @@index([organizationId, financeCompanyId])
   @@index([organizationId, insuranceCompanyId])
@@ -1130,4 +1132,34 @@ model StockTransferItem {
 
   @@unique([transferId, vehicleId])
   @@index([vehicleId])
+}
+
+// Freebies the owner offers with a sale (helmet, carpet...). Managed in Owner Settings; only active items are
+// offered on NEW sales. A sale keeps the item NAME as a snapshot (Sale.freeItems and SaleFreeItem.itemName).
+model FreeItem {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  saleLinks SaleFreeItem[]
+
+  @@unique([organizationId, name])
+}
+
+// Which FreeItem a sale used (so an item that was ever used cannot be deleted); the name stays as it was.
+model SaleFreeItem {
+  id         String    @id @default(uuid())
+  saleId     String
+  sale       Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  freeItemId String?
+  freeItem   FreeItem? @relation(fields: [freeItemId], references: [id], onDelete: SetNull)
+  itemName   String
+
+  @@index([saleId])
+  @@index([freeItemId])
 }

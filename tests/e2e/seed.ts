@@ -222,6 +222,9 @@ export async function seedE2E(): Promise<E2EFixtures> {
       subscriptionStatus: "Active",
     },
   })
+  await prisma.freeItem.createMany({
+    data: ["Helmet", "Jacket", "Carpet", "Number Plate Holder", "Key Tag"].map((name) => ({ organizationId: org.id, name })),
+  })
   const branchA = await prisma.branch.create({ data: { organizationId: org.id, name: "E2E Branch A", location: "Colombo" } })
   const branchB = await prisma.branch.create({ data: { organizationId: org.id, name: "E2E Branch B", location: "Kandy" } })
 

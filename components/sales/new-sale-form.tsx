@@ -41,7 +41,6 @@ import { Separator } from "@/components/ui/separator"
 import { formatLKR } from "@/lib/currency"
 import {
   createNewSaleSchema,
-  FREE_SALE_ITEMS,
   extendedWarrantyPrice,
   salePaymentMethods,
   saleWarrantyOptions,
@@ -123,6 +122,8 @@ interface NewSaleFormProps {
   canManageCommission?: boolean
   /** Owner-configured fixed full-insurance commission (only sent to the owner). */
   fullInsuranceCommission?: number
+  /** Active free items the customer can be given (managed in Owner Settings). */
+  freeItems?: Array<{ id: string; name: string }>
   /** Customer-paid charges added to this sale (RMV by payment type, optional third-party insurance). */
   saleCharges?: SaleChargeSettings
   recentSales?: Array<{
@@ -142,7 +143,7 @@ const defaultValues: CreateNewSaleInput = {
   paymentType: "CASH",
   paymentMethod: "Cash",
   warrantyOption: saleWarrantyOptions[0],
-  freeItems: [],
+  freeItemIds: [],
   freeServices: 3,
   advancePaymentId: "",
   financeCompanyId: "",
@@ -168,6 +169,7 @@ export function NewSaleForm({
   staff = [],
   canManageCommission = false,
   fullInsuranceCommission = FULL_INSURANCE_COMMISSION,
+  freeItems = [],
   saleCharges = {
     rmvChargeFinance: DEFAULT_RMV_CHARGE_FINANCE,
     rmvChargeCash: DEFAULT_RMV_CHARGE_CASH,
@@ -745,13 +747,19 @@ export function NewSaleForm({
               <div className="space-y-3">
                 <Label>Free items</Label>
                 <Controller
-                  name="freeItems"
+                  name="freeItemIds"
                   control={form.control}
                   render={({ field }) => (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {FREE_SALE_ITEMS.map((item) => {
+                      {freeItems.length === 0 && (
+                        <p className="text-xs text-muted-foreground sm:col-span-2">
+                          No free items are active. The owner can add them under Settings &gt; Free Items.
+                        </p>
+                      )}
+                      {freeItems.map((entry) => {
+                        const item = entry.id
                         const checked = field.value.includes(item)
-                        const id = `sale-addon-${item.toLowerCase().replaceAll(" ", "-")}`
+                        const id = `sale-addon-${entry.name.toLowerCase().replaceAll(" ", "-")}`
                         return (
                           <div key={item} className="flex items-center gap-2.5">
                             <Checkbox
@@ -766,7 +774,7 @@ export function NewSaleForm({
                               }
                             />
                             <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
-                              {item}
+                              {entry.name}
                             </Label>
                           </div>
                         )

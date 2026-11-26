@@ -31,6 +31,9 @@ export interface InvoiceSaleData {
   rmvCharge?: number | null
   thirdPartyInsurance?: number | null
   tinNumber?: string | null
+  /** Names of the free items given with the sale (saved as they were). */
+  freeItems?: string[] | null
+  freeServices?: number | null
   warrantyOption?: string | null
   advancePayment?: {
     amount: number
@@ -531,6 +534,12 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
                   <>
                     <span style={{ color: "#64748b", fontWeight: 600 }}>NIC / Pass:</span>
                     <span>{sale.customer.nic}</span>
+                  </>
+                )}
+                {sale.freeItems && sale.freeItems.length > 0 && (
+                  <>
+                    <span style={{ color: "#64748b", fontWeight: 600 }}>Free Items:</span>
+                    <span data-testid="invoice-free-items">{sale.freeItems.join(", ")}</span>
                   </>
                 )}
                 {sale.tinNumber && (

@@ -12,6 +12,7 @@ import {
 import { getAuthSession } from "@/lib/auth"
 import { loadFullInsuranceCommission } from "@/lib/commission-settings"
 import { loadSaleChargeSettings } from "@/lib/sale-charges"
+import { loadActiveFreeItems } from "@/lib/free-items"
 import { prisma } from "@/lib/prisma"
 
 export const instant = false
@@ -118,6 +119,7 @@ export default async function NewSalePage() {
         staff={staffOptions}
         canManageCommission={canManageCommission}
         saleCharges={await loadSaleChargeSettings(prisma, session.user.organizationId)}
+        freeItems={await loadActiveFreeItems(prisma, session.user.organizationId)}
         fullInsuranceCommission={
           canManageCommission
             ? await loadFullInsuranceCommission(prisma, session.user.organizationId)

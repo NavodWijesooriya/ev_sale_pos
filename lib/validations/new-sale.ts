@@ -1,14 +1,6 @@
 import { z } from "zod"
 import { optionalTinSchema } from "@/lib/validations/tin"
 
-export const FREE_SALE_ITEMS = [
-  "Helmet",
-  "Jacket",
-  "Carpet",
-  "Number Plate Holder",
-  "Key Tag",
-] as const
-
 export const salePaymentMethods = ["Cash", "Leasing", "Card", "Bank Transfer"] as const
 
 export const salePaymentTypes = ["CASH", "FINANCE"] as const
@@ -48,7 +40,8 @@ export const createNewSaleSchema = z.object({
   paymentType: z.enum(salePaymentTypes),
   paymentMethod: z.enum(salePaymentMethods, { error: "Select a payment method." }),
   warrantyOption: z.enum(saleWarrantyOptions, { error: "Select a warranty option." }),
-  freeItems: z.array(z.enum(FREE_SALE_ITEMS)).max(FREE_SALE_ITEMS.length),
+  // Ids of the active free items the customer gets; the server saves their names on the sale.
+  freeItemIds: z.array(z.string().trim().min(1)).max(100),
   freeServices: z.number().int().min(0),
   advancePaymentId: z.string().trim().optional().or(z.literal("")),
   financeCompanyId: z.string().trim().optional().or(z.literal("")),
