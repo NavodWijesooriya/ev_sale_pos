@@ -39,6 +39,7 @@ export function DeliveryOrderActions({
   const [open, setOpen] = React.useState<DialogKind>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null)
 
   // Form state (re-seeded whenever a dialog opens)
   const [doNumber, setDoNumber] = React.useState("")
@@ -55,6 +56,7 @@ export function DeliveryOrderActions({
 
   function openDialog(kind: Exclude<DialogKind, null>) {
     setError(null)
+    setDuplicateWarning(null)
     if (kind === "do") {
       setDoNumber(row.doNumber ?? "")
       setDoDate(row.doDate ?? today())
@@ -76,18 +78,27 @@ export function DeliveryOrderActions({
     setOpen(kind)
   }
 
-  async function run(action: () => Promise<{ success: boolean; error?: string; message?: string }>) {
+  async function run(action: () => Promise<{ success: boolean; error?: string; message?: string; duplicate?: boolean }>) {
     setBusy(true)
     setError(null)
+    setDuplicateWarning(null)
     const result = await action()
     setBusy(false)
     if (result.success) {
       toast.success(result.message ?? "Saved.")
       setOpen(null)
       router.refresh()
+    } else if (result.duplicate) {
+      setDuplicateWarning(result.error ?? "This DO number is already used.")
     } else {
       setError(result.error ?? "Something went wrong.")
     }
+  }
+
+  function saveDo(confirmDuplicate: boolean) {
+    return run(() =>
+      recordDeliveryOrder({ saleId: row.saleId, doNumber, doDate, doAmount: Number(doAmount), expiryDate: expiry, financeOfficeName: office, notes, confirmDuplicate }),
+    )
   }
 
   const needsOverride = !row.doNumber
@@ -141,8 +152,13 @@ export function DeliveryOrderActions({
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="do-number">DO number</Label>
-                  <Input id="do-number" value={doNumber} onChange={(e) => setDoNumber(e.target.value)} />
+                  <Label htmlFor="do-number">DO number (from finance company)</Label>
+                  <Input id="do-number" value={doNumber} onChange={(e) => setDoNumber(e.target.value)} placeholder="Optional" />
+                  <p className="text-[11px] text-muted-foreground">
+                    {row.doNumberInternal
+                      ? `${row.doNumber} is an internal reference. Type the finance company's number here when it arrives.`
+                      : "Leave empty if the number is not known yet: an internal reference (DO-0001) is used and marked internal."}
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="do-date">DO date</Label>
@@ -151,6 +167,9 @@ export function DeliveryOrderActions({
                 <div className="space-y-1.5">
                   <Label htmlFor="do-amount">DO amount (Rs.)</Label>
                   <Input id="do-amount" type="number" min={0} step="0.01" value={doAmount} onChange={(e) => setDoAmount(e.target.value)} />
+                  <p className="text-[11px] text-muted-foreground">
+                    {row.doAmount === null && row.financeAmount !== null ? "Filled in from the sale's finance amount. " : ""}Change it if the DO letter shows a different amount.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="do-expiry">Expiry date (optional)</Label>
@@ -166,16 +185,19 @@ export function DeliveryOrderActions({
                 </div>
               </div>
               {error && <p role="alert" data-testid="documents-error" className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-600">{error}</p>}
+              {duplicateWarning && (
+                <p role="alert" data-testid="do-duplicate-warning" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-800 dark:text-amber-300">
+                  {duplicateWarning}
+                </p>
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => setOpen(null)}>Cancel</Button>
-                <Button
-                  type="button"
-                  disabled={busy}
-                  data-testid="confirm-do"
-                  onClick={() =>
-                    run(() => recordDeliveryOrder({ saleId: row.saleId, doNumber, doDate, doAmount: Number(doAmount), expiryDate: expiry, financeOfficeName: office, notes }))
-                  }
-                >
+                {duplicateWarning && (
+                  <Button type="button" variant="outline" disabled={busy} data-testid="confirm-do-duplicate" onClick={() => saveDo(true)}>
+                    Save anyway
+                  </Button>
+                )}
+                <Button type="button" disabled={busy} data-testid="confirm-do" onClick={() => saveDo(false)}>
                   {busy && <LoaderCircle className="size-4 animate-spin" />} Save DO
                 </Button>
               </DialogFooter>

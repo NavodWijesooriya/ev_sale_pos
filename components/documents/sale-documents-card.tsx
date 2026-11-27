@@ -65,7 +65,8 @@ export function SaleDocumentsCard({ docs }: { docs: SaleDocuments }) {
                 </p>
                 {row.doNumber ? (
                   <p>
-                    DO <span className="font-medium text-foreground">{row.doNumber}</span> · {row.doDate}
+                    DO <span className="font-medium text-foreground">{row.doNumber}</span>
+                    {row.doNumberInternal && <span className="ml-1 rounded border border-amber-500/40 bg-amber-500/10 px-1 text-[10px] font-semibold uppercase text-amber-700">internal</span>} · {row.doDate}
                     {docs.canSeeAmounts && row.doAmount !== null ? ` · ${formatLKR(row.doAmount)}` : ""}
                     {row.expiryDate ? ` · expires ${row.expiryDate}` : ""}
                   </p>

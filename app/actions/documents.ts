@@ -45,7 +45,10 @@ import { prisma } from "@/lib/prisma"
 import { activeSale } from "@/lib/sale-status"
 
 type Client = Prisma.TransactionClient | typeof prisma
-type Result<T = object> = ({ success: true; message?: string } & T) | { success: false; error: string }
+type Result<T = object> = ({ success: true; message?: string } & T) | { success: false; error: string; duplicate?: boolean }
+
+/** The finance company's DO number is already used on another sale of the same company (a warning the user can confirm). */
+class DuplicateDoNumberError extends Error {}
 
 const iso = (date: Date | null | undefined) => (date ? date.toISOString() : null)
 const day = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : null)
@@ -138,6 +141,8 @@ export interface DeliveryOrderRow {
   stageSince: string | null
   agingDays: number
   doNumber: string | null
+  /** True when doNumber is an internal reference (DO-0001), not the finance company's number. */
+  doNumberInternal: boolean
   doDate: string | null
   doAmount: number | null
   expiryDate: string | null
@@ -182,6 +187,7 @@ function buildDoRow(sale: SaleRecord, user: AuthSessionUser): DeliveryOrderRow {
     stageSince: iso(stageSince),
     agingDays: stage === "PAID" ? 0 : daysSince(stageSince),
     doNumber: dOrder?.doNumber ?? null,
+    doNumberInternal: dOrder?.doNumberInternal ?? false,
     doDate: day(dOrder?.doDate),
     doAmount: showAmounts ? (dOrder?.doAmount ?? null) : null,
     expiryDate: day(dOrder?.expiryDate),
@@ -247,7 +253,10 @@ export async function getDeliveryOrders(): Promise<Result<{ data: DeliveryOrders
 
 const doSchema = z.object({
   saleId: z.string().trim().min(1),
-  doNumber: z.string().trim().min(1, "Enter the DO number.").max(60, "The DO number is too long."),
+  /** The finance company's DO number. Optional: left empty, an internal reference (DO-0001) is generated. */
+  doNumber: z.string().trim().max(60, "The DO number is too long.").optional().or(z.literal("")),
+  /** Save even though the same number exists on another sale of this finance company. */
+  confirmDuplicate: z.boolean().optional(),
   doDate: z.string().trim().min(1, "Enter the DO date."),
   doAmount: z.number().finite("Enter the DO amount.").min(0, "The DO amount cannot be negative."),
   expiryDate: z.string().trim().optional().or(z.literal("")),
@@ -271,8 +280,58 @@ export async function recordDeliveryOrder(input: DeliveryOrderInput): Promise<Re
       const company = sale.financeCompany?.name ?? sale.financeDetail?.financeCompany ?? "Finance company"
       const existing = sale.deliveryOrder
       const nextStatus = !existing || existing.status === "AWAITING_DO" ? (sale.deliveredAt ? "DELIVERED" : "DO_RECEIVED") : existing.status
+
+      // DO number: the finance company's number when typed; otherwise keep the one already there; otherwise an internal
+      // reference (DO-0001, sequential per dealership, flagged "internal").
+      const typed = data.doNumber?.trim() ?? ""
+      let number: string
+      let internal: boolean
+      if (typed) {
+        number = typed
+        internal = typed === existing?.doNumber ? existing.doNumberInternal : false
+      } else if (existing?.doNumber) {
+        number = existing.doNumber
+        internal = existing.doNumberInternal
+      } else {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${user.organizationId}))`
+        const used = await tx.deliveryOrder.findMany({
+          where: { organizationId: user.organizationId, doNumberInternal: true },
+          select: { doNumber: true },
+        })
+        const highest = used.reduce((max, row) => {
+          const match = /^DO-(\d+)$/.exec(row.doNumber ?? "")
+          return match ? Math.max(max, Number(match[1])) : max
+        }, 0)
+        number = `DO-${String(highest + 1).padStart(4, "0")}`
+        internal = true
+      }
+
+      // A finance company's own number should be used once: warn (and let the user confirm) when it already exists.
+      let duplicateOf: string | null = null
+      if (!internal) {
+        const financeCompanyId = sale.financeCompany?.id ?? sale.financeCompanyId ?? null
+        const clash = await tx.deliveryOrder.findFirst({
+          where: {
+            organizationId: user.organizationId,
+            saleId: { not: sale.id },
+            doNumberInternal: false,
+            doNumber: { equals: number, mode: "insensitive" },
+            status: { not: "CANCELLED" },
+            ...(financeCompanyId ? { financeCompanyId } : { financeCompanyName: company }),
+          },
+          select: { sale: { select: { invoiceNumber: true } } },
+        })
+        if (clash) {
+          duplicateOf = clash.sale.invoiceNumber
+          if (!data.confirmDuplicate) {
+            throw new DuplicateDoNumberError(`DO number ${number} is already recorded for ${company} on sale ${clash.sale.invoiceNumber}. A finance company's DO number should be used only once.`)
+          }
+        }
+      }
+
       const fields = {
-        doNumber: data.doNumber,
+        doNumber: number,
+        doNumberInternal: internal,
         doDate,
         doAmount: data.doAmount,
         expiryDate: expiry,
@@ -300,12 +359,17 @@ export async function recordDeliveryOrder(input: DeliveryOrderInput): Promise<Re
         entityType: "DeliveryOrder",
         entityId: saved.id,
         branchId: sale.branchId,
-        description: `${sale.invoiceNumber}: DO ${data.doNumber} (${money(data.doAmount)}) ${existing?.doNumber ? "updated" : "recorded"}, ${company}${warnings.length ? `. Warning: ${warnings.join(" ")}` : ""}`,
+        description: `${sale.invoiceNumber}: ${
+          existing?.doNumber && existing.doNumber !== number
+            ? `DO number changed from ${existing.doNumber}${existing.doNumberInternal ? " (internal)" : ""} to ${number}${internal ? " (internal)" : ""}`
+            : `DO ${number}${internal ? " (internal reference)" : ""} ${existing?.doNumber ? "updated" : "recorded"}`
+        } (${money(data.doAmount)}), ${company}${duplicateOf ? `. Duplicate of the DO on ${duplicateOf} confirmed` : ""}${warnings.length ? `. Warning: ${warnings.join(" ")}` : ""}`,
       })
     })
     revalidateDocs(data.saleId)
     return { success: true, message: "Delivery Order saved." }
   } catch (error) {
+    if (error instanceof DuplicateDoNumberError) return { success: false, error: error.message, duplicate: true }
     console.error("recordDeliveryOrder error:", error)
     return fail(error, "Could not save the Delivery Order.")
   }

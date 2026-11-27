@@ -160,7 +160,14 @@ function DoRow({ row, data }: { row: DeliveryOrderRow; data: DeliveryOrdersData 
       <TableCell className="whitespace-normal text-xs">
         {row.doNumber ? (
           <>
-            <p className="font-medium">{row.doNumber}</p>
+            <p className="font-medium">
+              {row.doNumber}
+              {row.doNumberInternal && (
+                <span data-testid="do-internal" className="ml-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-1 text-[10px] font-semibold uppercase text-amber-700 dark:text-amber-400" title="An internal reference, not the finance company's number">
+                  internal
+                </span>
+              )}
+            </p>
             <p className="text-muted-foreground">
               {row.doDate}
               {data.canSeeAmounts && row.doAmount !== null ? ` · ${formatLKR(row.doAmount)}` : ""}

@@ -1459,6 +1459,7 @@ model DeliveryOrder {
   status         DeliveryOrderStatus @default(AWAITING_DO)
 
   doNumber           String?
+  doNumberInternal   Boolean   @default(false) // true: an internal reference (DO-0001), not the finance company's number
   doDate             DateTime?
   financeCompanyId   String?
   financeCompanyName String
