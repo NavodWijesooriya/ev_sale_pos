@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
     "*.lvh.me",
     "localhost",
   ],
+  // The RMV registry moved under "Received Documents": keep the old address working.
+  async redirects() {
+    return [{ source: "/dashboard/customers/rmv", destination: "/dashboard/documents/rmv", permanent: true }];
+  },
   experimental: {
     agentFeedback: true,
   },

@@ -298,7 +298,7 @@ export async function cancelSale(input: CancelSaleInput): Promise<{ success: tru
       "/dashboard/reports",
       "/dashboard/finance",
       "/dashboard/customers",
-      "/dashboard/customers/rmv",
+      "/dashboard/documents/rmv",
       `/dashboard/bikes/${done.vehicleId}`,
     ]) {
       revalidatePath(path)

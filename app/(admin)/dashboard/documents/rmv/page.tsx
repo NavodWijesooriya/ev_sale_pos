@@ -14,7 +14,7 @@ export default async function RMVRegistryPage() {
   const session = await getAuthSession()
 
   if (!session?.user?.organizationId) {
-    redirect("/login?callbackUrl=/dashboard/customers/rmv")
+    redirect("/login?callbackUrl=/dashboard/documents/rmv")
   }
 
   const result = await getRMVRegistry()

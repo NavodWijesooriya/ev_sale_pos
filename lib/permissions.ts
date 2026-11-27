@@ -64,6 +64,16 @@ export const PERMISSION_DEFINITIONS = {
     label: "Cancel sales",
     description: "Cancel a sale (entered by mistake, or the customer returned the bike). The owner can always do this.",
   },
+  MANAGE_DOCUMENTS: {
+    group: "Sales & Billing",
+    label: "Received documents",
+    description: "Record Delivery Orders, mark bikes delivered, submit finance claims and record RMV documents received and handed over. Without it these pages are read-only.",
+  },
+  OVERRIDE_DO_DELIVERY: {
+    group: "Sales & Billing",
+    label: "Override DO delivery rule",
+    description: "Mark a finance sale delivered before its Delivery Order is recorded (a reason is required). The owner can always do this.",
+  },
   VIEW_COST_PRICE: {
     group: "Sales & Billing",
     label: "View cost price & profit",
@@ -153,6 +163,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, Permission[]> = {
     "VIEW_INVENTORY_COST",
     "CREATE_SALE",
     "APPROVE_DISCOUNTS",
+    "MANAGE_DOCUMENTS",
     "VIEW_COST_PRICE",
     "MANAGE_SUPPLIERS",
     "RECORD_PAYMENTS",

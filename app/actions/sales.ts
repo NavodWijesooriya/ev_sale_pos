@@ -950,7 +950,7 @@ export async function logCustomerNotification({ saleId }: { saleId: string }) {
 
     revalidatePath(`/dashboard/customers/${sale.customerId}`)
     revalidatePath("/dashboard/customers")
-    revalidatePath("/dashboard/customers/rmv")
+    revalidatePath("/dashboard/documents/rmv")
     revalidatePath(`/dashboard/sales/${saleId}`)
 
     return {

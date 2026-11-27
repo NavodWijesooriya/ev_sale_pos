@@ -265,7 +265,7 @@ export async function transferVehicleOwnership(
     revalidatePath("/dashboard/customers/crm")
     revalidatePath("/dashboard/customers/sales")
     for (const id of result.customerIds) revalidatePath(`/dashboard/customers/${id}`)
-    revalidatePath("/dashboard/customers/rmv")
+    revalidatePath("/dashboard/documents/rmv")
     return { success: true, transferId: result.transferId, slipNumber: result.slipNumber }
   } catch (error) {
     console.error("transferVehicleOwnership error:", error)

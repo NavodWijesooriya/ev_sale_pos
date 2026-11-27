@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  FileText,
   HandCoins,
   HelpCircle,
   LayoutDashboard,
@@ -97,7 +98,16 @@ export const navigationItems: NavItem[] = [
     children: [
       { title: "CRM Customers", href: "/dashboard/customers/crm" },
       { title: "Sale Customers", href: "/dashboard/customers/sales" },
-      { title: "RMV Registry", href: "/dashboard/customers/rmv" },
+    ],
+  },
+  {
+    title: "Received Documents",
+    href: "/dashboard/documents/delivery-orders",
+    icon: FileText,
+    anyPermission: ["MANAGE_DOCUMENTS", "CREATE_SALE", "MANAGE_CUSTOMERS", "MANAGE_FINANCE_RECEIVABLES"],
+    children: [
+      { title: "Delivery Orders", href: "/dashboard/documents/delivery-orders" },
+      { title: "RMV Documents", href: "/dashboard/documents/rmv" },
     ],
   },
   {
@@ -173,6 +183,9 @@ export function SidebarContent({
   const [customersExpanded, setCustomersExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/customers/")),
   )
+  const [documentsExpanded, setDocumentsExpanded] = React.useState(
+    Boolean(pathname?.startsWith("/dashboard/documents/")),
+  )
   const [grnExpanded, setGrnExpanded] = React.useState(
     Boolean(pathname?.startsWith("/dashboard/grn/")),
   )
@@ -238,6 +251,7 @@ export function SidebarContent({
   const isExpanded = (title: string) => {
     if (title === "Customers") return customersExpanded
     if (title === "GRN Management") return grnExpanded
+    if (title === "Received Documents") return documentsExpanded
     if (title === "Sales Management") return salesExpanded
     if (title === "Finance Management") return financeExpanded
     if (title === "Service Management") return serviceManagementExpanded
@@ -347,12 +361,15 @@ export function SidebarContent({
                         if (isCollapsed) {
                           if (item.title === "Customers") setCustomersExpanded(true)
                           if (item.title === "GRN Management") setGrnExpanded(true)
+                          if (item.title === "Received Documents") setDocumentsExpanded(true)
                           if (item.title === "Sales Management") setSalesExpanded(true)
                           if (item.title === "Finance Management") setFinanceExpanded(true)
                           if (item.title === "Service Management") setServiceManagementExpanded(true)
                           if (item.title === "Supplier Management") setSupplierExpanded(true)
                           if (item.title === "Settings") setSettingsToggled(true)
                           onToggleCollapse?.()
+                        } else if (item.title === "Received Documents") {
+                          setDocumentsExpanded((expanded) => !expanded)
                         } else if (item.title === "GRN Management") {
                           setGrnExpanded((expanded) => !expanded)
                         } else if (item.title === "Sales Management") {

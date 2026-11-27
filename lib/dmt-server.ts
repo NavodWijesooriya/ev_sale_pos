@@ -22,6 +22,9 @@ export interface DmtPatch {
   isBookOk?: boolean
   isInsuranceOk?: boolean
   registrationNumber?: string | null
+  /** Date the registration book / number plate came back from RMV (default: now, when it becomes received). */
+  crReceivedAt?: Date
+  plateReceivedAt?: Date
   /** Legacy inputs kept so older screens keep working; both are mapped onto the workflow. */
   isNumberPlateOk?: boolean
   status?: DmtStatusKey
@@ -106,6 +109,20 @@ export async function applyDmtPatch(
       )
     }
 
+    // Received dates (for hand-over aging). A document that was already handed over cannot become "not received".
+    const plateIssuedNow = next.numberPlateStatus === "ISSUED"
+    const plateIssuedBefore = before.numberPlateStatus === "ISSUED"
+    if (!next.isBookOk && existing?.crHandedOverAt) {
+      throw new Error("The registration book was already handed over. Undo the hand-over first.")
+    }
+    if (!plateIssuedNow && existing?.plateHandedOverAt) {
+      throw new Error("The number plate was already handed over. Undo the hand-over first.")
+    }
+    const crReceivedAt = !next.isBookOk ? null : (patch.crReceivedAt ?? (!before.isBookOk ? new Date() : (existing?.crReceivedAt ?? null)))
+    const plateReceivedAt = !plateIssuedNow
+      ? null
+      : (patch.plateReceivedAt ?? (!plateIssuedBefore ? new Date() : (existing?.plateReceivedAt ?? null)))
+
     const dmt = await tx.dMTRegistration.upsert({
       where: { saleId },
       create: {
@@ -121,6 +138,8 @@ export async function applyDmtPatch(
         isNumberPlateOk: next.numberPlateStatus === "ISSUED",
         isInsuranceOk: next.isInsuranceOk,
         numberPlateStatus: next.numberPlateStatus as NumberPlateStatus,
+        crReceivedAt,
+        plateReceivedAt,
       },
       update: {
         status: status as DMTStatus,
@@ -134,6 +153,8 @@ export async function applyDmtPatch(
         isNumberPlateOk: next.numberPlateStatus === "ISSUED",
         isInsuranceOk: next.isInsuranceOk,
         numberPlateStatus: next.numberPlateStatus as NumberPlateStatus,
+        crReceivedAt,
+        plateReceivedAt,
       },
     })
 
@@ -174,7 +195,7 @@ export function dmtRevalidationPaths(saleId: string, customerId: string, vehicle
     "/dashboard",
     "/dashboard/reports",
     "/dashboard/customers",
-    "/dashboard/customers/rmv",
+    "/dashboard/documents/rmv",
     `/dashboard/customers/${customerId}`,
     `/dashboard/sales/${saleId}`,
     "/dashboard/sales",
