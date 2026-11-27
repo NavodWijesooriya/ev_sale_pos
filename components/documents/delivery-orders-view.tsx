@@ -32,8 +32,8 @@ export function StageBadge({ stage }: { stage: DoStage }) {
 }
 
 /** Finance sales and where each one is between "finance approved" and "finance company paid". */
-export function DeliveryOrdersView({ data }: { data: DeliveryOrdersData }) {
-  const [tab, setTab] = React.useState<DoStage>("AWAITING_DO")
+export function DeliveryOrdersView({ data, initialTab = "AWAITING_DO" }: { data: DeliveryOrdersData; initialTab?: DoStage }) {
+  const [tab, setTab] = React.useState<DoStage>(initialTab)
   const [query, setQuery] = React.useState("")
 
   const counts = React.useMemo(() => {

@@ -3,6 +3,7 @@ import { getAuthSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission } from "@/lib/permissions"
 import { SaleOverview } from "@/components/sales/sale-overview"
+import { getSaleDocuments } from "@/app/actions/documents"
 
 export const instant = false
 
@@ -86,5 +87,14 @@ export default async function SaleDetailPage({ params }: SalePageProps) {
     notFound()
   }
 
-  return <SaleOverview sale={sale as any} canCancel={hasPermission(session.user, "CANCEL_SALE")} />
+  // Delivery / Delivery Order / RMV documents (null when this user may not see them, or the sale is outside their branch).
+  const documents = await getSaleDocuments(saleId)
+
+  return (
+    <SaleOverview
+      sale={sale as any}
+      canCancel={hasPermission(session.user, "CANCEL_SALE")}
+      documents={documents.success ? documents.data : null}
+    />
+  )
 }

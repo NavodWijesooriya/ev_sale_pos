@@ -87,14 +87,15 @@ interface RMVRegistryTableProps {
   dealershipName: string
   /** MANAGE_DOCUMENTS: record received / handed over. Without it the registry is read-only for these. */
   canManage: boolean
+  initialFilter?: "all" | "PENDING_AT_RMV" | "RECEIVED_NOT_HANDED" | "HANDED_OVER"
 }
 
 type RegistryFilter = "all" | "PENDING_AT_RMV" | "RECEIVED_NOT_HANDED" | "HANDED_OVER"
 
-export function RMVRegistryTable({ sales, dealershipName, canManage }: RMVRegistryTableProps) {
+export function RMVRegistryTable({ sales, dealershipName, canManage, initialFilter = "all" }: RMVRegistryTableProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterStatus, setFilterStatus] = useState<RegistryFilter>("all")
+  const [filterStatus, setFilterStatus] = useState<RegistryFilter>(initialFilter)
 
   // Statistics calculation
   const stats = useMemo(() => {

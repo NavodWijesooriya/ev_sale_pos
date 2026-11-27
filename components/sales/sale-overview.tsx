@@ -55,12 +55,16 @@ import { DMTStatus, PaymentMethod } from "@prisma/client"
 import { VehicleDocumentTracker } from "@/components/customers/vehicle-document-tracker"
 import { CancelSaleButton } from "@/components/sales/cancel-sale-dialog"
 import { CancelledBadge } from "@/components/sales/cancelled-badge"
+import { SaleDocumentsCard } from "@/components/documents/sale-documents-card"
+import type { SaleDocuments } from "@/app/actions/documents"
 import { cancelTypeLabel, refundMethodLabel } from "@/lib/sale-status"
 import { formatLKR } from "@/lib/currency"
 
 interface SaleOverviewProps {
   /** True when the signed-in user may cancel sales (owner, or staff with the Cancel sales permission). */
   canCancel?: boolean
+  /** Delivery Order / delivery / RMV document status for the Documents card (null when the user may not see it). */
+  documents?: SaleDocuments | null
   sale: {
     id: string
     invoiceNumber?: string
@@ -155,7 +159,7 @@ interface SaleOverviewProps {
   }
 }
 
-export function SaleOverview({ sale, canCancel = false }: SaleOverviewProps) {
+export function SaleOverview({ sale, canCancel = false, documents = null }: SaleOverviewProps) {
   const isCancelled = sale.status === "CANCELLED"
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -542,6 +546,12 @@ export function SaleOverview({ sale, canCancel = false }: SaleOverviewProps) {
                 <FinanceReceivableSummary detail={sale.financeDetail} />
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {documents && (
+          <div className="lg:col-span-7">
+            <SaleDocumentsCard docs={documents} />
           </div>
         )}
 

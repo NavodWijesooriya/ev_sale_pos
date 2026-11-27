@@ -21,9 +21,14 @@ import {
   Sparkles,
   Receipt,
   ArrowRight,
+  FileSignature,
+  FileCheck2,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { activeSale } from "@/lib/sale-status"
+import { getDocumentsDashboardCounts } from "@/app/actions/documents"
+import { canViewDocuments } from "@/lib/documents"
 
 export const instant = false
 
@@ -133,6 +138,8 @@ export default async function DashboardPage() {
     bgColor: string
     href?: string
   }
+  // Received documents: only for people who can open those pages (counts are branch-scoped too).
+  const documentCounts = canViewDocuments(dealershipUser) ? await getDocumentsDashboardCounts() : null
   const stats: Stat[] = [
     {
       title: "EV Bikes In Stock",
@@ -171,6 +178,37 @@ export default async function DashboardPage() {
             iconColor: "text-amber-500",
             bgColor: "bg-amber-500/10 border-amber-500/20",
             href: "/dashboard/finance/receivables",
+          },
+        ]
+      : []),
+    ...(documentCounts
+      ? [
+          {
+            title: "Awaiting DO",
+            value: String(documentCounts.awaitingDo),
+            change: "Finance sales waiting for a Delivery Order",
+            icon: FileSignature,
+            iconColor: "text-amber-500",
+            bgColor: "bg-amber-500/10 border-amber-500/20",
+            href: "/dashboard/documents/delivery-orders",
+          },
+          {
+            title: "Claims to submit",
+            value: String(documentCounts.claimsToSubmit),
+            change: "Delivered, claim not yet sent to finance",
+            icon: FileCheck2,
+            iconColor: "text-violet-500",
+            bgColor: "bg-violet-500/10 border-violet-500/20",
+            href: "/dashboard/documents/delivery-orders?tab=DELIVERED",
+          },
+          {
+            title: "RMV docs to hand over",
+            value: String(documentCounts.rmvToHandOver),
+            change: "Received from RMV, not handed over",
+            icon: FileText,
+            iconColor: "text-blue-500",
+            bgColor: "bg-blue-500/10 border-blue-500/20",
+            href: "/dashboard/documents/rmv?tab=RECEIVED_NOT_HANDED",
           },
         ]
       : []),

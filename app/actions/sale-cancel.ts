@@ -29,7 +29,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 const money = (n: number) => `Rs. ${n.toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export interface CancelBlocker {
-  code: "ALREADY_CANCELLED" | "FINANCE_RECEIPTS" | "OWNERSHIP_TRANSFERRED" | "DMT_COMPLETED"
+  code: "ALREADY_CANCELLED" | "FINANCE_RECEIPTS" | "OWNERSHIP_TRANSFERRED" | "DMT_COMPLETED" | "CLAIM_SUBMITTED" | "DOCUMENTS_HANDED_OVER"
   message: string
 }
 
@@ -95,6 +95,34 @@ async function findBlockers(client: Client, sale: {
       message: "The DMT / RMV registration is Completed (the number plate is issued).",
     })
   }
+
+  // 4. A finance claim was already submitted: it must be withdrawn first (Delivery Orders).
+  const deliveryOrder = await client.deliveryOrder.findUnique({
+    where: { saleId: sale.id },
+    select: { status: true, financeCompanyName: true, claimSubmittedAt: true },
+  })
+  if (deliveryOrder?.status === "CLAIM_SUBMITTED") {
+    blockers.push({
+      code: "CLAIM_SUBMITTED",
+      message: `A claim was submitted to ${deliveryOrder.financeCompanyName}${deliveryOrder.claimSubmittedAt ? ` on ${deliveryOrder.claimSubmittedAt.toISOString().slice(0, 10)}` : ""}. Withdraw the claim in Delivery Orders first.`,
+    })
+  }
+
+  // 5. The registration certificate or number plate was already handed over.
+  const handedOver = await client.dMTRegistration.findUnique({
+    where: { saleId: sale.id },
+    select: { crHandedOverAt: true, plateHandedOverAt: true },
+  })
+  if (handedOver?.crHandedOverAt || handedOver?.plateHandedOverAt) {
+    const parts = [
+      handedOver.crHandedOverAt ? `the registration certificate (${handedOver.crHandedOverAt.toISOString().slice(0, 10)})` : null,
+      handedOver.plateHandedOverAt ? `the number plate (${handedOver.plateHandedOverAt.toISOString().slice(0, 10)})` : null,
+    ].filter(Boolean)
+    blockers.push({
+      code: "DOCUMENTS_HANDED_OVER",
+      message: `${parts.join(" and ")} already handed over. Undo the hand-over in RMV Documents first.`.replace(/^./, (c) => c.toUpperCase()),
+    })
+  }
   return blockers
 }
 
@@ -155,6 +183,7 @@ export async function getSaleCancelPreview(saleId: string): Promise<{ success: t
     ]
     if (sale.financeDetail) effects.push("The finance receivable is cancelled and leaves Pending receivables and the dashboard.")
     if (sale.dmtRegistration) effects.push("The DMT / RMV record is cancelled and leaves Pending DMT.")
+    if (sale.paymentType === "FINANCE") effects.push("Its Delivery Order record (if any) is cancelled.")
     if (sale.advancePaymentId) effects.push(`The customer advance used on this sale (${money(sale.advanceDeducted)}) goes back to Pending, so it can be used again or refunded.`)
     effects.push("The sale stays in Sales History marked CANCELLED, and is left out of revenue, commission, payroll and sales reports.")
 
@@ -256,6 +285,7 @@ export async function cancelSale(input: CancelSaleInput): Promise<{ success: tru
         })
 
         await tx.dMTRegistration.updateMany({ where: { saleId: sale.id }, data: { status: DMTStatus.Cancelled } })
+        await tx.deliveryOrder.updateMany({ where: { saleId: sale.id }, data: { status: "CANCELLED" } })
 
         if (sale.advancePaymentId) {
           const released = await tx.advancePayment.updateMany({
@@ -299,6 +329,7 @@ export async function cancelSale(input: CancelSaleInput): Promise<{ success: tru
       "/dashboard/finance",
       "/dashboard/customers",
       "/dashboard/documents/rmv",
+      "/dashboard/documents/delivery-orders",
       `/dashboard/bikes/${done.vehicleId}`,
     ]) {
       revalidatePath(path)
