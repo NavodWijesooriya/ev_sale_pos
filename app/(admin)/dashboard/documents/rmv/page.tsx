@@ -7,7 +7,7 @@ import { RMVRegistryTable } from "@/components/customers/rmv-registry-table"
 export const instant = false
 
 export const metadata = {
-  title: "RMV & Vehicle Document Registry | Ev Sale Pos",
+  title: "RMV Documents | Ev Sale Pos",
   description: "Track Sri Lanka DMT registration book, number plate, and insurance document status",
 }
 
