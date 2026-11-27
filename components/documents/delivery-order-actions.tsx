@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { CLAIM_CHECKLIST, emptyChecklist, type ClaimChecklist } from "@/lib/documents"
+import { planDoSplit, requiredDownPayment } from "@/lib/do-split"
+import { formatLKR } from "@/lib/currency"
 
 const today = () => new Date().toLocaleDateString("en-CA")
 
@@ -41,6 +43,7 @@ export function DeliveryOrderActions({
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null)
+  const [higherWarning, setHigherWarning] = React.useState<string | null>(null)
 
   // Form state (re-seeded whenever a dialog opens)
   const [doNumber, setDoNumber] = React.useState("")
@@ -58,6 +61,7 @@ export function DeliveryOrderActions({
   function openDialog(kind: Exclude<DialogKind, null>) {
     setError(null)
     setDuplicateWarning(null)
+    setHigherWarning(null)
     if (kind === "do") {
       setDoNumber(row.doNumber ?? "")
       setDoDate(row.doDate ?? today())
@@ -79,10 +83,11 @@ export function DeliveryOrderActions({
     setOpen(kind)
   }
 
-  async function run(action: () => Promise<{ success: boolean; error?: string; message?: string; duplicate?: boolean }>) {
+  async function run(action: () => Promise<{ success: boolean; error?: string; message?: string; duplicate?: boolean; needsOwnerConfirm?: boolean }>) {
     setBusy(true)
     setError(null)
     setDuplicateWarning(null)
+    setHigherWarning(null)
     const result = await action()
     setBusy(false)
     if (result.success) {
@@ -91,16 +96,23 @@ export function DeliveryOrderActions({
       router.refresh()
     } else if (result.duplicate) {
       setDuplicateWarning(result.error ?? "This DO number is already used.")
+    } else if (result.needsOwnerConfirm) {
+      setHigherWarning(result.error ?? "The DO amount is higher than the finance amount.")
     } else {
       setError(result.error ?? "Something went wrong.")
     }
   }
 
-  function saveDo(confirmDuplicate: boolean) {
+  function saveDo(confirmDuplicate: boolean, confirmHigherAmount = false) {
     return run(() =>
-      recordDeliveryOrder({ saleId: row.saleId, doNumber, doDate, doAmount: Number(doAmount), expiryDate: expiry, financeOfficeName: office, notes, confirmDuplicate }),
+      recordDeliveryOrder({ saleId: row.saleId, doNumber, doDate, doAmount: Number(doAmount), expiryDate: expiry, financeOfficeName: office, notes, confirmDuplicate, confirmHigherAmount }),
     )
   }
+
+  // What the amount typed in the dialog does to the sale (the rule is in lib/do-split.ts, enforced again on the server).
+  const typedAmount = Number(doAmount)
+  const splitPreview =
+    row.financeAmount !== null && doAmount !== "" && Number.isFinite(typedAmount) ? planDoSplit(row.financeAmount, typedAmount) : null
 
   const needsOverride = !row.doNumber
   const size = compact ? "sm" : "sm"
@@ -184,6 +196,11 @@ export function DeliveryOrderActions({
                   <p className="text-[11px] text-muted-foreground">
                     {row.doAmount === null && row.financeAmount !== null ? "Filled in from the sale's finance amount. " : ""}Change it if the DO letter shows a different amount.
                   </p>
+                  {row.financeAmount !== null && (
+                    <p className="text-[11px] text-muted-foreground" data-testid="sale-finance-amount">
+                      Sale finance amount: {formatLKR(row.financeAmount)}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="do-expiry">Expiry date (optional)</Label>
@@ -198,7 +215,29 @@ export function DeliveryOrderActions({
                   <Textarea id="do-notes" rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </div>
               </div>
+              {splitPreview?.kind === "LOWER" && row.financeAmount !== null && (
+                <div data-testid="split-lower" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-900 dark:text-amber-200">
+                  <p className="font-semibold">The DO is lower than the sale&apos;s finance amount ({formatLKR(row.financeAmount)}).</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    <li>The finance company owes {formatLKR(splitPreview.financeAmount)} (the DO amount).</li>
+                    <li>The customer owes {formatLKR(splitPreview.additionalDownPaymentDue)} more as an additional down payment
+                      {row.saleDownPayment !== null && <> (down payment {formatLKR(row.saleDownPayment)} becomes {formatLKR(requiredDownPayment(row.saleDownPayment, splitPreview.additionalDownPaymentDue))})</>}.</li>
+                    <li>The bike price does not change.</li>
+                  </ul>
+                </div>
+              )}
+              {splitPreview?.kind === "HIGHER" && row.financeAmount !== null && (
+                <p data-testid="split-higher" className="rounded-md border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-700 dark:text-red-300">
+                  The DO amount is higher than the sale&apos;s finance amount ({formatLKR(row.financeAmount)}). Only the owner can confirm this. It is saved as a
+                  note and the sale split is not changed.
+                </p>
+              )}
               {error && <p role="alert" data-testid="documents-error" className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-600">{error}</p>}
+              {higherWarning && (
+                <p role="alert" data-testid="do-higher-warning" className="rounded-md border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-300">
+                  {higherWarning}
+                </p>
+              )}
               {duplicateWarning && (
                 <p role="alert" data-testid="do-duplicate-warning" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-800 dark:text-amber-300">
                   {duplicateWarning}
@@ -209,6 +248,11 @@ export function DeliveryOrderActions({
                 {duplicateWarning && (
                   <Button type="button" variant="outline" disabled={busy} data-testid="confirm-do-duplicate" onClick={() => saveDo(true)}>
                     Save anyway
+                  </Button>
+                )}
+                {higherWarning && (
+                  <Button type="button" variant="destructive" disabled={busy} data-testid="confirm-do-higher" onClick={() => saveDo(Boolean(duplicateWarning), true)}>
+                    Owner: confirm higher amount
                   </Button>
                 )}
                 <Button type="button" disabled={busy} data-testid="confirm-do" onClick={() => saveDo(false)}>

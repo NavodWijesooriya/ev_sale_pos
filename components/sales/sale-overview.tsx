@@ -57,6 +57,7 @@ import { CancelSaleButton } from "@/components/sales/cancel-sale-dialog"
 import { CancelledBadge } from "@/components/sales/cancelled-badge"
 import { SaleDocumentsCard } from "@/components/documents/sale-documents-card"
 import type { SaleDocuments } from "@/app/actions/documents"
+import { AdditionalDownPaymentCard, type AdditionalDownPaymentData } from "@/components/sales/additional-down-payment-card"
 import { cancelTypeLabel, refundMethodLabel } from "@/lib/sale-status"
 import { formatLKR } from "@/lib/currency"
 
@@ -65,6 +66,10 @@ interface SaleOverviewProps {
   canCancel?: boolean
   /** Delivery Order / delivery / RMV document status for the Documents card (null when the user may not see it). */
   documents?: SaleDocuments | null
+  /** Additional down payment after a lower Delivery Order (null when there is none). */
+  additionalDownPayment?: AdditionalDownPaymentData | null
+  /** May record the customer's payment of it. */
+  canRecordDownPayment?: boolean
   sale: {
     id: string
     invoiceNumber?: string
@@ -159,7 +164,7 @@ interface SaleOverviewProps {
   }
 }
 
-export function SaleOverview({ sale, canCancel = false, documents = null }: SaleOverviewProps) {
+export function SaleOverview({ sale, canCancel = false, documents = null, additionalDownPayment = null, canRecordDownPayment = false }: SaleOverviewProps) {
   const isCancelled = sale.status === "CANCELLED"
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -546,6 +551,12 @@ export function SaleOverview({ sale, canCancel = false, documents = null }: Sale
                 <FinanceReceivableSummary detail={sale.financeDetail} />
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {additionalDownPayment && (
+          <div className="lg:col-span-7">
+            <AdditionalDownPaymentCard data={additionalDownPayment} canRecord={canRecordDownPayment} />
           </div>
         )}
 

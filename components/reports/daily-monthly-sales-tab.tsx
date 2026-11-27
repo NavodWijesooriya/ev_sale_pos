@@ -348,6 +348,9 @@ export function DailyMonthlySalesTab({
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Physical cash collected today
+                  {(dailyData.kpis.additionalDownPayments ?? 0) > 0 && (
+                    <span data-testid="topup-note"> · includes {formatLKR(dailyData.kpis.additionalDownPayments ?? 0)} additional down payments</span>
+                  )}
                 </p>
               </CardContent>
             </Card>

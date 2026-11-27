@@ -1051,6 +1051,8 @@ export interface SalesReportItem {
 }
 
 export interface SalesReportKPIs {
+  /** Customers' additional down payments (after a lower Delivery Order) received in the period; included in netCashCollected. */
+  additionalDownPayments?: number
   totalSalesCount: number
   totalRevenue: number
   cashSalesTotal: number
@@ -1093,6 +1095,15 @@ function cashCollectedOnSale(
   // The RMV charge and third-party insurance are always paid by the customer at the desk, even on finance sales.
   const charges = (sale.rmvCharge || 0) + (sale.thirdPartyInsurance || 0)
   return isFinance ? Math.min(invoiced, Math.max(0, sale.downPayment || 0) + charges) : invoiced
+}
+
+/** Additional down payments received from customers in a period (counted on the day they were paid, not on the sale date). */
+async function additionalDownPaymentsReceived(organizationId: string, user: Parameters<typeof branchFilter>[0], start: Date, end: Date) {
+  const result = await prisma.downPaymentPayment.aggregate({
+    where: { organizationId, paymentDate: { gte: start, lte: end }, sale: { ...branchFilter(user), ...activeSale } },
+    _sum: { amount: true },
+  })
+  return result._sum.amount ?? 0
 }
 
 /** `batch` limits the report to sales of bikes from one round / batch (e.g. "JM 01" or "JM0102"). */
@@ -1175,6 +1186,10 @@ export async function getDailySalesReport(dateStr?: string, batch?: string): Pro
     }
   })
 
+  // Additional down payments paid today (customers whose Delivery Order was lower than the finance amount).
+  const topUps = await additionalDownPaymentsReceived(organizationId, user, startOfDay, endOfDay)
+  netCashCollected += topUps
+
   const formattedDateStr = `${target.year}-${String(target.month + 1).padStart(2, "0")}-${String(target.day).padStart(2, "0")}`
 
   return {
@@ -1186,6 +1201,7 @@ export async function getDailySalesReport(dateStr?: string, batch?: string): Pro
       financeSalesTotal,
       totalAdvancesDeducted,
       netCashCollected,
+      additionalDownPayments: topUps,
     },
     sales,
   }
@@ -1301,6 +1317,9 @@ export async function getMonthlySalesReport(yearMonthStr?: string, batch?: strin
     }
   })
 
+  const monthTopUps = await additionalDownPaymentsReceived(organizationId, user, startOfMonth, endOfMonth)
+  netCashCollected += monthTopUps
+
   const ymString = `${year}-${String(month + 1).padStart(2, "0")}`
   const ymLabel = monthLabel(year, month)
 
@@ -1314,6 +1333,7 @@ export async function getMonthlySalesReport(yearMonthStr?: string, batch?: strin
       financeSalesTotal,
       totalAdvancesDeducted,
       netCashCollected,
+      additionalDownPayments: monthTopUps,
     },
     dailyTrend: Array.from(dailyMap.values()),
     sales,

@@ -140,6 +140,8 @@ async function loadSaleForCancel(client: Client, organizationId: string, saleId:
       totalAmount: true,
       paymentType: true,
       financeAmount: true,
+      additionalDownPaymentDue: true,
+      additionalDownPaymentPaid: true,
       advancePaymentId: true,
       advanceDeducted: true,
       dmtRegistration: { select: { status: true, numberPlateStatus: true } },
@@ -164,8 +166,16 @@ function blockerInput(sale: NonNullable<Awaited<ReturnType<typeof loadSaleForCan
 }
 
 /** The most the customer can be handed back: what they paid themselves (the finance company's share is not theirs). */
-function maxRefundFor(sale: { totalAmount: number; paymentType: string | null; financeAmount: number }) {
-  return round2(Math.max(0, sale.totalAmount - (sale.paymentType === "FINANCE" ? sale.financeAmount : 0)))
+function maxRefundFor(sale: {
+  totalAmount: number
+  paymentType: string | null
+  financeAmount: number
+  additionalDownPaymentDue: number
+  additionalDownPaymentPaid: number
+}) {
+  // An additional down payment the customer has not paid yet cannot be refunded.
+  const unpaidExtra = Math.max(0, sale.additionalDownPaymentDue - sale.additionalDownPaymentPaid)
+  return round2(Math.max(0, sale.totalAmount - (sale.paymentType === "FINANCE" ? sale.financeAmount : 0) - unpaidExtra))
 }
 
 /** What the confirmation dialog shows: the blockers (exactly what stops it) and what will be undone. */

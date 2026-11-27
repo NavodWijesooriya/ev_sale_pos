@@ -113,6 +113,9 @@ export interface CustomerProfileData {
       receivedAmount?: number | null
       balanceAmount?: number | null
     } | null
+    /** Additional down payment owed after a lower Delivery Order. */
+    additionalDownPaymentDue?: number | null
+    additionalDownPaymentPaid?: number | null
     dmtRegistration?: {
       id: string
       status: DMTStatus
@@ -553,6 +556,11 @@ export function CustomerProfile({
                                 {sale.paymentMethod}
                               </Badge>
                               {sale.financeDetail && <FinanceReceivableSummary detail={sale.financeDetail} compact />}
+                              {(sale.additionalDownPaymentDue ?? 0) - (sale.additionalDownPaymentPaid ?? 0) > 0.005 && (
+                                <span data-testid="profile-down-payment-due" className="mt-1 block w-fit rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                                  Additional down payment due: {formatLKR((sale.additionalDownPaymentDue ?? 0) - (sale.additionalDownPaymentPaid ?? 0))}
+                                </span>
+                              )}
                             </TableCell>
 
                             {/* RMV Documents Status */}

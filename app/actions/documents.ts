@@ -29,7 +29,7 @@ import {
   type DoStage,
   type HandoverTarget,
 } from "@/lib/documents"
-import { branchFilter, hasPermission } from "@/lib/permissions"
+import { branchFilter, hasPermission, isOwner } from "@/lib/permissions"
 import { buildRmvInfo, type RmvDocumentsInfo } from "@/lib/rmv-info"
 import {
   PRIVATE_BUCKET,
@@ -41,14 +41,19 @@ import {
   verifyUploadedObject,
 } from "@/lib/storage"
 import { DO_SCAN_TYPE, validateUpload } from "@/lib/upload-rules"
+import { downPaymentBalance, planDoSplit, requiredDownPayment } from "@/lib/do-split"
+import { EPSILON, deriveFinanceStatus, round2 } from "@/lib/finance-receivables"
 import { prisma } from "@/lib/prisma"
 import { activeSale } from "@/lib/sale-status"
 
 type Client = Prisma.TransactionClient | typeof prisma
-type Result<T = object> = ({ success: true; message?: string } & T) | { success: false; error: string; duplicate?: boolean }
+type Result<T = object> = ({ success: true; message?: string } & T) | { success: false; error: string; duplicate?: boolean; needsOwnerConfirm?: boolean }
 
 /** The finance company's DO number is already used on another sale of the same company (a warning the user can confirm). */
 class DuplicateDoNumberError extends Error {}
+
+/** The DO amount is higher than the sale's finance amount: the owner must confirm. */
+class HigherDoAmountError extends Error {}
 
 const iso = (date: Date | null | undefined) => (date ? date.toISOString() : null)
 const day = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : null)
@@ -88,7 +93,7 @@ const SALE_INCLUDE = {
   customer: { select: { id: true, name: true, phone: true, nic: true } },
   branch: { select: { id: true, name: true } },
   financeCompany: { select: { id: true, name: true } },
-  financeDetail: { select: { status: true, receivedAt: true, financeCompany: true, totalFinanceAmount: true } },
+  financeDetail: { select: { id: true, status: true, receivedAt: true, receivedAmount: true, financeCompany: true, totalFinanceAmount: true } },
   deliveryOrder: true,
   dmtRegistration: { include: { ownerCustomer: { select: { id: true, name: true, phone: true, nic: true } } } },
   items: {
@@ -147,6 +152,12 @@ export interface DeliveryOrderRow {
   doAmount: number | null
   expiryDate: string | null
   notes: string | null
+  /** Set when the DO amount was higher than the finance amount (owner confirmed). */
+  amountNote: string | null
+  /** Additional down payment created by a lower DO (null when none, or hidden from this user). */
+  downPayment: { original: number; required: number; due: number; paid: number; balance: number } | null
+  /** The down payment paid at the sale (before any additional down payment). Hidden from people who may not see amounts. */
+  saleDownPayment: number | null
   /** Name of the uploaded scan (null: none, or this user may not see DO documents). */
   scanName: string | null
   deliveredAt: string | null
@@ -182,7 +193,7 @@ function buildDoRow(sale: SaleRecord, user: AuthSessionUser): DeliveryOrderRow {
     chassisNumber: vehicle?.chassisNumber ?? "-",
     financeCompany: dOrder?.financeCompanyName ?? sale.financeCompany?.name ?? sale.financeDetail?.financeCompany ?? "Finance company",
     financeOffice: dOrder?.financeOfficeName ?? sale.financeOfficeName ?? null,
-    financeAmount: showAmounts ? sale.financeAmount : null,
+    financeAmount: showAmounts ? (sale.originalFinanceAmount ?? sale.financeAmount) : null,
     stage,
     stageSince: iso(stageSince),
     agingDays: stage === "PAID" ? 0 : daysSince(stageSince),
@@ -192,6 +203,18 @@ function buildDoRow(sale: SaleRecord, user: AuthSessionUser): DeliveryOrderRow {
     doAmount: showAmounts ? (dOrder?.doAmount ?? null) : null,
     expiryDate: day(dOrder?.expiryDate),
     notes: dOrder?.notes ?? null,
+    amountNote: showAmounts ? (dOrder?.amountNote ?? null) : null,
+    downPayment:
+      showAmounts && (sale.additionalDownPaymentDue > 0 || sale.additionalDownPaymentPaid > 0)
+        ? {
+            original: sale.downPayment,
+            required: requiredDownPayment(sale.downPayment, sale.additionalDownPaymentDue),
+            due: sale.additionalDownPaymentDue,
+            paid: sale.additionalDownPaymentPaid,
+            balance: downPaymentBalance(sale.additionalDownPaymentDue, sale.additionalDownPaymentPaid),
+          }
+        : null,
+    saleDownPayment: showAmounts ? sale.downPayment : null,
     scanName: showAmounts ? (dOrder?.scanUrl ? (dOrder.scanName ?? "Scan") : null) : null,
     deliveredAt: day(sale.deliveredAt),
     deliveredByName: sale.deliveredByName,
@@ -207,7 +230,7 @@ function buildDoRow(sale: SaleRecord, user: AuthSessionUser): DeliveryOrderRow {
     paidAt: day(sale.financeDetail?.receivedAt),
     warnings: [
       ...(dOrder
-        ? doWarnings({ doAmount: dOrder.doAmount, financeAmount: sale.financeAmount, expiryDate: dOrder.expiryDate, deliveredAt: sale.deliveredAt, showAmounts })
+        ? doWarnings({ doAmount: dOrder.doAmount, financeAmount: sale.originalFinanceAmount ?? sale.financeAmount, expiryDate: dOrder.expiryDate, deliveredAt: sale.deliveredAt, showAmounts })
         : []),
       ...(stage === "AWAITING_DO" && sale.deliveredAt ? ["Delivered without a Delivery Order (override). Record the DO when it arrives."] : []),
     ],
@@ -257,6 +280,8 @@ const doSchema = z.object({
   doNumber: z.string().trim().max(60, "The DO number is too long.").optional().or(z.literal("")),
   /** Save even though the same number exists on another sale of this finance company. */
   confirmDuplicate: z.boolean().optional(),
+  /** Owner only: confirm a DO amount that is HIGHER than the sale's finance amount (saved as a note, the split is not changed). */
+  confirmHigherAmount: z.boolean().optional(),
   doDate: z.string().trim().min(1, "Enter the DO date."),
   doAmount: z.number().finite("Enter the DO amount.").min(0, "The DO amount cannot be negative."),
   expiryDate: z.string().trim().optional().or(z.literal("")),
@@ -329,7 +354,42 @@ export async function recordDeliveryOrder(input: DeliveryOrderInput): Promise<Re
         }
       }
 
+      // ---- The DO amount decides the finance split (see lib/do-split.ts). The bike price never changes. ----
+      const originalFinance = sale.originalFinanceAmount ?? sale.financeAmount
+      const plan = planDoSplit(originalFinance, data.doAmount)
+      let amountNote: string | null = null
+      if (plan.kind === "HIGHER") {
+        const text = `DO amount ${money(data.doAmount)} is higher than the sale's finance amount ${money(originalFinance)}.`
+        if (!isOwner(user)) throw new Error(`${text} Only the owner can confirm this, so ask the owner to record it.`)
+        if (!data.confirmHigherAmount) throw new HigherDoAmountError(`${text} The sale split is not changed; the owner must confirm to save the DO.`)
+        amountNote = `${text} Confirmed by the owner ${user.name} on ${new Date().toISOString().slice(0, 10)}; the sale split was not changed.`
+      }
+      const detail = sale.financeDetail
+      const received = detail?.receivedAmount ?? 0
+      const pending = detail
+        ? (await tx.financeReceiptAllocation.aggregate({ where: { financeDetailId: detail.id, receipt: { status: "PENDING" } }, _sum: { amount: true } }))._sum.amount ?? 0
+        : 0
+      if (sale.additionalDownPaymentPaid > plan.additionalDownPaymentDue + EPSILON) {
+        throw new Error(
+          `The customer already paid ${money(sale.additionalDownPaymentPaid)} as additional down payment, which is more than the difference this DO amount creates (${money(plan.additionalDownPaymentDue)}). Correct that payment first.`,
+        )
+      }
+      if (received + pending > plan.financeAmount + EPSILON) {
+        throw new Error(
+          `Finance payments of ${money(round2(received + pending))} are already recorded on this sale, which is more than the new DO amount ${money(plan.financeAmount)}. Reverse the excess first.`,
+        )
+      }
+      const splitChanged =
+        Math.abs(plan.financeAmount - sale.financeAmount) > 0.005 || Math.abs(plan.additionalDownPaymentDue - sale.additionalDownPaymentDue) > 0.005
+      const splitText =
+        plan.kind === "LOWER"
+          ? `finance amount ${money(originalFinance)} -> ${money(plan.financeAmount)}, additional down payment due ${money(plan.additionalDownPaymentDue)} (required down payment ${money(requiredDownPayment(sale.downPayment, plan.additionalDownPaymentDue))})`
+          : plan.kind === "HIGHER"
+            ? `DO amount higher than the finance amount (owner confirmed); split unchanged`
+            : `DO amount equals the finance amount; no additional down payment`
+
       const fields = {
+        amountNote,
         doNumber: number,
         doNumberInternal: internal,
         doDate,
@@ -353,7 +413,29 @@ export async function recordDeliveryOrder(input: DeliveryOrderInput): Promise<Re
               ...fields,
             },
           })
-      const warnings = doWarnings({ doAmount: data.doAmount, financeAmount: sale.financeAmount, expiryDate: expiry, deliveredAt: sale.deliveredAt, showAmounts: true })
+      if (splitChanged) {
+        await tx.sale.update({
+          where: { id: sale.id },
+          data: {
+            financeAmount: plan.financeAmount,
+            additionalDownPaymentDue: plan.additionalDownPaymentDue,
+            originalFinanceAmount: plan.additionalDownPaymentDue > 0 ? plan.originalFinanceAmount : null,
+          },
+        })
+        if (detail) {
+          const status = deriveFinanceStatus(plan.financeAmount, received)
+          await tx.financeDetail.update({
+            where: { id: detail.id },
+            data: {
+              totalFinanceAmount: plan.financeAmount,
+              balanceAmount: Math.max(0, round2(plan.financeAmount - received)),
+              status,
+              receivedAt: status === "Received" ? (detail.receivedAt ?? new Date()) : null,
+            },
+          })
+        }
+      }
+      const warnings = doWarnings({ doAmount: data.doAmount, financeAmount: originalFinance, expiryDate: expiry, deliveredAt: sale.deliveredAt, showAmounts: true })
       await recordAudit(tx, actorOf(user), {
         action: "DELIVERY_ORDER_RECORDED",
         entityType: "DeliveryOrder",
@@ -363,13 +445,14 @@ export async function recordDeliveryOrder(input: DeliveryOrderInput): Promise<Re
           existing?.doNumber && existing.doNumber !== number
             ? `DO number changed from ${existing.doNumber}${existing.doNumberInternal ? " (internal)" : ""} to ${number}${internal ? " (internal)" : ""}`
             : `DO ${number}${internal ? " (internal reference)" : ""} ${existing?.doNumber ? "updated" : "recorded"}`
-        } (${money(data.doAmount)}), ${company}${duplicateOf ? `. Duplicate of the DO on ${duplicateOf} confirmed` : ""}${warnings.length ? `. Warning: ${warnings.join(" ")}` : ""}`,
+        } (${money(data.doAmount)}), ${company}. Split: ${splitText}${duplicateOf ? `. Duplicate of the DO on ${duplicateOf} confirmed` : ""}${warnings.length ? `. Warning: ${warnings.join(" ")}` : ""}`,
       })
     })
     revalidateDocs(data.saleId)
     return { success: true, message: "Delivery Order saved." }
   } catch (error) {
     if (error instanceof DuplicateDoNumberError) return { success: false, error: error.message, duplicate: true }
+    if (error instanceof HigherDoAmountError) return { success: false, error: error.message, needsOwnerConfirm: true }
     console.error("recordDeliveryOrder error:", error)
     return fail(error, "Could not save the Delivery Order.")
   }

@@ -31,7 +31,7 @@ async function cashSalesFor(db: Db, organizationId: string, branchId: string, da
   const day = parseDateKey(dateKey)
   if (!day) return 0
   const { start, end } = colomboDayRange(day.year, day.month, day.day)
-  const [total, refunds] = await Promise.all([
+  const [total, refunds, topUps] = await Promise.all([
     db.sale.aggregate({
       where: { organizationId, branchId, paymentMethod: "Cash", saleDate: { gte: start, lte: end } },
       _sum: { totalAmount: true },
@@ -40,8 +40,13 @@ async function cashSalesFor(db: Db, organizationId: string, branchId: string, da
       where: { organizationId, branchId, cancelRefundMethod: "Cash", cancelledAt: { gte: start, lte: end } },
       _sum: { cancelRefundAmount: true },
     }),
+    // Customers' additional down payments paid in cash that day (after a lower Delivery Order).
+    db.downPaymentPayment.aggregate({
+      where: { organizationId, method: "Cash", paymentDate: { gte: start, lte: end }, sale: { branchId } },
+      _sum: { amount: true },
+    }),
   ])
-  return round2((total._sum.totalAmount ?? 0) - (refunds._sum.cancelRefundAmount ?? 0))
+  return round2((total._sum.totalAmount ?? 0) + (topUps._sum.amount ?? 0) - (refunds._sum.cancelRefundAmount ?? 0))
 }
 
 export interface DepositOptions {

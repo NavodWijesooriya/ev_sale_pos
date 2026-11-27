@@ -46,6 +46,10 @@ export interface InvoiceSaleData {
   paymentType?: string | null
   financeAmount?: number | null
   downPayment?: number | null
+  /** Extra down payment owed / paid after a lower Delivery Order (the finance amount above is then the DO amount). */
+  additionalDownPaymentDue?: number | null
+  additionalDownPaymentPaid?: number | null
+  originalFinanceAmount?: number | null
   financeCompany?: {
     id: string
     name: string
@@ -157,7 +161,11 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
   // Bike price + RMV + third-party insurance (+ warranty / additional charges), before any advance or discount.
   const grandTotal = vehicleTotalPrice + chargesTotal
   const financeAmount = sale.financeAmount || sale.financeDetail?.totalFinanceAmount || 0
-  const downPaymentPaid = sale.downPayment || sale.financeDetail?.downPaymentPaid || 0
+  // The down payment shown includes any additional down payment the customer has paid since (see Delivery Orders).
+  const additionalDue = sale.additionalDownPaymentDue ?? 0
+  const additionalPaid = sale.additionalDownPaymentPaid ?? 0
+  const additionalBalance = Math.max(0, additionalDue - additionalPaid)
+  const downPaymentPaid = (sale.downPayment || sale.financeDetail?.downPaymentPaid || 0) + additionalPaid
   const advanceDeduction =
     (sale.advanceDeducted != null && sale.advanceDeducted > 0)
       ? sale.advanceDeducted
@@ -1005,6 +1013,15 @@ export function PrintableInvoice({ sale }: PrintableInvoiceProps) {
 
                   <span style={{ color: "#64748b" }}>Down Payment Paid:</span>
                   <strong style={{ color: "#047857" }}>{formatLKR(downPaymentPaid)}</strong>
+
+                  {additionalDue > 0 && (
+                    <>
+                      <span style={{ color: "#64748b" }}>Additional Down Payment{additionalBalance > 0 ? " Due" : " (paid)"}:</span>
+                      <strong data-testid="invoice-additional-down-payment" style={{ color: additionalBalance > 0 ? "#b45309" : "#047857" }}>
+                        {formatLKR(additionalBalance > 0 ? additionalBalance : additionalDue)}
+                      </strong>
+                    </>
+                  )}
 
                   {advanceDeduction > 0 && (
                     <>

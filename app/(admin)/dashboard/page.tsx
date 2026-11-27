@@ -28,6 +28,7 @@ import {
 import Link from "next/link"
 import { activeSale } from "@/lib/sale-status"
 import { getDocumentsDashboardCounts } from "@/app/actions/documents"
+import { getDownPaymentBalanceSummary } from "@/app/actions/down-payments"
 import { canViewDocuments } from "@/lib/documents"
 
 export const instant = false
@@ -140,6 +141,7 @@ export default async function DashboardPage() {
   }
   // Received documents: only for people who can open those pages (counts are branch-scoped too).
   const documentCounts = canViewDocuments(dealershipUser) ? await getDocumentsDashboardCounts() : null
+  const downPaymentBalances = canViewDocuments(dealershipUser) ? await getDownPaymentBalanceSummary() : null
   const stats: Stat[] = [
     {
       title: "EV Bikes In Stock",
@@ -178,6 +180,19 @@ export default async function DashboardPage() {
             iconColor: "text-amber-500",
             bgColor: "bg-amber-500/10 border-amber-500/20",
             href: "/dashboard/finance/receivables",
+          },
+        ]
+      : []),
+    ...(downPaymentBalances
+      ? [
+          {
+            title: "Down payment balances",
+            value: String(downPaymentBalances.count),
+            change: downPaymentBalances.count > 0 ? `${formatLKR(downPaymentBalances.total)} extra down payment still to collect` : "No extra down payments due",
+            icon: Coins,
+            iconColor: "text-amber-500",
+            bgColor: "bg-amber-500/10 border-amber-500/20",
+            href: "/dashboard/documents/delivery-orders",
           },
         ]
       : []),

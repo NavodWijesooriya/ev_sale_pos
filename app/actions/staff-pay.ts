@@ -303,6 +303,7 @@ export async function recalculateStaffMonth(userId: string, month?: string) {
             saleDate: true,
             paymentType: true,
             financeAmount: true,
+            originalFinanceAmount: true,
             items: { select: { price: true } },
             staffCommission: { select: { source: true, status: true } },
           },
@@ -316,7 +317,9 @@ export async function recalculateStaffMonth(userId: string, month?: string) {
           if (existing && (existing.source === "SALE" || existing.status === "VOIDED")) continue
           const bikePrice = sale.items.reduce((sum, item) => sum + item.price, 0)
           const isFinance = sale.paymentType === "FINANCE"
-          const amounts = commissionsFor(rates, { paymentType: sale.paymentType, financeAmount: sale.financeAmount, bikePrice })
+          // Commission stays based on the finance amount the sale was made with, even if a lower DO amount later changed the split.
+          const commissionFinanceAmount = sale.originalFinanceAmount ?? sale.financeAmount
+          const amounts = commissionsFor(rates, { paymentType: sale.paymentType, financeAmount: commissionFinanceAmount, bikePrice })
           const row = {
             organizationId: owner.organizationId,
             userId,
@@ -324,7 +327,7 @@ export async function recalculateStaffMonth(userId: string, month?: string) {
             saleCommission: amounts.saleCommission,
             financeCommission: amounts.financeCommission,
             bikePrice,
-            financeAmount: isFinance ? sale.financeAmount : 0,
+            financeAmount: isFinance ? commissionFinanceAmount : 0,
             saleCommissionType: rates.saleCommissionType,
             saleCommissionValue: rates.saleCommissionValue,
             financeCommissionType: rates.financeCommissionType,

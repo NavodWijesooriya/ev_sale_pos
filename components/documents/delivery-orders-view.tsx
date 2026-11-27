@@ -270,6 +270,22 @@ function DoRow({ row, data, tab, showDoAmountColumn }: { row: DeliveryOrderRow; 
           ) : (
             formatLKR(row.doAmount)
           )}
+          {row.doAmount !== null && row.financeAmount !== null && (
+            <span className="block text-[11px] font-normal text-muted-foreground" data-testid="do-sale-finance">
+              Sale finance amount {formatLKR(row.financeAmount)}
+            </span>
+          )}
+          {row.downPayment && (
+            <span
+              className={`block text-[11px] font-normal ${row.downPayment.balance > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-600"}`}
+              data-testid="do-down-payment"
+            >
+              {row.downPayment.balance > 0
+                ? `Customer owes ${formatLKR(row.downPayment.balance)} more down payment`
+                : "Additional down payment paid"}
+            </span>
+          )}
+          {row.amountNote && <span className="block text-[11px] font-normal text-muted-foreground" title={row.amountNote}>Higher than finance amount (note)</span>}
         </TableCell>
       )}
       <TableCell>
