@@ -212,3 +212,23 @@ export function rmvWaitingHandover(dmt: RmvStatusInput | null | undefined): bool
   if (!dmt) return false
   return (dmt.isBookOk && !dmt.crHandedOverAt) || (dmt.numberPlateStatus === "ISSUED" && !dmt.plateHandedOverAt)
 }
+
+// ---------------------------------------------------------------------------------------------
+// Finance receipts need a Delivery Order
+// ---------------------------------------------------------------------------------------------
+
+export interface DoReceiptInput {
+  status: string
+  doNumber: string | null
+  receiptOverrideReason: string | null
+}
+
+/**
+ * A finance company payment can only be received for a sale whose Delivery Order is recorded (DO received or later),
+ * unless the owner overrode it for that sale (the finance company paid first).
+ */
+export function doAllowsReceipt(dOrder: DoReceiptInput | null | undefined): boolean {
+  if (!dOrder || dOrder.status === "CANCELLED") return false
+  if (dOrder.receiptOverrideReason) return true
+  return Boolean(dOrder.doNumber) && (dOrder.status === "DO_RECEIVED" || dOrder.status === "DELIVERED" || dOrder.status === "CLAIM_SUBMITTED")
+}

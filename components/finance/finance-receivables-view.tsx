@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Download, HandCoins, LoaderCircle } from "lucide-react"
 import { toast } from "sonner"
 import {
   bounceFinanceCheque,
   clearFinanceCheque,
+  overrideReceiptWithoutDo,
   presentFinanceCheque,
   reverseFinanceReceipt,
   type ReceiptRow,
@@ -29,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { downloadCsv } from "@/lib/csv"
 import { colomboDateKey } from "@/lib/dates"
+import { DO_STAGE_SHORT } from "@/lib/documents"
 import { AGING_BUCKETS, AGING_LABELS, type AgingBucket } from "@/lib/finance-receivables"
 import { ReceiveFinancePaymentDialog } from "./receive-finance-payment-dialog"
 
@@ -45,11 +48,15 @@ interface Props {
   branches: { id: string; name: string }[]
   receipts: ReceiptRow[]
   filters: { company: string; branch: string; aging: string }
+  /** The owner may allow a payment for a sale that has no Delivery Order yet. */
+  canOverride: boolean
+  /** May record Delivery Orders (shows the link). */
+  canRecordDo: boolean
 }
 
 type ChequeAction = { kind: "bounce" | "reverse"; id: string; label: string; applied: boolean }
 
-export function FinanceReceivablesView({ groups, totals, companies, branches, receipts, filters }: Props) {
+export function FinanceReceivablesView({ groups, totals, companies, branches, receipts, filters, canOverride, canRecordDo }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -59,6 +66,8 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
   const [busy, setBusy] = React.useState(false)
   const [action, setAction] = React.useState<ChequeAction | null>(null)
   const [reason, setReason] = React.useState("")
+  const [overrideFor, setOverrideFor] = React.useState<{ saleId: string; invoiceNumber: string } | null>(null)
+  const [overrideReason, setOverrideReason] = React.useState("")
 
   function setFilter(key: "company" | "branch" | "aging", value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -262,6 +271,7 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
                       <TableHead>Customer</TableHead>
                       <TableHead>Branch</TableHead>
                       <TableHead>Office</TableHead>
+                      <TableHead>DO status</TableHead>
                       <TableHead className="text-right">Finance amount</TableHead>
                       <TableHead className="text-right">Received</TableHead>
                       <TableHead className="text-right">Balance</TableHead>
@@ -278,7 +288,33 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
                         <TableCell>{i.customerName}</TableCell>
                         <TableCell>{i.branchName}</TableCell>
                         <TableCell data-testid="receivable-office">{i.officeName ?? "—"}</TableCell>
-                        <TableCell className="text-right">{money(i.totalFinanceAmount)}</TableCell>
+                        <TableCell data-testid="receivable-do" className="whitespace-normal text-xs">
+                          <span className="font-medium">{DO_STAGE_SHORT[i.doStage]}</span>
+                          {i.doNumber && (
+                            <span className="block text-muted-foreground">
+                              {i.doNumber}
+                              {i.doNumberInternal ? " (internal)" : ""}
+                            </span>
+                          )}
+                          {i.receiptOverrideReason && (
+                            <span className="block text-amber-700 dark:text-amber-400" title={i.receiptOverrideReason}>
+                              Owner override
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {money(i.totalFinanceAmount)}
+                          {i.doAmount !== null && Math.abs(i.saleFinanceAmount - i.doAmount) > 0.5 && (
+                            <span className="block text-[11px] font-normal text-muted-foreground" data-testid="receivable-split">
+                              Sale finance amount {money(i.saleFinanceAmount)} · DO amount {money(i.doAmount)}
+                            </span>
+                          )}
+                          {i.downPaymentBalance > 0 && (
+                            <span className="block text-[11px] font-normal text-amber-700 dark:text-amber-400">
+                              Customer owes {money(i.downPaymentBalance)} more down payment
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">{money(i.receivedAmount)}</TableCell>
                         <TableCell className="text-right font-medium">
                           {money(i.balanceAmount)}
@@ -292,11 +328,32 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
                         </TableCell>
                         <TableCell>{i.ageDays}d</TableCell>
                         <TableCell className="text-right">
-                          {group.financeCompanyId && i.availableAmount > 0 && (
-                            <Button size="sm" variant="outline" onClick={() => openReceive({ companyId: group.financeCompanyId ?? undefined, detailId: i.financeDetailId })}>
-                              Receive
-                            </Button>
-                          )}
+                          {group.financeCompanyId && i.availableAmount > 0 &&
+                            (i.canReceive ? (
+                              <Button size="sm" variant="outline" onClick={() => openReceive({ companyId: group.financeCompanyId ?? undefined, detailId: i.financeDetailId })}>
+                                Receive
+                              </Button>
+                            ) : (
+                              <div className="flex flex-col items-end gap-1">
+                                <span title="Record the DO first" className="inline-block cursor-not-allowed">
+                                  <Button size="sm" variant="outline" disabled data-testid="receive-disabled" aria-label="Receive (record the DO first)">
+                                    Receive
+                                  </Button>
+                                </span>
+                                {canRecordDo ? (
+                                  <Link href="/dashboard/documents/delivery-orders" className="text-[11px] text-primary underline" data-testid="record-do-link">
+                                    Record the DO first
+                                  </Link>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground">Record the DO first</span>
+                                )}
+                                {canOverride && (
+                                  <button type="button" className="text-[11px] text-muted-foreground underline" data-testid="override-receipt" onClick={() => { setOverrideFor({ saleId: i.saleId, invoiceNumber: i.invoiceNumber }); setOverrideReason("") }}>
+                                    Owner override...
+                                  </button>
+                                )}
+                              </div>
+                            ))}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -459,6 +516,34 @@ export function FinanceReceivablesView({ groups, totals, companies, branches, re
         initialCompanyId={receiveTarget.companyId}
         initialFinanceDetailId={receiveTarget.detailId}
       />
+
+      <Dialog open={!!overrideFor} onOpenChange={(open) => !open && setOverrideFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Receive without a Delivery Order: {overrideFor?.invoiceNumber}</DialogTitle>
+            <DialogDescription>
+              Normally a finance company payment needs the Delivery Order recorded first. Use this only when the finance company paid first. The
+              reason is saved in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="override-receipt-reason">Reason (required)</Label>
+            <Input id="override-receipt-reason" value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} maxLength={300} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverrideFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy}
+              data-testid="confirm-override-receipt"
+              onClick={() => overrideFor && run(() => overrideReceiptWithoutDo({ saleId: overrideFor.saleId, reason: overrideReason }), () => setOverrideFor(null))}
+            >
+              {busy && <LoaderCircle className="size-4 animate-spin" />} Allow payments for this sale
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!action} onOpenChange={(open) => !open && setAction(null)}>
         <DialogContent className="sm:max-w-md">

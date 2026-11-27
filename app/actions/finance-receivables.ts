@@ -6,6 +6,7 @@ import { z } from "zod"
 import { recordAudit, type AuditAction } from "@/lib/audit"
 import { requireAnyPermission } from "@/lib/authorize"
 import { colomboDateKey, parseDateKey } from "@/lib/dates"
+import { doAllowsReceipt, effectiveDoStage, type DoStage } from "@/lib/documents"
 import {
   AGING_BUCKETS,
   EPSILON,
@@ -17,7 +18,7 @@ import {
   type AgingBucket,
   type IncomingChequeStatusKey,
 } from "@/lib/finance-receivables"
-import { branchFilter } from "@/lib/permissions"
+import { branchFilter, isOwner } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 import { activeSale } from "@/lib/sale-status"
 
@@ -126,6 +127,17 @@ export interface ReceivableItem {
   /** What can still be allocated to a new receipt. */
   availableAmount: number
   status: "Pending" | "Partial" | "Received"
+  /** Delivery Order of the sale: payments can only be received once it is recorded (or the owner overrides). */
+  doStage: DoStage
+  doNumber: string | null
+  doNumberInternal: boolean
+  canReceive: boolean
+  receiptOverrideReason: string | null
+  /** Finance amount the sale was made with, and the DO amount (null until a DO is recorded). totalFinanceAmount is what is owed. */
+  saleFinanceAmount: number
+  doAmount: number | null
+  /** What the customer still owes as additional down payment because the DO was lower than the finance amount. */
+  downPaymentBalance: number
   expectedDate: string | null
   overdue: boolean
   ageDays: number
@@ -177,6 +189,11 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
             customer: { select: { name: true } },
             branch: { select: { name: true } },
             financeOfficeName: true,
+            financeAmount: true,
+            originalFinanceAmount: true,
+            additionalDownPaymentDue: true,
+            additionalDownPaymentPaid: true,
+            deliveryOrder: { select: { status: true, doNumber: true, doNumberInternal: true, doAmount: true, receiptOverrideReason: true } },
           },
         },
       },
@@ -214,6 +231,14 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
       reservedAmount,
       availableAmount: Math.max(0, round2(d.balanceAmount - reservedAmount)),
       status: d.status === "Cancelled" ? "Pending" : d.status, // cancelled sales are filtered out of the query
+      doStage: effectiveDoStage(d.sale.deliveryOrder?.status, false),
+      doNumber: d.sale.deliveryOrder?.doNumber ?? null,
+      doNumberInternal: d.sale.deliveryOrder?.doNumberInternal ?? false,
+      canReceive: doAllowsReceipt(d.sale.deliveryOrder),
+      receiptOverrideReason: d.sale.deliveryOrder?.receiptOverrideReason ?? null,
+      saleFinanceAmount: d.sale.originalFinanceAmount ?? d.sale.financeAmount,
+      doAmount: d.sale.deliveryOrder?.doAmount ?? null,
+      downPaymentBalance: Math.max(0, round2(d.sale.additionalDownPaymentDue - d.sale.additionalDownPaymentPaid)),
       expectedDate: d.expectedDate?.toISOString() ?? null,
       overdue: d.expectedDate ? d.expectedDate.getTime() < now.getTime() : false,
       ageDays,
@@ -261,18 +286,28 @@ export async function getPendingFinanceReceivables(filters: PendingReceivablesFi
 /** Sales of one company that can still receive money, oldest first: feeds the receive dialog. */
 export async function getCompanyAllocatableSales(financeCompanyId: string) {
   const { user, organizationId } = await requireReceivablesUser()
-  const details = await prisma.financeDetail.findMany({
+  const allDetails = await prisma.financeDetail.findMany({
     where: { financeCompanyId, balanceAmount: { gt: EPSILON }, sale: { organizationId, ...branchFilter(user), ...activeSale } },
     select: {
       id: true,
       balanceAmount: true,
       totalFinanceAmount: true,
-      sale: { select: { invoiceNumber: true, saleDate: true, customer: { select: { name: true } } } },
+      sale: {
+        select: {
+          invoiceNumber: true,
+          saleDate: true,
+          customer: { select: { name: true } },
+          deliveryOrder: { select: { status: true, doNumber: true, receiptOverrideReason: true } },
+        },
+      },
     },
     orderBy: { sale: { saleDate: "asc" } },
   })
+  // Sales without a Delivery Order cannot receive money: they stay out of the dialog and out of "Auto-allocate".
+  const details = allDetails.filter((d) => doAllowsReceipt(d.sale.deliveryOrder))
+  const hiddenNoDo = allDetails.length - details.length
   const reserved = await reservedByDetail(prisma, details.map((d) => d.id))
-  return details
+  const sales = details
     .map((d) => ({
       financeDetailId: d.id,
       invoiceNumber: d.sale.invoiceNumber,
@@ -283,6 +318,7 @@ export async function getCompanyAllocatableSales(financeCompanyId: string) {
       availableAmount: Math.max(0, round2(d.balanceAmount - (reserved.get(d.id) ?? 0))),
     }))
     .filter((d) => d.availableAmount > EPSILON)
+  return { sales, hiddenNoDo }
 }
 
 // ---------------------------------------------------------------------------
@@ -361,10 +397,21 @@ export async function recordFinanceReceipt(input: RecordFinanceReceiptInput) {
           financeCompanyId: company.id,
           sale: { organizationId, ...branchFilter(user), ...activeSale },
         },
-        select: { id: true, balanceAmount: true, sale: { select: { invoiceNumber: true } } },
+        select: {
+          id: true,
+          balanceAmount: true,
+          sale: { select: { invoiceNumber: true, deliveryOrder: { select: { status: true, doNumber: true, receiptOverrideReason: true } } } },
+        },
       })
       if (details.length !== ids.length) {
         throw new Error("One or more sales do not belong to this finance company (or are not yours to receive for).")
+      }
+      // The rule is enforced here, not only in the screen: no Delivery Order, no finance payment (unless the owner overrode it).
+      const noDo = details.filter((d) => !doAllowsReceipt(d.sale.deliveryOrder))
+      if (noDo.length > 0) {
+        throw new Error(
+          `Record the Delivery Order first for ${noDo.map((d) => d.sale.invoiceNumber).join(", ")}. A finance payment can only be received for a sale with a DO (the owner can override).`,
+        )
       }
       const reserved = await reservedByDetail(tx, ids)
       for (const a of allocations) {
@@ -437,6 +484,63 @@ export async function recordFinanceReceipt(input: RecordFinanceReceiptInput) {
     }
   } catch (error) {
     return failure(error, "Could not record the payment.")
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Owner override: the finance company pays before the Delivery Order is recorded
+// ---------------------------------------------------------------------------
+
+/** Owner only: lets payments be received for one sale that has no DO yet. A reason is required and the override is audited. */
+export async function overrideReceiptWithoutDo(input: { saleId: string; reason: string }) {
+  try {
+    const { user, organizationId, actor } = await requireReceivablesUser()
+    if (!isOwner(user)) throw new Error("Only the dealership owner can allow a payment without a Delivery Order.")
+    const reason = z.string().trim().min(3, "Enter the reason the payment is received without a DO.").max(300).parse(input.reason)
+
+    await prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findFirst({
+        where: { id: input.saleId, organizationId, ...branchFilter(user), ...activeSale, paymentType: "FINANCE" },
+        select: {
+          id: true,
+          branchId: true,
+          invoiceNumber: true,
+          financeCompanyId: true,
+          financeOfficeName: true,
+          financeCompany: { select: { name: true } },
+          financeDetail: { select: { financeCompany: true } },
+        },
+      })
+      if (!sale) throw new Error("Finance sale not found.")
+      const company = sale.financeCompany?.name ?? sale.financeDetail?.financeCompany ?? "Finance company"
+      const row = await tx.deliveryOrder.upsert({
+        where: { saleId: sale.id },
+        create: {
+          organizationId,
+          saleId: sale.id,
+          financeCompanyId: sale.financeCompanyId,
+          financeCompanyName: company,
+          financeOfficeName: sale.financeOfficeName,
+          status: "AWAITING_DO",
+          receiptOverrideReason: reason,
+          receiptOverrideByName: user.name,
+          receiptOverrideAt: new Date(),
+        },
+        update: { receiptOverrideReason: reason, receiptOverrideByName: user.name, receiptOverrideAt: new Date() },
+      })
+      await recordAudit(tx, actor, {
+        action: "DO_RECEIPT_OVERRIDDEN",
+        entityType: "DeliveryOrder",
+        entityId: row.id,
+        branchId: sale.branchId,
+        description: `${sale.invoiceNumber}: finance payments allowed WITHOUT a Delivery Order. Reason: ${reason}`,
+      })
+    })
+    revalidateReceivablePages()
+    revalidatePath("/dashboard/documents/delivery-orders")
+    return { success: true as const, message: "Payments can now be received for this sale without a DO." }
+  } catch (error) {
+    return failure(error, "Could not save the override.")
   }
 }
 

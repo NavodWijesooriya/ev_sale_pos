@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { getFinanceReceipts, getPendingFinanceReceivables } from "@/app/actions/finance-receivables"
 import { FinanceReceivablesView } from "@/components/finance/finance-receivables-view"
 import { getAuthSession } from "@/lib/auth"
-import { hasPermission } from "@/lib/permissions"
+import { hasPermission, isOwner } from "@/lib/permissions"
 
 export const instant = false
 
@@ -36,6 +36,8 @@ export default async function FinanceReceivablesPage({
         branches={pending.branches}
         receipts={receipts}
         filters={{ company, branch, aging }}
+        canOverride={isOwner(session.user)}
+        canRecordDo={hasPermission(session.user, "MANAGE_DOCUMENTS")}
       />
     </div>
   )

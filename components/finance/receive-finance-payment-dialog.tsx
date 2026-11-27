@@ -65,7 +65,7 @@ function ReceiveFinancePaymentForm({ onOpenChange, companies, initialCompanyId, 
   const [chequeNumber, setChequeNumber] = React.useState("")
   const [bankName, setBankName] = React.useState("")
   const [chequeDate, setChequeDate] = React.useState(today)
-  const [loaded, setLoaded] = React.useState<{ companyId: string; sales: AllocatableSale[] } | null>(null)
+  const [loaded, setLoaded] = React.useState<{ companyId: string; sales: AllocatableSale[]; hiddenNoDo: number } | null>(null)
   const [alloc, setAlloc] = React.useState<Record<string, string>>({})
   const [submitting, setSubmitting] = React.useState(false)
 
@@ -73,9 +73,9 @@ function ReceiveFinancePaymentForm({ onOpenChange, companies, initialCompanyId, 
     if (!companyId) return
     let cancelled = false
     getCompanyAllocatableSales(companyId)
-      .then((sales) => {
+      .then(({ sales, hiddenNoDo }) => {
         if (cancelled) return
-        setLoaded({ companyId, sales })
+        setLoaded({ companyId, sales, hiddenNoDo })
         const target = sales.find((s) => s.financeDetailId === initialFinanceDetailId)
         if (target) {
           setAlloc({ [target.financeDetailId]: String(target.availableAmount) })
@@ -233,6 +233,11 @@ function ReceiveFinancePaymentForm({ onOpenChange, companies, initialCompanyId, 
                 Auto-allocate oldest first
               </Button>
             </div>
+            {(current?.hiddenNoDo ?? 0) > 0 && sales.length > 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400" data-testid="hidden-no-do">
+                {current?.hiddenNoDo} sale(s) without a Delivery Order are not listed: record their DO first.
+              </p>
+            )}
             <div className="rounded-lg border">
               {loading ? (
                 <p className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
@@ -241,7 +246,11 @@ function ReceiveFinancePaymentForm({ onOpenChange, companies, initialCompanyId, 
               ) : !companyId ? (
                 <p className="p-4 text-sm text-muted-foreground">Select a finance company to see what it still owes.</p>
               ) : !sales.length ? (
-                <p className="p-4 text-sm text-muted-foreground">This company owes nothing right now.</p>
+                <p className="p-4 text-sm text-muted-foreground">
+                  {(current?.hiddenNoDo ?? 0) > 0
+                    ? `${current?.hiddenNoDo} sale(s) still wait for a Delivery Order, so nothing can be received yet. Record the DO first.`
+                    : "This company owes nothing right now."}
+                </p>
               ) : (
                 <ul className="divide-y">
                   {sales.map((sale) => (
