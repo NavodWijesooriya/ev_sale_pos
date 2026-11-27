@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { LoaderCircle, Truck } from "lucide-react"
+import { AlertTriangle, LoaderCircle, MoreHorizontal, Truck } from "lucide-react"
 import {
   markDelivered,
   recordDeliveryOrder,
@@ -13,6 +13,7 @@ import {
 } from "@/app/actions/documents"
 import { DoScanControl } from "@/components/documents/do-scan-control"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -119,11 +120,6 @@ export function DeliveryOrderActions({
               <Truck className="size-3.5" /> Mark delivered
             </Button>
           )}
-          {row.stage === "AWAITING_DO" && canOverride && !row.deliveredAt && (
-            <Button type="button" size={size} variant="outline" className={btn} onClick={() => openDialog("deliver")} data-testid="override-delivery">
-              Deliver without DO
-            </Button>
-          )}
           {row.stage === "DELIVERED" && (
             <Button type="button" size={size} className={btn} onClick={() => openDialog("claim")} data-testid="submit-claim">
               Submit claim
@@ -133,6 +129,24 @@ export function DeliveryOrderActions({
             <Button type="button" size={size} variant="outline" className={btn} onClick={() => openDialog("withdraw")} data-testid="withdraw-claim">
               Withdraw claim
             </Button>
+          )}
+          {/* An override, so it is not a main button: only people allowed to override (and the owner) see this menu. */}
+          {row.stage === "AWAITING_DO" && canOverride && !row.deliveredAt && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="More actions" data-testid="row-menu">
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openDialog("deliver")} data-testid="override-delivery">
+                  <AlertTriangle className="size-4 text-amber-600" />
+                  <span>Override: deliver without DO...</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       )}

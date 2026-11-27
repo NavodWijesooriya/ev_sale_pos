@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { AlertTriangle, FileText, LoaderCircle, Truck } from "lucide-react"
 import { markDelivered, type SaleDocuments } from "@/app/actions/documents"
 import { DeliveryOrderActions } from "@/components/documents/delivery-order-actions"
-import { StageBadge } from "@/components/documents/delivery-orders-view"
+import { DeliveredWithoutDoBadge, StageBadge } from "@/components/documents/delivery-orders-view"
 import { RmvHandoverPanel } from "@/components/documents/rmv-handover-panel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,7 +53,12 @@ export function SaleDocumentsCard({ docs }: { docs: SaleDocuments }) {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {docs.isFinance ? "Delivery Order" : "Delivery"}
             </p>
-            {row && <StageBadge stage={row.stage} />}
+            {row && (
+              <span className="flex flex-wrap items-center gap-1.5">
+                <StageBadge stage={row.stage} />
+                <DeliveredWithoutDoBadge row={row} />
+              </span>
+            )}
           </div>
 
           {docs.isFinance && row ? (

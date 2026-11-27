@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { AlertTriangle, Download, FileSignature, Search } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Download, FileSignature, Search } from "lucide-react"
 import type { DeliveryOrdersData, DeliveryOrderRow } from "@/app/actions/documents"
 import { DeliveryOrderActions } from "@/components/documents/delivery-order-actions"
 import { Badge } from "@/components/ui/badge"
@@ -31,10 +31,49 @@ export function StageBadge({ stage }: { stage: DoStage }) {
   )
 }
 
+/** Amber badge for a bike delivered through the override (before its Delivery Order was recorded). The reason is the tooltip. */
+export function DeliveredWithoutDoBadge({ row }: { row: Pick<DeliveryOrderRow, "overrideReason"> }) {
+  if (!row.overrideReason) return null
+  return (
+    <span
+      data-testid="delivered-without-do"
+      title={`Delivered before the Delivery Order was recorded. Reason: ${row.overrideReason}`}
+      className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300"
+    >
+      <AlertTriangle className="size-3" /> Delivered without DO
+    </span>
+  )
+}
+
+const number = (n: number) => new Intl.NumberFormat("en-LK").format(n)
+
+/** DO amount minus the sale's finance amount, or null when they match (or either is hidden from this user). */
+function amountDifference(row: DeliveryOrderRow): number | null {
+  if (row.doAmount === null || row.financeAmount === null) return null
+  const diff = row.doAmount - row.financeAmount
+  return Math.abs(diff) > 0.5 ? diff : null
+}
+
+type SortKey = "aging" | "doDate"
+type SortState = { key: SortKey; dir: "asc" | "desc" }
+
+function SortHeader({ label, sortKey, sort, onSort, className = "" }: { label: string; sortKey: SortKey; sort: SortState; onSort: (key: SortKey) => void; className?: string }) {
+  const active = sort.key === sortKey
+  const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown
+  return (
+    <TableHead className={className} aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" onClick={() => onSort(sortKey)} className="inline-flex items-center gap-1 font-medium hover:text-foreground" data-testid={`sort-${sortKey}`}>
+        {label} <Icon className={`size-3 ${active ? "text-foreground" : "text-muted-foreground"}`} />
+      </button>
+    </TableHead>
+  )
+}
+
 /** Finance sales and where each one is between "finance approved" and "finance company paid". */
 export function DeliveryOrdersView({ data, initialTab = "AWAITING_DO" }: { data: DeliveryOrdersData; initialTab?: DoStage }) {
   const [tab, setTab] = React.useState<DoStage>(initialTab)
   const [query, setQuery] = React.useState("")
+  const [sort, setSort] = React.useState<SortState>({ key: "aging", dir: "desc" })
 
   const counts = React.useMemo(() => {
     const result = Object.fromEntries(DO_STAGES.map((s) => [s, 0])) as Record<DoStage, number>
@@ -44,7 +83,7 @@ export function DeliveryOrdersView({ data, initialTab = "AWAITING_DO" }: { data:
 
   const visible = React.useMemo(() => {
     const q = query.trim().toLowerCase()
-    return data.rows
+    const rows = data.rows
       .filter((row) => row.stage === tab)
       .filter(
         (row) =>
@@ -53,19 +92,38 @@ export function DeliveryOrdersView({ data, initialTab = "AWAITING_DO" }: { data:
             value.toLowerCase().includes(q),
           ),
       )
-      .sort((a, b) => b.agingDays - a.agingDays)
-  }, [data.rows, tab, query])
+    const factor = sort.dir === "asc" ? 1 : -1
+    return rows.sort((a, b) => {
+      if (sort.key === "doDate") {
+        // Sales without a DO date always go last, whichever way it is sorted.
+        if (!a.doDate && !b.doDate) return 0
+        if (!a.doDate) return 1
+        if (!b.doDate) return -1
+        return a.doDate.localeCompare(b.doDate) * factor
+      }
+      return (a.agingDays - b.agingDays) * factor
+    })
+  }, [data.rows, tab, query, sort])
+
+  function onSort(key: SortKey) {
+    setSort((current) => (current.key === key ? { key, dir: current.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "aging" ? "desc" : "asc" }))
+  }
+
+  const showAmounts = data.canSeeAmounts
+  // No DO yet on the first tab, so there is no DO amount to show there.
+  const showDoAmountColumn = showAmounts && tab !== "AWAITING_DO"
 
   function exportCsv() {
-    const header = ["Invoice", "Sale date", "Branch", "Customer", "Phone", "Vehicle", "Chassis", "Finance company", "Stage", "Days in stage", "DO number", "DO date", "Expiry", "Delivered", "Claim submitted", "Claim reference", "Paid", "Warnings"]
-    if (data.canSeeAmounts) header.splice(9, 0, "Finance amount", "DO amount")
+    const header = ["Invoice", "Sale date", "Branch", "Customer", "Phone", "Vehicle", "Chassis", "Finance company", "Stage", "Days in stage", "DO number", "Internal DO number", "DO date", "Expiry", "Delivered", "Delivered without DO", "Claim submitted", "Claim reference", "Paid", "Warnings"]
+    if (showAmounts) header.splice(10, 0, "Finance amount", "DO amount", "DO amount difference")
     const rows = visible.map((row) => {
+      const diff = amountDifference(row)
       const cells: (string | number)[] = [
         row.invoiceNumber, row.saleDate.slice(0, 10), row.branchName, row.customerName, row.customerPhone, row.vehicle, row.chassisNumber,
-        row.financeCompany, DO_STAGE_LABELS[row.stage], row.agingDays, row.doNumber ?? "", row.doDate ?? "", row.expiryDate ?? "",
-        row.deliveredAt ?? "", row.claim?.submittedAt ?? "", row.claim?.reference ?? "", row.paidAt ?? "", row.warnings.join(" | "),
+        row.financeCompany, DO_STAGE_LABELS[row.stage], row.agingDays, row.doNumber ?? "", row.doNumberInternal ? "Yes" : "", row.doDate ?? "", row.expiryDate ?? "",
+        row.deliveredAt ?? "", row.overrideReason ? "Yes" : "", row.claim?.submittedAt ?? "", row.claim?.reference ?? "", row.paidAt ?? "", row.warnings.join(" | "),
       ]
-      if (data.canSeeAmounts) cells.splice(9, 0, row.financeAmount ?? "", row.doAmount ?? "")
+      if (showAmounts) cells.splice(10, 0, row.financeAmount ?? "", row.doAmount ?? "", diff ?? "")
       return cells
     })
     downloadCsv(`delivery_orders_${DO_STAGES.indexOf(tab) + 1}_${tab.toLowerCase()}.csv`, [header, ...rows])
@@ -113,22 +171,23 @@ export function DeliveryOrdersView({ data, initialTab = "AWAITING_DO" }: { data:
               <TableRow>
                 <TableHead>Sale</TableHead>
                 <TableHead>Finance company</TableHead>
-                <TableHead>DO</TableHead>
+                <SortHeader label={tab === "AWAITING_DO" ? "Sale / DO" : "DO (sort by DO date)"} sortKey="doDate" sort={sort} onSort={onSort} />
+                {showDoAmountColumn && <TableHead className="text-right">DO amount</TableHead>}
                 <TableHead>Stage</TableHead>
-                <TableHead className="text-right">Days in stage</TableHead>
+                <SortHeader label="Days in stage" sortKey="aging" sort={sort} onSort={onSort} className="text-right" />
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {visible.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={showDoAmountColumn ? 7 : 6} className="py-8 text-center text-muted-foreground">
                     Nothing in this stage.
                   </TableCell>
                 </TableRow>
               )}
               {visible.map((row) => (
-                <DoRow key={row.saleId} row={row} data={data} />
+                <DoRow key={row.saleId} row={row} data={data} tab={tab} showDoAmountColumn={showDoAmountColumn} />
               ))}
             </TableBody>
           </Table>
@@ -138,7 +197,8 @@ export function DeliveryOrdersView({ data, initialTab = "AWAITING_DO" }: { data:
   )
 }
 
-function DoRow({ row, data }: { row: DeliveryOrderRow; data: DeliveryOrdersData }) {
+function DoRow({ row, data, tab, showDoAmountColumn }: { row: DeliveryOrderRow; data: DeliveryOrdersData; tab: DoStage; showDoAmountColumn: boolean }) {
+  const diff = amountDifference(row)
   return (
     <TableRow data-testid="do-row">
       <TableCell className="whitespace-normal">
@@ -151,13 +211,12 @@ function DoRow({ row, data }: { row: DeliveryOrderRow; data: DeliveryOrdersData 
         <p className="text-xs text-muted-foreground">
           {row.vehicle} · {row.chassisNumber} · {row.branchName}
         </p>
-        {data.canSeeAmounts && row.financeAmount !== null && <p className="text-xs text-muted-foreground">Finance amount {formatLKR(row.financeAmount)}</p>}
       </TableCell>
       <TableCell className="whitespace-normal text-sm">
         {row.financeCompany}
         {row.financeOffice && <p className="text-xs text-muted-foreground">{row.financeOffice}</p>}
       </TableCell>
-      <TableCell className="whitespace-normal text-xs">
+      <TableCell className="whitespace-normal text-xs" data-testid="do-details">
         {row.doNumber ? (
           <>
             <p className="font-medium">
@@ -168,27 +227,56 @@ function DoRow({ row, data }: { row: DeliveryOrderRow; data: DeliveryOrdersData 
                 </span>
               )}
             </p>
-            <p className="text-muted-foreground">
-              {row.doDate}
-              {data.canSeeAmounts && row.doAmount !== null ? ` · ${formatLKR(row.doAmount)}` : ""}
-            </p>
-            {row.expiryDate && <p className="text-muted-foreground">Expires {row.expiryDate}</p>}
+            <p className="text-muted-foreground" data-testid="do-date">DO date {row.doDate ?? "-"}</p>
+            {tab === "DO_RECEIVED" && row.expiryDate && <p className="text-muted-foreground">Expires {row.expiryDate}</p>}
+          </>
+        ) : tab === "AWAITING_DO" ? (
+          <>
+            <p className="text-muted-foreground">No DO yet</p>
+            <p className="text-muted-foreground" data-testid="sale-date">Sold {row.saleDate.slice(0, 10)}</p>
+            {data.canSeeAmounts && row.financeAmount !== null && <p className="text-muted-foreground">Finance amount {formatLKR(row.financeAmount)}</p>}
           </>
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
-        {row.deliveredAt && <p className="text-muted-foreground">Delivered {row.deliveredAt}</p>}
-        {row.claim && <p className="text-muted-foreground">Claim {row.claim.submittedAt}{row.claim.reference ? ` · ${row.claim.reference}` : ""}</p>}
-        {row.paidAt && <p className="text-emerald-600">Paid {row.paidAt}</p>}
-        {row.overrideReason && <p className="text-amber-600">Override: {row.overrideReason}</p>}
+        {tab === "DELIVERED" && row.deliveredAt && <p className="text-muted-foreground" data-testid="delivered-date">Delivered {row.deliveredAt}</p>}
+        {(tab === "CLAIM_SUBMITTED" || tab === "PAID") && row.claim && (
+          <p className="text-muted-foreground" data-testid="claim-date">
+            Claim submitted {row.claim.submittedAt}
+            {row.claim.reference ? ` · ${row.claim.reference}` : ""}
+          </p>
+        )}
+        {tab === "PAID" && row.paidAt && <p className="text-emerald-600">Paid {row.paidAt}</p>}
+        {row.overrideReason && <p className="text-amber-700 dark:text-amber-400">Override reason: {row.overrideReason}</p>}
         {row.warnings.map((warning) => (
           <p key={warning} data-testid="do-warning" className="mt-1 flex items-start gap-1 text-amber-700 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 size-3 shrink-0" /> {warning}
           </p>
         ))}
       </TableCell>
+      {showDoAmountColumn && (
+        <TableCell className="whitespace-nowrap text-right text-sm" data-testid="do-amount">
+          {row.doAmount === null ? (
+            <span className="text-muted-foreground">-</span>
+          ) : diff !== null ? (
+            <span
+              className="font-semibold text-amber-700 dark:text-amber-400"
+              title={`DO amount differs from the sale's finance amount (${formatLKR(row.financeAmount ?? 0)}): ${number(Math.abs(diff))} ${diff < 0 ? "less" : "more"}.`}
+              data-testid="do-amount-diff"
+            >
+              {formatLKR(row.doAmount)} ({diff < 0 ? "−" : "+"}
+              {number(Math.abs(diff))})
+            </span>
+          ) : (
+            formatLKR(row.doAmount)
+          )}
+        </TableCell>
+      )}
       <TableCell>
-        <StageBadge stage={row.stage} />
+        <div className="flex flex-col items-start gap-1">
+          <StageBadge stage={row.stage} />
+          <DeliveredWithoutDoBadge row={row} />
+        </div>
       </TableCell>
       <TableCell className="text-right">
         {row.stage === "PAID" ? (
