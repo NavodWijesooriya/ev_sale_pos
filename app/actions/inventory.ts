@@ -56,6 +56,14 @@ async function requireCatalogManagement() {
   return { organizationId }
 }
 
+/** Photos live in cloud storage and are saved as links; an inline data: image would bloat the database. */
+function cleanImageUrl(value: string | undefined): string | null {
+  const url = value?.trim() ?? ""
+  if (!url) return null
+  if (!url.toLowerCase().startsWith("https://")) throw new Error("Upload the photo with the image uploader (a web link is expected).")
+  return url
+}
+
 export async function getCatalogManagementAccess() {
   const { organizationId, user } = await requireAuthOrg()
   if (user.role === "OrgAdmin") return true
@@ -112,7 +120,7 @@ function getVehicleModelData(input: CreateVehicleModelInput) {
     range,
     topSpeed: input.topSpeed?.trim() || null,
     chargingTime: input.chargingTime?.trim() || null,
-    imageUrl: input.imageUrl?.trim() || null,
+    imageUrl: cleanImageUrl(input.imageUrl),
   }
 }
 

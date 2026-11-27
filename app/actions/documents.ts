@@ -31,6 +31,16 @@ import {
 } from "@/lib/documents"
 import { branchFilter, hasPermission } from "@/lib/permissions"
 import { buildRmvInfo, type RmvDocumentsInfo } from "@/lib/rmv-info"
+import {
+  PRIVATE_BUCKET,
+  assertOwnPath,
+  buildObjectPath,
+  createSignedViewUrl,
+  createUploadTarget,
+  removeObject,
+  verifyUploadedObject,
+} from "@/lib/storage"
+import { DO_SCAN_TYPE, validateUpload } from "@/lib/upload-rules"
 import { prisma } from "@/lib/prisma"
 import { activeSale } from "@/lib/sale-status"
 
@@ -132,6 +142,8 @@ export interface DeliveryOrderRow {
   doAmount: number | null
   expiryDate: string | null
   notes: string | null
+  /** Name of the uploaded scan (null: none, or this user may not see DO documents). */
+  scanName: string | null
   deliveredAt: string | null
   deliveredByName: string | null
   overrideReason: string | null
@@ -174,6 +186,7 @@ function buildDoRow(sale: SaleRecord, user: AuthSessionUser): DeliveryOrderRow {
     doAmount: showAmounts ? (dOrder?.doAmount ?? null) : null,
     expiryDate: day(dOrder?.expiryDate),
     notes: dOrder?.notes ?? null,
+    scanName: showAmounts ? (dOrder?.scanUrl ? (dOrder.scanName ?? "Scan") : null) : null,
     deliveredAt: day(sale.deliveredAt),
     deliveredByName: sale.deliveredByName,
     overrideReason: dOrder?.deliveryOverrideReason ?? null,
@@ -384,6 +397,127 @@ export async function markDelivered(input: MarkDeliveredInput): Promise<Result> 
   } catch (error) {
     console.error("markDelivered error:", error)
     return fail(error, "Could not mark the bike as delivered.")
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Delivery Order scan (private storage: image or PDF, viewed only through short-lived signed links)
+// ---------------------------------------------------------------------------------------------
+
+const scanPrepareSchema = z.object({
+  saleId: z.string().trim().min(1),
+  mimeType: z.string().max(100),
+  size: z.number().int(),
+})
+
+/** Step 1 of a scan upload: checks permission, branch, file type and size, and returns a one-time upload token. */
+export async function prepareDoScanUpload(input: z.infer<typeof scanPrepareSchema>): Promise<Result<{ bucket: string; path: string; token: string }>> {
+  try {
+    const user = await requirePermission("MANAGE_DOCUMENTS")
+    const data = scanPrepareSchema.parse(input)
+    const problem = validateUpload("do-scan", { mimeType: data.mimeType, size: data.size })
+    if (problem) return { success: false, error: problem }
+    const sale = await loadSale(prisma, user, data.saleId)
+    if (sale.paymentType !== "FINANCE" || !sale.deliveryOrder?.doNumber) throw new Error("Record the Delivery Order before uploading its scan.")
+    const path = buildObjectPath("do-scan", user.organizationId, DO_SCAN_TYPE, sale.id, data.mimeType)
+    return { success: true, ...(await createUploadTarget(PRIVATE_BUCKET, path)) }
+  } catch (error) {
+    console.error("prepareDoScanUpload error:", error)
+    return fail(error, "Could not prepare the upload.")
+  }
+}
+
+const scanAttachSchema = z.object({
+  saleId: z.string().trim().min(1),
+  path: z.string().trim().min(1),
+  fileName: z.string().trim().max(200),
+})
+
+/** Step 3: re-checks the stored file, attaches it to the Delivery Order (replacing any earlier scan) and audits it. */
+export async function attachDoScan(input: z.infer<typeof scanAttachSchema>): Promise<Result> {
+  let uploadedPath: string | null = null
+  try {
+    const user = await requirePermission("MANAGE_DOCUMENTS")
+    const data = scanAttachSchema.parse(input)
+    const sale = await loadSale(prisma, user, data.saleId)
+    const dOrder = sale.deliveryOrder
+    if (sale.paymentType !== "FINANCE" || !dOrder?.doNumber) throw new Error("Record the Delivery Order before uploading its scan.")
+    assertOwnPath(user.organizationId, data.path, DO_SCAN_TYPE)
+    if (data.path.split("/")[2] !== sale.id) throw new Error("That file belongs to a different sale.")
+    uploadedPath = data.path
+    await verifyUploadedObject("do-scan", data.path)
+
+    const previous = dOrder.scanUrl
+    const name = data.fileName.replace(/[^\w .()-]+/g, "_").slice(0, 120) || "Scan"
+    await prisma.$transaction(async (tx) => {
+      await tx.deliveryOrder.update({ where: { id: dOrder.id }, data: { scanUrl: data.path, scanName: name } })
+      await recordAudit(tx, actorOf(user), {
+        action: "DELIVERY_ORDER_SCAN_CHANGED",
+        entityType: "DeliveryOrder",
+        entityId: dOrder.id,
+        branchId: sale.branchId,
+        description: `${sale.invoiceNumber}: DO ${dOrder.doNumber} scan ${previous ? "replaced" : "uploaded"} (${name})`,
+      })
+    })
+    if (previous && previous !== data.path) await removeObject(PRIVATE_BUCKET, previous)
+    revalidateDocs(sale.id)
+    return { success: true, message: previous ? "Scan replaced." : "Scan uploaded." }
+  } catch (error) {
+    // The upload is unusable: do not leave it behind (verifyUploadedObject already deletes files that fail its checks).
+    if (uploadedPath) await removeObject(PRIVATE_BUCKET, uploadedPath)
+    console.error("attachDoScan error:", error)
+    return fail(error, "Could not save the scan.")
+  }
+}
+
+/**
+ * Short-lived (60 second) links to view or download the scan, created only after the usual permission and branch checks.
+ * Needs the same access as DO amounts: the owner, or staff with Received documents / Finance receivables.
+ */
+export async function getDoScanUrl(saleId: string): Promise<Result<{ viewUrl: string; downloadUrl: string; name: string }>> {
+  try {
+    const user = await requireView()
+    if (!canSeeDoAmounts(user)) throw new Error("You do not have access to Delivery Order scans.")
+    const sale = await prisma.sale.findFirst({
+      where: { id: saleId, organizationId: user.organizationId, ...branchFilter(user) },
+      select: { deliveryOrder: { select: { scanUrl: true, scanName: true } } },
+    })
+    const scan = sale?.deliveryOrder
+    if (!sale || !scan?.scanUrl) throw new Error("There is no scan for this Delivery Order.")
+    assertOwnPath(user.organizationId, scan.scanUrl, DO_SCAN_TYPE)
+    const name = scan.scanName ?? "delivery-order-scan"
+    const [viewUrl, downloadUrl] = await Promise.all([createSignedViewUrl(scan.scanUrl, 60), createSignedViewUrl(scan.scanUrl, 60, name)])
+    return { success: true, viewUrl, downloadUrl, name }
+  } catch (error) {
+    console.error("getDoScanUrl error:", error)
+    return fail(error, "Could not open the scan.")
+  }
+}
+
+/** Deletes the scan from storage and the Delivery Order (audited). */
+export async function removeDoScan(input: { saleId: string }): Promise<Result> {
+  try {
+    const user = await requirePermission("MANAGE_DOCUMENTS")
+    const sale = await loadSale(prisma, user, input.saleId)
+    const dOrder = sale.deliveryOrder
+    if (!dOrder?.scanUrl) throw new Error("There is no scan to remove.")
+    const path = dOrder.scanUrl
+    await prisma.$transaction(async (tx) => {
+      await tx.deliveryOrder.update({ where: { id: dOrder.id }, data: { scanUrl: null, scanName: null } })
+      await recordAudit(tx, actorOf(user), {
+        action: "DELIVERY_ORDER_SCAN_CHANGED",
+        entityType: "DeliveryOrder",
+        entityId: dOrder.id,
+        branchId: sale.branchId,
+        description: `${sale.invoiceNumber}: DO ${dOrder.doNumber ?? ""} scan removed (${dOrder.scanName ?? "scan"})`,
+      })
+    })
+    await removeObject(PRIVATE_BUCKET, path)
+    revalidateDocs(sale.id)
+    return { success: true, message: "Scan removed." }
+  } catch (error) {
+    console.error("removeDoScan error:", error)
+    return fail(error, "Could not remove the scan.")
   }
 }
 

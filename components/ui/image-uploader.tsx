@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { UploadCloud, Image as ImageIcon, X, Loader2, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
+import { finalizeImageUpload, prepareImageUpload } from "@/app/actions/storage"
+import { compressImage, uploadToTarget } from "@/lib/client-upload"
+import { validateUpload, type PublicMediaType } from "@/lib/upload-rules"
 
 interface ImageUploaderProps {
+  /** What the image is for (becomes part of the storage path). */
+  type: PublicMediaType
+  /** The record the image belongs to, when it already exists (otherwise a fresh id is used). */
+  recordId?: string
   value: string | null | undefined
   onChange: (url: string) => void
   label?: string
@@ -15,68 +22,45 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({
+  type,
+  recordId,
   value,
   onChange,
   label = "EV Bike Photo / Image",
-  helperText = "Upload high-res photo from device gallery or camera (PNG, JPG, WebP up to 10MB)",
+  helperText = "Upload a photo from your device (PNG, JPG, WebP up to 10MB). Large photos are shrunk automatically.",
   className = "",
 }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = React.useState(false)
   const [dragOver, setDragOver] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [fallbackRecordId] = React.useState(() => crypto.randomUUID())
 
   const handleUploadFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file (PNG, JPG, WebP)")
-      return
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Image file must be under 10MB")
+    const typeProblem = validateUpload("public-image", { mimeType: file.type, size: file.size })
+    if (typeProblem && !file.type.startsWith("image/")) {
+      toast.error(typeProblem)
       return
     }
 
     setIsUploading(true)
-    const toastId = toast.loading("Uploading image from device...")
+    const toastId = toast.loading("Uploading image...")
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      // Large photos are shrunk to 1600px wide first; the file then goes straight to storage with a one-time token.
+      const prepared = await compressImage(file)
+      const problem = validateUpload("public-image", { mimeType: prepared.type, size: prepared.size })
+      if (problem) throw new Error(problem)
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
+      const target = await prepareImageUpload({ type, recordId: recordId ?? fallbackRecordId, mimeType: prepared.type, size: prepared.size })
+      if (!target.success) throw new Error(target.error)
+      await uploadToTarget(target, prepared)
+      const saved = await finalizeImageUpload({ path: target.path, type })
+      if (!saved.success) throw new Error(saved.error)
 
-      const data = await res.json()
-
-      if (!res.ok || !data.success) {
-        // Fallback: convert file to local base64 Data URL if server endpoint rejected
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const base64 = reader.result as string
-          onChange(base64)
-          toast.success("Image saved as base64 preview", { id: toastId })
-        }
-        reader.readAsDataURL(file)
-        return
-      }
-
-      onChange(data.url)
+      onChange(saved.url)
       toast.success("Image uploaded successfully!", { id: toastId })
-    } catch (err: any) {
-      // Fallback: convert to base64 Data URL so user never gets stuck
-      try {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const base64 = reader.result as string
-          onChange(base64)
-          toast.success("Image stored successfully", { id: toastId })
-        }
-        reader.readAsDataURL(file)
-      } catch (fallbackErr) {
-        toast.error("Failed to upload image. Please try again.", { id: toastId })
-      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload image. Please try again.", { id: toastId })
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) {

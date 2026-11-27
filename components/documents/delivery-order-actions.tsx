@@ -11,6 +11,7 @@ import {
   withdrawClaim,
   type DeliveryOrderRow,
 } from "@/app/actions/documents"
+import { DoScanControl } from "@/components/documents/do-scan-control"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -94,7 +95,7 @@ export function DeliveryOrderActions({
   const btn = "h-8 text-xs"
 
   return (
-    <>
+    <div className="flex flex-col items-start gap-1.5 sm:items-end">
       {canManage && (
         <div className="flex flex-wrap gap-1.5">
           {(row.stage === "AWAITING_DO" || row.stage === "DO_RECEIVED" || row.stage === "DELIVERED") && (
@@ -124,6 +125,8 @@ export function DeliveryOrderActions({
           )}
         </div>
       )}
+
+      {row.doNumber && <DoScanControl saleId={row.saleId} scanName={row.scanName} canManage={canManage} />}
 
       <Dialog open={open !== null} onOpenChange={(next) => !busy && !next && setOpen(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -267,6 +270,6 @@ export function DeliveryOrderActions({
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

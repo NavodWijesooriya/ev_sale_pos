@@ -7,6 +7,7 @@ export type AuditAction =
   | "SALE_CREATED"
   | "SALE_CANCELLED"
   | "DELIVERY_ORDER_RECORDED"
+  | "DELIVERY_ORDER_SCAN_CHANGED"
   | "SALE_DELIVERED"
   | "DELIVERY_OVERRIDDEN"
   | "DELIVERY_CLAIM_CHANGED"
@@ -71,6 +72,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   SALE_CREATED: "Sale created",
   SALE_CANCELLED: "Sale cancelled",
   DELIVERY_ORDER_RECORDED: "Delivery Order recorded / updated",
+  DELIVERY_ORDER_SCAN_CHANGED: "Delivery Order scan uploaded / replaced / removed",
   SALE_DELIVERED: "Bike marked delivered",
   DELIVERY_OVERRIDDEN: "Delivery before DO (override)",
   DELIVERY_CLAIM_CHANGED: "Finance claim submitted / withdrawn",

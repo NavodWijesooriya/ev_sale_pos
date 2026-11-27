@@ -322,10 +322,12 @@ export function VehicleModels({ initialModels, canManageCatalog }: VehicleModels
                   </div>
 
                   <ImageUploader
+                    type="vehicle-model"
+                    recordId={editingModelId ?? undefined}
                     value={form.imageUrl}
                     onChange={(url) => setForm({ ...form, imageUrl: url })}
                     label="EV Bike Model Photo"
-                    helperText="Upload bike picture from your device (Gallery/Camera). Stored in /public/uploads."
+                    helperText="Upload bike picture from your device (Gallery/Camera). Stored in cloud storage."
                   />
 
                   <div className="grid grid-cols-2 gap-3">

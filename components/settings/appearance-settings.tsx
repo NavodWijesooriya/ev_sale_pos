@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ImageUploader } from "@/components/ui/image-uploader"
 import {
   Palette,
   Sparkles,
@@ -139,19 +140,13 @@ export function AppearanceSettings({ initialData }: AppearanceSettingsProps) {
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor="logo" className="text-xs font-semibold">
-                      Logo URL (PNG / SVG)
-                    </Label>
-                    <Input
-                      id="logo"
-                      type="url"
-                      value={logoUrl}
-                      onChange={(e) => setLogoUrl(e.target.value)}
-                      placeholder="https://.../logo.png"
-                      className="h-9 text-xs"
-                    />
-                  </div>
+                  <ImageUploader
+                    type="branding"
+                    value={logoUrl}
+                    onChange={setLogoUrl}
+                    label="Dealership logo"
+                    helperText="PNG, JPG or WebP up to 10MB. Shown on your public showroom."
+                  />
                 </div>
               </CardContent>
             </Card>
