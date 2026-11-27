@@ -86,6 +86,7 @@ model Organization {
   supplierCommissionMonths   SupplierCommissionMonth[]
   supplierCommissionReceipts SupplierCommissionReceipt[]
   deliveryOrders             DeliveryOrder[]
+  downPaymentPayments        DownPaymentPayment[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
@@ -666,6 +667,15 @@ model Sale {
   cancelRefundAmount    Float     @default(0) // money handed back to the customer on cancellation
   cancelRefundMethod    String? // Cash, BankTransfer or CHEQUE
   cancelAdvanceReleased Float     @default(0) // customer advance that went back to PENDING
+
+  // Finance split decided by the Delivery Order. When the DO amount is LOWER than the finance amount the sale was made
+  // with, financeAmount becomes the DO amount (originalFinanceAmount keeps what it was, and is what commissions are
+  // based on) and the difference is an additional down payment the customer owes. downPayment itself never changes: it is
+  // the cash paid at the sale. Required down payment = downPayment + additionalDownPaymentDue.
+  originalFinanceAmount     Float?
+  additionalDownPaymentDue  Float                @default(0)
+  additionalDownPaymentPaid Float                @default(0)
+  downPaymentPayments       DownPaymentPayment[]
 
   // Finance / insurance company office chosen for this sale (name kept as it was)
   financeOfficeId     String?
@@ -1480,8 +1490,37 @@ model DeliveryOrder {
   claimChecklist       Json? // { deliveryOrder, invoice, customerNic, mtaForms, registrationDocuments }
   claimSubmittedByName String?
 
+  // The DO amount is higher than the finance amount of the sale: recorded as a note (the sale split is not changed).
+  amountNote String?
+
+  // Owner override: the finance company pays before the DO is recorded (reason required, audited).
+  receiptOverrideReason String?
+  receiptOverrideByName String?
+  receiptOverrideAt     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizationId, status])
+}
+
+/**
+ * The customer paying the additional down payment created when a Delivery Order is lower than the finance amount.
+ */
+model DownPaymentPayment {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleId         String
+  sale           Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount         Float
+  method         String // Cash or BankTransfer
+  paymentDate    DateTime
+  reference      String?
+  receivedById   String?
+  receivedByName String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, paymentDate])
+  @@index([saleId])
 }
