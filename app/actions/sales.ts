@@ -23,6 +23,8 @@ import { earnStaffCommission } from "@/lib/staff-compensation"
 import { normalizeTin } from "@/lib/validations/tin"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { branchFilter, hasPermission } from "@/lib/permissions"
+import { buildRmvInfo } from "@/lib/rmv-info"
+import { activeSale } from "@/lib/sale-status"
 import { redactForUser } from "@/lib/redact"
 import {
   createNewSaleSchema,
@@ -976,9 +978,12 @@ export async function getRMVRegistry() {
     const { organizationId, user } = await requireAuthOrg()
 
     const sales = await prisma.sale.findMany({
-      where: { organizationId, ...branchFilter(user) },
+      // A cancelled sale has no registration to track.
+      where: { organizationId, ...branchFilter(user), ...activeSale },
       orderBy: { saleDate: "desc" },
       include: {
+        financeCompany: { select: { name: true } },
+        financeDetail: { select: { financeCompany: true } },
         customer: {
           select: {
             id: true,
@@ -1013,9 +1018,11 @@ export async function getRMVRegistry() {
     // ownership transfer, that person is listed and the original buyer is kept as a note.
     const data = sales.map((sale) => {
       const owner = sale.dmtRegistration?.ownerCustomer
+      // Received-document tracking (CR / number plate hand-over), prepared on the server.
+      const rmv = buildRmvInfo(sale)
       return owner && owner.id !== sale.customer.id
-        ? { ...sale, customer: owner, transferredFrom: sale.customer.name }
-        : { ...sale, transferredFrom: null as string | null }
+        ? { ...sale, customer: owner, transferredFrom: sale.customer.name, rmv }
+        : { ...sale, transferredFrom: null as string | null, rmv }
     })
 
     return {

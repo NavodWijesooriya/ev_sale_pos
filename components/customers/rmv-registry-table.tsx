@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Sparkles,
   ExternalLink,
+  Download,
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
@@ -32,6 +33,10 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { VehicleDocumentTracker } from "@/components/customers/vehicle-document-tracker"
 import { DMTStatus } from "@prisma/client"
+import { RmvHandoverPanel } from "@/components/documents/rmv-handover-panel"
+import { downloadCsv } from "@/lib/csv"
+import { RMV_STAGE_LABELS } from "@/lib/documents"
+import type { RmvDocumentsInfo } from "@/lib/rmv-info"
 
 export interface RMVSaleItem {
   id: string
@@ -73,17 +78,23 @@ export interface RMVSaleItem {
     isInsuranceOk: boolean
     lastNotifiedAt?: Date | string | null
   } | null
+  /** Received-from-RMV / hand-over tracking (prepared on the server). */
+  rmv?: RmvDocumentsInfo | null
 }
 
 interface RMVRegistryTableProps {
   sales: RMVSaleItem[]
   dealershipName: string
+  /** MANAGE_DOCUMENTS: record received / handed over. Without it the registry is read-only for these. */
+  canManage: boolean
 }
 
-export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProps) {
+type RegistryFilter = "all" | "PENDING_AT_RMV" | "RECEIVED_NOT_HANDED" | "HANDED_OVER"
+
+export function RMVRegistryTable({ sales, dealershipName, canManage }: RMVRegistryTableProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterStatus, setFilterStatus] = useState<"all" | "book-pending" | "plate-pending" | "insurance-pending" | "all-ready">("all")
+  const [filterStatus, setFilterStatus] = useState<RegistryFilter>("all")
 
   // Statistics calculation
   const stats = useMemo(() => {
@@ -123,11 +134,8 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
       const m = v?.vehicleModel
       const dmt = s.dmtRegistration
 
-      // Status filter
-      if (filterStatus === "book-pending" && dmt?.isBookOk) return false
-      if (filterStatus === "plate-pending" && dmt?.isNumberPlateOk) return false
-      if (filterStatus === "insurance-pending" && dmt?.isInsuranceOk) return false
-      if (filterStatus === "all-ready" && (!dmt?.isBookOk || !dmt?.isNumberPlateOk || !dmt?.isInsuranceOk)) return false
+      // Stage filter (received from RMV / handed over)
+      if (filterStatus !== "all" && (s.rmv?.stage ?? "PENDING_AT_RMV") !== filterStatus) return false
 
       // Text search
       if (!q) return true
@@ -144,6 +152,39 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
     })
   }, [sales, searchQuery, filterStatus])
 
+  const stageCounts = useMemo(() => {
+    const counts = { PENDING_AT_RMV: 0, RECEIVED_NOT_HANDED: 0, HANDED_OVER: 0 }
+    for (const s of sales) counts[s.rmv?.stage ?? "PENDING_AT_RMV"] += 1
+    return counts
+  }, [sales])
+
+  function exportCsv() {
+    downloadCsv(`rmv_documents_${new Date().toLocaleDateString("en-CA")}.csv`, [
+      ["Sale date", "Customer / owner", "Phone", "NIC", "Finance company", "Branch", "Chassis", "Registration no.", "Stage", "CR received", "CR handed over", "CR to", "Plate received", "Plate handed over", "Waiting (days)"],
+      ...filteredSales.map((s) => {
+        const v = s.items[0]?.vehicle
+        const r = s.rmv
+        return [
+          new Date(s.saleDate).toLocaleDateString("en-CA"),
+          s.customer.name,
+          s.customer.phone,
+          s.customer.nic ?? "",
+          r?.financeCompany ?? "",
+          s.branch.name,
+          v?.chassisNumber ?? "",
+          r?.registrationNumber ?? "",
+          RMV_STAGE_LABELS[r?.stage ?? "PENDING_AT_RMV"],
+          r?.crReceivedAt ?? (r?.crReceived ? "received" : ""),
+          r?.crHandedOverAt ?? "",
+          r?.crHandoverTarget === "FINANCE_COMPANY" ? "Finance company" : r?.crHandedToName ?? "",
+          r?.plateReceivedAt ?? (r?.plateReceived ? "received" : ""),
+          r?.plateHandedOverAt ?? "",
+          r?.stage === "RECEIVED_NOT_HANDED" ? r.waitingDays : "",
+        ]
+      }),
+    ])
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -153,12 +194,16 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <FileCheck2 className="size-5" />
             </div>
-            RMV & Vehicle Document Registry
+            RMV Documents
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Department of Motor Traffic (RMV / Werahera) document tracking and instant customer notification portal
+            What the showroom receives back from RMV (registration certificate, number plate) and who it was handed to.
+            {!canManage && " Read-only: recording needs the Received documents permission."}
           </p>
         </div>
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={exportCsv} data-testid="export-rmv">
+          <Download className="size-3.5" /> CSV
+        </Button>
       </div>
 
       {/* Summary KPI Cards */}
@@ -259,24 +304,21 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
 
             <Tabs
               value={filterStatus}
-              onValueChange={(val) => setFilterStatus(val as any)}
+              onValueChange={(val) => setFilterStatus(val as RegistryFilter)}
               className="w-full md:w-auto"
             >
-              <TabsList className="grid grid-cols-3 sm:grid-cols-5 h-9 bg-muted/80 p-0.5 text-xs">
-                <TabsTrigger value="all" className="text-xs px-2.5 py-1">
+              <TabsList className="grid h-auto grid-cols-2 bg-muted/80 p-0.5 text-xs sm:grid-cols-4">
+                <TabsTrigger value="all" className="text-xs px-2.5 py-1" data-testid="rmv-tab-all">
                   All ({sales.length})
                 </TabsTrigger>
-                <TabsTrigger value="book-pending" className="text-xs px-2.5 py-1">
-                  Book Pending
+                <TabsTrigger value="PENDING_AT_RMV" className="text-xs px-2.5 py-1" data-testid="rmv-tab-pending">
+                  Pending at RMV ({stageCounts.PENDING_AT_RMV})
                 </TabsTrigger>
-                <TabsTrigger value="plate-pending" className="text-xs px-2.5 py-1">
-                  Plate Pending
+                <TabsTrigger value="RECEIVED_NOT_HANDED" className="text-xs px-2.5 py-1" data-testid="rmv-tab-received">
+                  Received, not handed over ({stageCounts.RECEIVED_NOT_HANDED})
                 </TabsTrigger>
-                <TabsTrigger value="insurance-pending" className="text-xs px-2.5 py-1">
-                  Ins. Pending
-                </TabsTrigger>
-                <TabsTrigger value="all-ready" className="text-xs px-2.5 py-1">
-                  All Ready ({stats.allReady})
+                <TabsTrigger value="HANDED_OVER" className="text-xs px-2.5 py-1" data-testid="rmv-tab-handed">
+                  Handed over ({stageCounts.HANDED_OVER})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -380,6 +422,14 @@ export function RMVRegistryTable({ sales, dealershipName }: RMVRegistryTableProp
                     initialLastNotifiedAt={dmt?.lastNotifiedAt}
                     onUpdated={() => router.refresh()}
                   />
+                  {sale.rmv && (
+                    <div className="border-t border-border/40 pt-3">
+                      {sale.rmv.isFinance && sale.rmv.financeCompany && (
+                        <p className="mb-2 text-[11px] text-muted-foreground">Finance sale: {sale.rmv.financeCompany}</p>
+                      )}
+                      <RmvHandoverPanel saleId={sale.id} info={sale.rmv} canManage={canManage} />
+                    </div>
+                  )}
                 </div>
               )
             })

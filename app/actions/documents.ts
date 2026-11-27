@@ -25,13 +25,12 @@ import {
   doWarnings,
   effectiveDoStage,
   parseChecklist,
-  rmvStage,
   type ClaimChecklist,
   type DoStage,
   type HandoverTarget,
-  type RmvStage,
 } from "@/lib/documents"
 import { branchFilter, hasPermission } from "@/lib/permissions"
+import { buildRmvInfo, type RmvDocumentsInfo } from "@/lib/rmv-info"
 import { prisma } from "@/lib/prisma"
 import { activeSale } from "@/lib/sale-status"
 
@@ -477,64 +476,6 @@ export async function withdrawClaim(input: { saleId: string; reason: string }): 
 // ---------------------------------------------------------------------------------------------
 // RMV documents: received / handed over
 // ---------------------------------------------------------------------------------------------
-
-export interface RmvDocumentsInfo {
-  registrationNumber: string | null
-  crReceivedAt: string | null
-  crReceived: boolean
-  crHandedOverAt: string | null
-  crHandoverTarget: HandoverTarget | null
-  crHandedToName: string | null
-  crHandedToNic: string | null
-  crHandoverReference: string | null
-  crHandoverNotes: string | null
-  plateReceivedAt: string | null
-  plateReceived: boolean
-  plateHandedOverAt: string | null
-  plateHandedToName: string | null
-  plateHandoverNotes: string | null
-  stage: RmvStage
-  /** Days the oldest received-but-not-handed-over document has been waiting. */
-  waitingDays: number
-  /** Who gets the documents: the CURRENT registered owner (after an ownership transfer), or the finance company for the CR. */
-  currentOwner: { id: string; name: string; phone: string; nic: string | null }
-  isFinance: boolean
-  financeCompany: string | null
-}
-
-function buildRmvInfo(sale: SaleRecord): RmvDocumentsInfo | null {
-  const dmt = sale.dmtRegistration
-  if (!dmt) return null
-  const crReceived = dmt.isBookOk
-  const plateReceived = dmt.numberPlateStatus === "ISSUED"
-  const waitingSince = [
-    crReceived && !dmt.crHandedOverAt ? dmt.crReceivedAt : null,
-    plateReceived && !dmt.plateHandedOverAt ? dmt.plateReceivedAt : null,
-  ].filter((d): d is Date => Boolean(d))
-  const oldest = waitingSince.length ? new Date(Math.min(...waitingSince.map((d) => d.getTime()))) : null
-  const owner = dmt.ownerCustomer ?? sale.customer
-  return {
-    registrationNumber: dmt.registrationNumber ?? dmt.registeredNumber ?? sale.items[0]?.vehicle.registrationNumber ?? null,
-    crReceivedAt: day(dmt.crReceivedAt),
-    crReceived,
-    crHandedOverAt: day(dmt.crHandedOverAt),
-    crHandoverTarget: (dmt.crHandoverTarget as HandoverTarget | null) ?? null,
-    crHandedToName: dmt.crHandedToName,
-    crHandedToNic: dmt.crHandedToNic,
-    crHandoverReference: dmt.crHandoverReference,
-    crHandoverNotes: dmt.crHandoverNotes,
-    plateReceivedAt: day(dmt.plateReceivedAt),
-    plateReceived,
-    plateHandedOverAt: day(dmt.plateHandedOverAt),
-    plateHandedToName: dmt.plateHandedToName,
-    plateHandoverNotes: dmt.plateHandoverNotes,
-    stage: rmvStage({ crReceived, crHandedOver: Boolean(dmt.crHandedOverAt), plateReceived, plateHandedOver: Boolean(dmt.plateHandedOverAt) }),
-    waitingDays: daysSince(oldest),
-    currentOwner: { id: owner.id, name: owner.name, phone: owner.phone, nic: owner.nic },
-    isFinance: sale.paymentType === "FINANCE",
-    financeCompany: sale.financeCompany?.name ?? sale.financeDetail?.financeCompany ?? null,
-  }
-}
 
 export interface SaleDocuments {
   saleId: string

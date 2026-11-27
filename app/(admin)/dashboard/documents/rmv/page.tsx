@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getAuthSession } from "@/lib/auth"
+import { canManageDocuments } from "@/lib/documents"
 import { getRMVRegistry } from "@/app/actions/sales"
 import { RMVRegistryTable } from "@/components/customers/rmv-registry-table"
 
@@ -23,6 +24,7 @@ export default async function RMVRegistryPage() {
     <RMVRegistryTable
       sales={result.data || []}
       dealershipName={session.user.organizationName || "Dealership"}
+      canManage={canManageDocuments(session.user)}
     />
   )
 }
