@@ -85,6 +85,7 @@ model Organization {
   supplierMonthlyTargets     SupplierMonthlyTarget[]
   supplierCommissionMonths   SupplierCommissionMonth[]
   supplierCommissionReceipts SupplierCommissionReceipt[]
+  deliveryOrders             DeliveryOrder[]
 }
 
 // Owner-configured commission rules. Finance rates live on FinanceCompany.defaultCommissionRate.
@@ -639,6 +640,9 @@ model Sale {
   commissionRecipientId String? // Staff member credited with finance commission
   commissionRecipient   User?                  @relation("CommissionRecipient", fields: [commissionRecipientId], references: [id], onDelete: SetNull)
   deliveryDate          DateTime? // අලුතින් එකතු කළ කොටස
+  // Explicit "bike handed over to the customer" record (all sales). A finance sale needs its Delivery Order first.
+  deliveredAt           DateTime?
+  deliveredByName       String?
   paymentMethod         String?
   warrantyOption        String?
   status                String                 @default("Completed") // Completed or CANCELLED (see lib/sale-status.ts)
@@ -651,6 +655,7 @@ model Sale {
   payments        Payment[]
   freeItemLinks   SaleFreeItem[]
   staffCommission StaffSaleCommission?
+  deliveryOrder   DeliveryOrder?
 
   // Cancellation (void / customer return). The sale is never deleted: it stays with status CANCELLED.
   cancelledAt           DateTime?
@@ -870,6 +875,21 @@ model DMTRegistration {
   // Set when the registration is moved to a new owner by an ownership transfer; null: the buyer of the sale
   ownerCustomerId    String?
   ownerCustomer      Customer?         @relation("DmtOwner", fields: [ownerCustomerId], references: [id], onDelete: SetNull)
+
+  // Received documents: what the showroom gets back from RMV, and who it was handed to.
+  // Registration certificate (CR / book): "received" = isBookOk.
+  crReceivedAt        DateTime?
+  crHandedOverAt      DateTime?
+  crHandoverTarget    String? // CUSTOMER or FINANCE_COMPANY (finance sales: the absolute owner)
+  crHandedToName      String?
+  crHandedToNic       String?
+  crHandoverReference String?
+  crHandoverNotes     String?
+  // Number plate: "received" = numberPlateStatus ISSUED.
+  plateReceivedAt     DateTime?
+  plateHandedOverAt   DateTime?
+  plateHandedToName   String?
+  plateHandoverNotes  String?
 }
 
 // ==========================================
@@ -1414,4 +1434,53 @@ model SupplierCommissionReceipt {
   createdAt      DateTime     @default(now())
 
   @@unique([organizationId, supplierId, month])
+}
+
+// ---------------------------------------------------------------------------------------------
+// Delivery Orders (finance / leasing sales): the finance company approves and issues a DO, the dealer delivers
+// against it, then submits DO + invoice + documents as a claim. PAID is not stored: it is derived from the
+// finance receivable being fully received (FinanceDetail.status), so a reversed receipt reverts it automatically.
+// ---------------------------------------------------------------------------------------------
+
+enum DeliveryOrderStatus {
+  AWAITING_DO
+  DO_RECEIVED
+  DELIVERED
+  CLAIM_SUBMITTED
+  CANCELLED // the sale was cancelled
+}
+
+model DeliveryOrder {
+  id             String              @id @default(uuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleId         String              @unique
+  sale           Sale                @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  status         DeliveryOrderStatus @default(AWAITING_DO)
+
+  doNumber           String?
+  doDate             DateTime?
+  financeCompanyId   String?
+  financeCompanyName String
+  financeOfficeName  String?
+  doAmount           Float?
+  expiryDate         DateTime?
+  notes              String?
+  scanUrl            String? // reserved for a scanned copy (storage not decided yet)
+  scanName           String?
+  stageChangedAt     DateTime  @default(now()) // start of the current stage, for aging
+
+  // Delivered before the DO was recorded (owner / OVERRIDE_DO_DELIVERY, reason required)
+  deliveryOverrideReason   String?
+  deliveryOverriddenByName String?
+
+  claimSubmittedAt     DateTime?
+  claimReference       String?
+  claimChecklist       Json? // { deliveryOrder, invoice, customerNic, mtaForms, registrationDocuments }
+  claimSubmittedByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
 }
