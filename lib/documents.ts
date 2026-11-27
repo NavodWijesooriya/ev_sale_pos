@@ -165,3 +165,50 @@ export function rmvStage(doc: RmvDocState): RmvStage {
 }
 
 export type HandoverTarget = "CUSTOMER" | "FINANCE_COMPANY"
+
+// ---------------------------------------------------------------------------------------------
+// One RMV status per bike (Sale Customers list)
+// ---------------------------------------------------------------------------------------------
+
+export type RmvStatusKey = "PENDING" | "SUBMITTED" | "PLATE_RECEIVED" | "CR_RECEIVED" | "HANDED_OVER"
+
+export const RMV_STATUS_LABELS: Record<RmvStatusKey, string> = {
+  PENDING: "Pending",
+  SUBMITTED: "Submitted",
+  PLATE_RECEIVED: "Plate received",
+  CR_RECEIVED: "CR received",
+  HANDED_OVER: "Handed over",
+}
+
+/** Most urgent first: documents sitting in the showroom waiting to be handed over come before everything else. */
+export const RMV_STATUS_URGENCY: RmvStatusKey[] = ["CR_RECEIVED", "PLATE_RECEIVED", "PENDING", "SUBMITTED", "HANDED_OVER"]
+
+/** Most urgent first: no DO yet, then a claim to send, then waiting for the DO to be used / for payment. */
+export const DO_STAGE_URGENCY: DoStage[] = ["AWAITING_DO", "DELIVERED", "DO_RECEIVED", "CLAIM_SUBMITTED", "PAID"]
+
+export interface RmvStatusInput {
+  status: string
+  isBookOk: boolean
+  numberPlateStatus: string
+  crHandedOverAt: Date | string | null
+  plateHandedOverAt: Date | string | null
+}
+
+/**
+ * Pending: documents still being collected. Submitted: sent to RMV, nothing back yet. CR received / Plate received:
+ * back from RMV (CR first). Handed over: both handed over.
+ */
+export function rmvStatusKey(dmt: RmvStatusInput | null | undefined): RmvStatusKey {
+  if (!dmt) return "PENDING"
+  if (dmt.crHandedOverAt && dmt.plateHandedOverAt) return "HANDED_OVER"
+  if (dmt.isBookOk) return "CR_RECEIVED"
+  if (dmt.numberPlateStatus === "ISSUED") return "PLATE_RECEIVED"
+  if (dmt.status === "Processing" || dmt.status === "Completed") return "SUBMITTED"
+  return "PENDING"
+}
+
+/** A received document is waiting to be handed over (the same test the dashboard card counts). */
+export function rmvWaitingHandover(dmt: RmvStatusInput | null | undefined): boolean {
+  if (!dmt) return false
+  return (dmt.isBookOk && !dmt.crHandedOverAt) || (dmt.numberPlateStatus === "ISSUED" && !dmt.plateHandedOverAt)
+}

@@ -293,7 +293,7 @@ export async function recordDeliveryOrder(input: DeliveryOrderInput): Promise<Re
         number = existing.doNumber
         internal = existing.doNumberInternal
       } else {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${user.organizationId}))`
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${user.organizationId}))`
         const used = await tx.deliveryOrder.findMany({
           where: { organizationId: user.organizationId, doNumberInternal: true },
           select: { doNumber: true },

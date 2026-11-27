@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache"
 import { normalizeTin, optionalTinSchema } from "@/lib/validations/tin"
 import { prisma } from "@/lib/prisma"
 import { getAuthSession } from "@/lib/auth"
-import { hasAnyPermission, type Permission } from "@/lib/permissions"
+import { branchFilter, hasAnyPermission, type Permission } from "@/lib/permissions"
+import { effectiveDoStage, rmvStatusKey, rmvWaitingHandover, type DoStage, type RmvStatusKey } from "@/lib/documents"
 import { CustomerCategory, CustomerType } from "@prisma/client"
 import { findNicConflict, isNicUniqueViolation, nicConflictMessage, NIC_RACE_MESSAGE, normalizeNic } from "@/lib/nic"
 import { activeSale } from "@/lib/sale-status"
@@ -24,6 +25,22 @@ async function requireAuthOrg(allowed: Permission[] = ["MANAGE_CUSTOMERS"]) {
     organizationId: session.user.organizationId,
     user: session.user,
   }
+}
+
+/** One bike of a sale customer, with its RMV and Delivery Order status (status and DO number only, never amounts). */
+export interface CustomerBikeStatus {
+  saleId: string
+  invoiceNumber: string
+  model: string
+  chassisNumber: string
+  rmv: RmvStatusKey
+  /** A received document is waiting to be handed over. */
+  waitingHandover: boolean
+  isFinance: boolean
+  /** Delivery Order stage for a finance sale, null for a cash sale. */
+  doStage: DoStage | null
+  doNumber: string | null
+  doNumberInternal: boolean
 }
 
 export interface CustomerSummaryItem {
@@ -55,6 +72,8 @@ export interface CustomerSummaryItem {
   totalAdvancePaid: number
   /** Number of advance payment records linked to this customer */
   advancePaymentCount: number
+  /** One entry per bike bought (this user's branch only), for the RMV / DO status columns. */
+  bikes: CustomerBikeStatus[]
 }
 
 const COMMON_CUSTOMER_CITIES = [
@@ -94,7 +113,8 @@ function isOneOf<const T extends readonly string[]>(value: string, values: T): v
  */
 export async function getCustomers(customerType?: CustomerType) {
   try {
-    const { organizationId } = await requireAuthOrg()
+    const { organizationId, user } = await requireAuthOrg()
+    const scope = branchFilter(user)
 
     const customers = await prisma.customer.findMany({
       where: {
@@ -106,8 +126,15 @@ export async function getCustomers(customerType?: CustomerType) {
           where: activeSale,
           select: {
             id: true,
+            invoiceNumber: true,
+            branchId: true,
+            paymentType: true,
             totalAmount: true,
             saleDate: true,
+            items: { select: { vehicle: { select: { chassisNumber: true, vehicleModel: { select: { brand: true, modelName: true } } } } } },
+            dmtRegistration: { select: { status: true, isBookOk: true, numberPlateStatus: true, crHandedOverAt: true, plateHandedOverAt: true } },
+            deliveryOrder: { select: { status: true, doNumber: true, doNumberInternal: true } },
+            financeDetail: { select: { status: true } },
           },
           orderBy: { saleDate: "desc" },
         },
@@ -175,6 +202,24 @@ export async function getCustomers(customerType?: CustomerType) {
         lastActivityDate: lastActivity,
         totalAdvancePaid: c.advancePayments.reduce((sum, adv) => sum + adv.amount, 0),
         advancePaymentCount: c.advancePayments.length,
+        bikes: c.sales
+          .filter((s) => !scope.branchId || s.branchId === scope.branchId)
+          .map((s): CustomerBikeStatus => {
+            const vehicle = s.items[0]?.vehicle
+            const isFinance = s.paymentType === "FINANCE"
+            return {
+              saleId: s.id,
+              invoiceNumber: s.invoiceNumber,
+              model: vehicle ? `${vehicle.vehicleModel.brand} ${vehicle.vehicleModel.modelName}` : "EV bike",
+              chassisNumber: vehicle?.chassisNumber ?? "",
+              rmv: rmvStatusKey(s.dmtRegistration),
+              waitingHandover: rmvWaitingHandover(s.dmtRegistration),
+              isFinance,
+              doStage: isFinance ? effectiveDoStage(s.deliveryOrder?.status, s.financeDetail?.status === "Received") : null,
+              doNumber: isFinance ? (s.deliveryOrder?.doNumber ?? null) : null,
+              doNumberInternal: isFinance ? (s.deliveryOrder?.doNumberInternal ?? false) : false,
+            }
+          }),
       }
     })
 

@@ -38,8 +38,19 @@ import {
   MapPin,
   Calendar,
   Wallet,
+  FileText as FileTextIcon,
 } from "lucide-react"
-import { CustomerSummaryItem } from "@/app/actions/customers"
+import { CustomerSummaryItem, type CustomerBikeStatus } from "@/app/actions/customers"
+import {
+  DO_STAGES,
+  DO_STAGE_LABELS,
+  DO_STAGE_SHORT,
+  DO_STAGE_URGENCY,
+  RMV_STATUS_LABELS,
+  RMV_STATUS_URGENCY,
+  type DoStage,
+  type RmvStatusKey,
+} from "@/lib/documents"
 import { AddCustomerDialog } from "@/components/customers/add-customer-dialog"
 import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog"
 import { formatLKR } from "@/lib/currency"
@@ -59,6 +70,18 @@ export function CustomerDirectory({
 }: CustomerDirectoryProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("all")
+  // Sale Customers list: RMV / Delivery Order status per bike
+  const isSaleList = customerType === CustomerType.SALE
+  const [rmvFilter, setRmvFilter] = useState<"all" | RmvStatusKey>("all")
+  const [doFilter, setDoFilter] = useState<"all" | DoStage | "CASH">("all")
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  const toggleExpanded = (id: string) =>
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const filteredCustomers = useMemo(() => {
     const q = searchQuery.toLowerCase()
@@ -78,10 +101,16 @@ export function CustomerDirectory({
           (c.email && c.email.toLowerCase().includes(q)) ||
           (c.address && c.address.toLowerCase().includes(q))
 
-        return matchesCustomerType && matchesCategory && matchesSearch
+        const matchesRmv = !isSaleList || rmvFilter === "all" || c.bikes.some((b) => b.rmv === rmvFilter)
+        const matchesDo =
+          !isSaleList ||
+          doFilter === "all" ||
+          c.bikes.some((b) => (doFilter === "CASH" ? !b.isFinance : b.doStage === doFilter))
+
+        return matchesCustomerType && matchesCategory && matchesSearch && matchesRmv && matchesDo
       },
     )
-  }, [activeCategory, customerType, customers, searchQuery])
+  }, [activeCategory, customerType, customers, searchQuery, isSaleList, rmvFilter, doFilter])
 
   const totalCustomers = customers.length
   const saleCustomers = customers.filter(
@@ -98,10 +127,15 @@ export function CustomerDirectory({
   const activeServiceClients = customers.filter((c) => c.totalServices > 0).length
   const advanceCustomers = customers.filter((c) => c.advancePaymentCount > 0 && c.totalPurchases === 0).length
   const totalAdvancePaidAll = customers.reduce((sum, c) => sum + c.totalAdvancePaid, 0)
+  // Same test as the dashboard card: a received RMV document waiting to be handed over
+  const rmvToHandOver = customers.reduce((sum, c) => sum + c.bikes.filter((b) => b.waitingHandover).length, 0)
 
   // Export to CSV
   const handleExportCSV = () => {
     if (filteredCustomers.length === 0) return
+
+    const bikeText = (c: CustomerSummaryItem, pick: (b: CustomerBikeStatus) => string) =>
+      c.bikes.map((b) => `${b.model}${b.chassisNumber ? ` (${b.chassisNumber})` : ""}: ${pick(b)}`).join("; ")
 
     const headers = [
       "Customer ID",
@@ -116,6 +150,7 @@ export function CustomerDirectory({
       "Total Spent (LKR)",
       "Advance Paid (LKR)",
       "Advance Payment Count",
+      ...(isSaleList ? ["RMV Status", "DO Status"] : []),
     ]
 
     const rows = filteredCustomers.map((c) => [
@@ -131,6 +166,12 @@ export function CustomerDirectory({
       c.totalSpent,
       c.totalAdvancePaid,
       c.advancePaymentCount,
+      ...(isSaleList
+        ? [
+            bikeText(c, (b) => RMV_STATUS_LABELS[b.rmv]),
+            bikeText(c, (b) => (b.isFinance && b.doStage ? `${DO_STAGE_LABELS[b.doStage]}${b.doNumber ? ` [DO ${b.doNumber}${b.doNumberInternal ? ", internal" : ""}]` : ""}` : "Cash sale")),
+          ]
+        : []),
     ])
 
     downloadCsv(`ev_crm_customers_${new Date().toISOString().split("T")[0]}.csv`, [headers, ...rows])
@@ -224,24 +265,45 @@ export function CustomerDirectory({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Customer LTV
-              </p>
-              <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
-                {formatLKR(totalLifetimeValue)}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Total lifetime revenue
-              </p>
-            </div>
-            <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <Coins className="size-5 sm:size-6" />
-            </div>
-          </CardContent>
-        </Card>
+        {isSaleList ? (
+          <Link href="/dashboard/documents/rmv?tab=RECEIVED_NOT_HANDED" className="block" data-testid="kpi-rmv-to-hand-over">
+            <Card className="h-full border-border/60 shadow-sm bg-card/60 backdrop-blur transition-colors hover:border-primary/40">
+              <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    RMV docs to hand over
+                  </p>
+                  <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">{rmvToHandOver}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Received from RMV, not handed over
+                  </p>
+                </div>
+                <div className="size-10 sm:size-12 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <FileTextIcon className="size-5 sm:size-6" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
+            <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Customer LTV
+                </p>
+                <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">
+                  {formatLKR(totalLifetimeValue)}
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Total lifetime revenue
+                </p>
+              </div>
+              <div className="size-10 sm:size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Coins className="size-5 sm:size-6" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-border/60 shadow-sm bg-card/60 backdrop-blur">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
@@ -308,6 +370,56 @@ export function CustomerDirectory({
               className="pl-9 h-10 text-xs"
             />
           </div>
+
+          {isSaleList && (
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+              <label className="flex items-center gap-2 text-muted-foreground">
+                RMV status
+                <select
+                  data-testid="filter-rmv"
+                  value={rmvFilter}
+                  onChange={(e) => setRmvFilter(e.target.value as "all" | RmvStatusKey)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                >
+                  <option value="all">All</option>
+                  {(Object.keys(RMV_STATUS_LABELS) as RmvStatusKey[]).map((key) => (
+                    <option key={key} value={key}>
+                      {RMV_STATUS_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-muted-foreground">
+                DO status
+                <select
+                  data-testid="filter-do"
+                  value={doFilter}
+                  onChange={(e) => setDoFilter(e.target.value as "all" | DoStage | "CASH")}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                >
+                  <option value="all">All</option>
+                  {DO_STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {DO_STAGE_SHORT[stage]}
+                    </option>
+                  ))}
+                  <option value="CASH">Cash sale</option>
+                </select>
+              </label>
+              {(rmvFilter !== "all" || doFilter !== "all") && (
+                <button
+                  type="button"
+                  className="text-muted-foreground underline"
+                  onClick={() => {
+                    setRmvFilter("all")
+                    setDoFilter("all")
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="p-0">
@@ -320,8 +432,17 @@ export function CustomerDirectory({
                   <TableHead className="font-semibold text-xs">Phone Number</TableHead>
                   <TableHead className="font-semibold text-xs">NIC / Passport</TableHead>
                   <TableHead className="font-semibold text-xs">Email Address</TableHead>
-                  <TableHead className="font-semibold text-xs text-center">Bikes Owned</TableHead>
-                  <TableHead className="font-semibold text-xs text-right">Lifetime Spent</TableHead>
+                  {isSaleList ? (
+                    <>
+                      <TableHead className="font-semibold text-xs">RMV status</TableHead>
+                      <TableHead className="font-semibold text-xs">DO status</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead className="font-semibold text-xs text-center">Bikes Owned</TableHead>
+                      <TableHead className="font-semibold text-xs text-right">Lifetime Spent</TableHead>
+                    </>
+                  )}
                   <TableHead className="font-semibold text-xs">Advance Status</TableHead>
                   <TableHead className="font-semibold text-xs text-right">Advance Paid</TableHead>
                   <TableHead className="font-semibold text-xs text-right">Action</TableHead>
@@ -330,7 +451,7 @@ export function CustomerDirectory({
               <TableBody>
                 {filteredCustomers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={isSaleList ? 10 : 10} className="h-32 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-1">
                         <Users2 className="size-8 text-muted-foreground/40 mb-1" />
                         <p className="font-semibold text-sm">No customers found</p>
@@ -394,20 +515,33 @@ export function CustomerDirectory({
                         {c.email || "—"}
                       </TableCell>
 
-                      {/* EVs Owned */}
-                      <TableCell className="align-middle py-3.5 text-center">
-                        <Badge
-                          variant="secondary"
-                          className="font-bold text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-none"
-                        >
-                          {c.totalPurchases} Unit{c.totalPurchases !== 1 ? "s" : ""}
-                        </Badge>
-                      </TableCell>
+                      {isSaleList ? (
+                        <>
+                          <TableCell className="align-top py-3.5">
+                            <BikeStatusCell customer={c} kind="rmv" expanded={expanded.has(c.id)} onToggle={() => toggleExpanded(c.id)} />
+                          </TableCell>
+                          <TableCell className="align-top py-3.5">
+                            <BikeStatusCell customer={c} kind="do" expanded={expanded.has(c.id)} onToggle={() => toggleExpanded(c.id)} />
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          {/* EVs Owned */}
+                          <TableCell className="align-middle py-3.5 text-center">
+                            <Badge
+                              variant="secondary"
+                              className="font-bold text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-none"
+                            >
+                              {c.totalPurchases} Unit{c.totalPurchases !== 1 ? "s" : ""}
+                            </Badge>
+                          </TableCell>
 
-                      {/* Total Spent */}
-                      <TableCell className="align-middle py-3.5 text-right font-mono font-bold text-sm text-foreground">
-                        {formatLKR(c.totalSpent)}
-                      </TableCell>
+                          {/* Total Spent */}
+                          <TableCell className="align-middle py-3.5 text-right font-mono font-bold text-sm text-foreground">
+                            {formatLKR(c.totalSpent)}
+                          </TableCell>
+                        </>
+                      )}
 
                       {/* Tags — Advance Customer badge */}
                       <TableCell className="align-middle py-3.5">
@@ -460,6 +594,111 @@ export function CustomerDirectory({
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+const RMV_TONE: Record<RmvStatusKey, string> = {
+  PENDING: "border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+  SUBMITTED: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  PLATE_RECEIVED: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  CR_RECEIVED: "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300",
+  HANDED_OVER: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+}
+
+const DO_TONE: Record<DoStage, string> = {
+  AWAITING_DO: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  DO_RECEIVED: "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  DELIVERED: "border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-400",
+  CLAIM_SUBMITTED: "border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
+  PAID: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+}
+
+const pill = "inline-flex w-fit whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+
+function rmvOrder(bike: CustomerBikeStatus) {
+  return RMV_STATUS_URGENCY.indexOf(bike.rmv)
+}
+
+/** Finance bikes first (most urgent stage first), cash bikes last. */
+function doOrder(bike: CustomerBikeStatus) {
+  return bike.doStage ? DO_STAGE_URGENCY.indexOf(bike.doStage) : DO_STAGE_URGENCY.length
+}
+
+function BikeBadge({ bike, kind }: { bike: CustomerBikeStatus; kind: "rmv" | "do" }) {
+  if (kind === "rmv") {
+    return (
+      <span data-testid="rmv-status" className={`${pill} ${RMV_TONE[bike.rmv]}`}>
+        {RMV_STATUS_LABELS[bike.rmv]}
+      </span>
+    )
+  }
+  if (!bike.isFinance || !bike.doStage) return <span data-testid="do-status" className="text-xs text-muted-foreground">Cash sale</span>
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span data-testid="do-status" className={`${pill} ${DO_TONE[bike.doStage]}`}>
+        {DO_STAGE_SHORT[bike.doStage]}
+      </span>
+      {bike.doNumber && (
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {bike.doNumber}
+          {bike.doNumberInternal ? " (internal)" : ""}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * RMV / DO status of a customer's bikes, compact: the most urgent bike's badge with "+N"; the "+N" button shows one line
+ * per bike (model and badge).
+ */
+function BikeStatusCell({
+  customer,
+  kind,
+  expanded,
+  onToggle,
+}: {
+  customer: CustomerSummaryItem
+  kind: "rmv" | "do"
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const bikes = [...customer.bikes].sort((a, b) => (kind === "rmv" ? rmvOrder(a) - rmvOrder(b) : doOrder(a) - doOrder(b)))
+  if (bikes.length === 0) return <span className="text-xs text-muted-foreground">—</span>
+
+  if (!expanded) {
+    return (
+      <div className="flex items-start gap-1.5">
+        <BikeBadge bike={bikes[0]} kind={kind} />
+        {bikes.length > 1 && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="rounded-md border px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
+            aria-label={`Show all ${bikes.length} bikes`}
+            data-testid="bikes-expand"
+          >
+            +{bikes.length - 1}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1.5" data-testid="bikes-expanded">
+      {bikes.map((bike) => (
+        <div key={bike.saleId} className="flex flex-col gap-0.5">
+          <span className="max-w-[170px] truncate text-[11px] text-muted-foreground" title={`${bike.model} ${bike.chassisNumber}`}>
+            {bike.model}
+          </span>
+          <BikeBadge bike={bike} kind={kind} />
+        </div>
+      ))}
+      <button type="button" onClick={onToggle} className="text-[11px] text-muted-foreground underline">
+        Show less
+      </button>
     </div>
   )
 }
